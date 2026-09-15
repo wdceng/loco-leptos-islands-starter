@@ -7,7 +7,7 @@
 # secret or a localhost database is worse than one that refuses to boot.
 #
 # The variables this file requires (set in the systemd unit, see
-# README.DEPLOY.md): JWT_SECRET, MAILER_HOST, MAILER_USER, MAILER_PASSWORD.
+# DEPLOY.md): JWT_SECRET, MAILER_HOST, MAILER_USER, MAILER_PASSWORD.
 # Addresses have defaults; the unit overrides BINDING and PORT so the app
 # listens on loopback behind the reverse proxy.
 
@@ -43,7 +43,7 @@ server:
   ident: ""
   # Out of the box middleware configuration. to disable middleware you can changed the `enable` field to `false` of comment the middleware block
   middlewares:
-    # The reference deployment (README.DEPLOY.md) is Cloudflare in front of
+    # The reference deployment (DEPLOY.md) is Cloudflare in front of
     # Caddy: Cloudflare overwrites CF-Connecting-IP at the edge and Caddy
     # passes it through unchanged; X-Forwarded-For here would be Cloudflare's
     # own address. The rate limiter keys on the same source, and refuses to
@@ -175,7 +175,7 @@ mailer:
 # Database Configuration
 database:
   # Database connection URI. Defaults to a SQLite file in the unit's working
-  # directory (the deploy directory, README.DEPLOY.md), created on first boot
+  # directory (the deploy directory, DEPLOY.md), created on first boot
   # by auto_migrate.
   uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_production.sqlite?mode=rwc") %>
   # When enabled, the sql query will be logged.

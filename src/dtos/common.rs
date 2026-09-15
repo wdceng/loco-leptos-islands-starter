@@ -11,8 +11,8 @@ use ts_rs::TS;
 /// is what keeps the two in step.
 #[derive(serde::Serialize, serde::Deserialize, TS)]
 // Export disabled: no TypeScript consumer yet. Enabled, it runs as a hidden
-// test that writes frontend/src/bindings/ on every `cargo test`.
-// #[ts(export, export_to = "../frontend/src/bindings/")]
+// test that writes the bindings to `export_to` on every `cargo test`.
+// #[ts(export, export_to = "../bindings/")]
 pub struct Page<T: TS> {
     pub items: Vec<T>,
     #[ts(type = "number")]
@@ -44,8 +44,8 @@ impl<T: TS> Page<T> {
 
 #[derive(serde::Serialize, serde::Deserialize, TS)]
 // Export disabled: no TypeScript consumer yet. Enabled, it runs as a hidden
-// test that writes frontend/src/bindings/ on every `cargo test`.
-// #[ts(export, export_to = "../frontend/src/bindings/")]
+// test that writes the bindings to `export_to` on every `cargo test`.
+// #[ts(export, export_to = "../bindings/")]
 pub struct ApiError {
     pub code: String,
     pub message: String,

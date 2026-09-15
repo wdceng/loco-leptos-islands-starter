@@ -1,8 +1,0 @@
-# Reverse proxy in front of Loco. Caddy obtains and renews the TLS
-# certificate itself for the address in SITE_ADDRESS (set in compose.yml).
-# With SITE_ADDRESS=localhost it issues a self-signed one for local trials.
-{$SITE_ADDRESS} {
-	# Compress responses here, so Loco's compression middleware can stay off.
-	encode zstd gzip
-	reverse_proxy app:5150
-}

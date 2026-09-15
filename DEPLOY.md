@@ -7,8 +7,8 @@ guide uses placeholders; substitute them once per environment:
 |---|---|---|
 | `<user>@<host>` | SSH login to the server | `deploy@203.0.113.10` |
 | `<app-dir>` | Deploy directory on the server | `/srv/app/stg` |
-| `<unit>` | systemd unit name | `app-stg` |
-| `<port>` | Loopback port Loco listens on | `3201` |
+| `<unit>` | systemd unit name | `app-staging` |
+| `<port>` | Loopback port Loco listens on | `3000` |
 | `<domain>` | Public host name | `staging.example.com` |
 | `<env>` | `staging` or `production` | `staging` |
 

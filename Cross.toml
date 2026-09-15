@@ -1,4 +1,4 @@
-# cross-rs configuration for the Linux server build (README.DEPLOY.md).
+# cross-rs configuration for the Linux server build (DEPLOY.md).
 #
 # cross 0.2.5 defaults to an image tagged with its own version, which has no
 # arm64 manifest, so on Apple Silicon the pull fails. Pin the `main` image and

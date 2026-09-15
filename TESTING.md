@@ -10,8 +10,10 @@ cargo test -- --nocapture                    # show println! output
 
 Request tests use Loco's harness: `request::<App, _, _>(|request, ctx| ...)`
 boots the whole app in-process with `config/test.yaml` and sends HTTP
-requests to it. No server, port or browser is involved, and there is no
-database, so the suite runs in well under a second.
+requests to it. No server, port or browser is involved. The database is
+`app_test.sqlite`, recreated on every boot (`dangerously_truncate` and
+`dangerously_recreate` in `config/test.yaml`), so the suite runs in about a
+second.
 
 `#[serial]` on every request test is required: each one boots the app, and
 two boots at once would fight over the shared context.
@@ -19,16 +21,25 @@ two boots at once would fight over the shared context.
 **Test files:**
 - `tests/config.rs`: the config canary. Loads each `config/<env>.yaml`
   through Loco's own loader and asserts the security baseline every
-  environment must keep (empty `ident`, `secure_headers` with the four
+  environment must keep (empty `ident`, `secure_headers` with the seven
   overrides, 15 s `timeout_request`, `remote_ip` on, compression and
   fallback off, a `settings` block that parses, a CSP with
   `'wasm-unsafe-eval'` and no `unsafe-inline`) plus the deliberate
   differences: the three `cache_control` values and that they are valid
   headers (Loco would silently fall back to a year), `CfConnectingIp` and
   burst 120 for staging and production, `ConnectInfo` and the live-reload
-  socket locally, `X-Robots-Tag` on staging only, burst 3 in test. Edit a
+  socket locally, `X-Robots-Tag` on staging only, burst 20 in test. Edit a
   config file, run this first.
 - `tests/mod.rs`: module root, wires the folders below.
+- `tests/models/users.rs`: the users model against the test database:
+  create with password, find by e-mail and pid, validation, duplicate
+  e-mail, the verification, reset and magic-link token flows. `insta`
+  snapshots in `tests/models/snapshots/`.
+- `tests/requests/auth.rs`: the `/api/auth` endpoints end to end: register,
+  verify, login (valid and invalid password, unverified user), current user,
+  forgot and reset, magic link, resend verification. `rstest` cases for the
+  login variants, `insta` snapshots in `tests/requests/snapshots/`;
+  `tests/requests/prepare_data.rs` holds the shared setup.
 - `tests/requests/home.rs`: the home page. Asserts a 200 with an HTML content
   type, a real document (doctype, `lang="en"`), the app name (`APP_NAME`),
   the islands loader script, the wasm file name it loads (`app.wasm`,
@@ -38,9 +49,9 @@ two boots at once would fight over the shared context.
   (200, `text/plain`, `Disallow: /`). The production branch (`Allow: /`) and
   the staging one are unit-tested inside `src/controllers/robots.rs`, since
   the harness only boots the `test` environment.
-- `tests/requests/rate_limit.rs`: with `burst: 3` from `config/test.yaml`, three
-  requests pass with `x-ratelimit-remaining` counting down, the fourth is a
-  429 HTML page with `retry-after` and `cache-control: no-store`, and an
+- `tests/requests/rate_limit.rs`: with `burst: 20` from `config/test.yaml`,
+  twenty requests pass with `x-ratelimit-remaining` counting down, the next
+  is a 429 HTML page with `retry-after` and `cache-control: no-store`, and an
   unmatched path is still a 404 (the limiter only covers routes). The key
   extractor, the 429 page and the config-to-key-source mapping have unit tests
   in `src/middleware/rate_limit.rs`; the `settings:` parsing in `src/settings.rs`.
@@ -58,19 +69,20 @@ two boots at once would fight over the shared context.
   are skipped in the test environment so `cargo test` passes whatever the
   last build left in `target/site`. The request tests run without a hash
   file, so they assert the plain `/pkg/app.css` name.
-- `tests/tasks/`, `tests/workers/`: empty Loco starter modules.
+- `tests/tasks/user_create.rs`: the `user_create` CLI task. `tests/workers/`
+  is an empty Loco starter module.
 
-Available but unused so far: `rstest` for table-driven tests (one body, many
-`#[case]` inputs) and `insta` for snapshot tests.
+`rstest` (one body, many `#[case]` inputs) is used in `tests/config.rs` and
+the auth tests; `insta` snapshots live next to the model and auth tests.
 
 ### CI
 
 `.github/workflows/ci.yaml` runs on every push to `main` and on pull
 requests: `cargo fmt --check`, `cargo clippy --all-targets -D warnings`,
 `cargo test`, the wasm32 build below, a full `cargo leptos build`, and
-`cargo audit`. The same list as the pre-deploy checks in `README.DEPLOY.md`.
-`cargo audit` fails only on vulnerabilities; "unmaintained" advisories (one
-today, `proc-macro-error2`, pulled in by a dependency) are warnings.
+`cargo audit`. The same list as the pre-deploy checks in `DEPLOY.md`.
+`cargo audit` fails on vulnerabilities; the advisories deliberately ignored,
+each with its reason, are listed in `.cargo/audit.toml`.
 
 ### Browser half compile check
 
@@ -101,7 +113,7 @@ done
 Expected: 200 for everything, with `/nope` returning the static not-found
 page from `public/404.html`. Known gap: that page is served with status 200,
 because Loco's static fallback is tower-http's `ServeFile`; a real 404 status
-needs a handler of our own. Response headers must not contain `x-powered-by`.
+needs a dedicated handler. Response headers must not contain `x-powered-by`.
 
 ### Islands in the browser
 
@@ -131,11 +143,11 @@ cargo loco middleware -c                           # shows rate_limit with its n
 ```
 
 Locally the key is the TCP peer, so a `CF-Connecting-IP` header is ignored.
-On staging and production the key is that header (the CDN sets it, Caddy
-passes it through), so on the server a burst with `-H 'CF-Connecting-IP:
-203.0.113.9'` against `http://127.0.0.1:<port>/` exhausts only that fake
-visitor's bucket. Direct hits without the header all share the proxy's
-address and therefore one bucket.
+On staging and production the key is that header (the CDN sets it, the
+proxy passes it through), so on a deployed copy a burst with
+`-H 'CF-Connecting-IP: 203.0.113.9'` against `http://127.0.0.1:<port>/`
+exhausts only that fake visitor's bucket. Direct hits without the header all
+share the proxy's address and therefore one bucket.
 
 ### Hashed asset names
 
@@ -145,8 +157,8 @@ LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app star
 
 Then `curl -s http://localhost:5150/ | grep -o 'href="/pkg/[^"]*"'` shows
 `app.<hash>.css` and `app.<hash>.js`, both present in `target/site/pkg`, and
-`cat target/release/hash.txt` shows the same hashes. Two refusals to check
-(checked 2026-09-11): edit a hash in `target/release/hash.txt` and start the
+`cat target/release/hash.txt` shows the same hashes. Two refusals to check:
+edit a hash in `target/release/hash.txt` and start the
 release binary again, it must refuse with "the hash file is stale"; then run
 `cargo loco start`, the debug binary has no hash file next to it while
 `target/site` is hashed, it must refuse with "a hashed build must be deployed
@@ -161,11 +173,11 @@ curl -sI http://localhost:5150/ | grep -iE '^(content-security|x-frame|referrer|
 
 Expected: all seven present; the CSP contains `'nonce-…'` and a second
 request shows a different nonce. `/robots.txt`, `/pkg/app.css` and `/nope`
-show the preset CSP (`default-src 'self' https: …`) instead. On the server
-the same against `http://127.0.0.1:<port>/`. Under `cargo leptos watch -- start`
+show the preset CSP (`default-src 'self' https: …`) instead. On a deployed
+copy the same against `http://127.0.0.1:<port>/`. Under `cargo leptos watch -- start`
 open the page with the console visible: no CSP violation, and live reload
 still works (its websocket is allowed by the development `connect-src`).
-After a staging deploy, re-scan on https://securityheaders.com and
+After a deploy, scan the public host on https://securityheaders.com and
 https://observatory.mozilla.org: CSP and X-Frame-Options must not fail.
 A CDN such as Cloudflare injects its own HSTS and `nosniff` in front of the
 app, so those two appear on the live site even when the origin is down.
@@ -173,8 +185,8 @@ app, so those two appear on the live site even when the origin is down.
 ### Request timeout
 
 Nothing in the app hangs, so there is no request to time out and no
-automated test. To verify the 15 s `timeout_request` (checked 2026-09-11),
-temporarily add a handler that sleeps longer than that to
+automated test. To verify the 15 s `timeout_request`, temporarily add a
+handler that sleeps longer than that to
 `src/controllers/home.rs`, run the server and time a request:
 
 ```rust

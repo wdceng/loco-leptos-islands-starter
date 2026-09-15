@@ -2,82 +2,75 @@
 
 Everything is Rust. There is no Node.js toolchain: Tailwind, wasm-bindgen and
 wasm-opt are standalone binaries that cargo-leptos downloads on first use.
+Install commands below are the tool's own; substitute your package manager
+where you prefer one.
 
 ## 1. Required
 
 | # | Tool | Purpose | Install |
 |-----|------|---------|---------|
-| 1.1 | **Xcode CLI** | macOS build tools | `xcode-select --install` |
-| 1.2 | **Bash** | Modern shell (v5+) | `brew install bash` |
-| 1.3 | **Rust** | Server and browser halves | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| 1.4 | **wasm32 target** | Compiles the islands bundle | `rustup target add wasm32-unknown-unknown` |
-| 1.5 | **cargo-leptos** | Builds both halves, runs Tailwind, dev loop with live reload | `cargo install --locked cargo-leptos` |
+| 1.1 | **C toolchain** | Linker and system libraries for the native build | Xcode Command Line Tools on macOS (`xcode-select --install`), `build-essential` on Debian/Ubuntu, Visual Studio Build Tools on Windows |
+| 1.2 | **Rust** (stable, 1.85+) | Server and browser halves | https://rustup.rs |
+| 1.3 | **wasm32 target** | Compiles the islands bundle | `rustup target add wasm32-unknown-unknown` |
+| 1.4 | **cargo-leptos** | Builds both halves, runs Tailwind, dev loop with live reload | `cargo install --locked cargo-leptos` |
 
-## 2. Rust Tools
+`clippy` and `rustfmt` come with the Rust toolchain.
 
-| # | Tool | Purpose | Install |
-|-----|------|---------|---------|
-| 2.1 | **clippy** | Rust linter | included with Rust |
-| 2.2 | **loco** | Loco CLI; only needed for `loco new` (the scaffold already exists) | `cargo install --locked loco` |
-| 2.3 | **cargo-watch** | Only for `cargo loco watch` (server-only reload); `cargo leptos watch -- start` is the normal loop | `cargo install --locked cargo-watch` |
-| 2.4 | **cross** | Linux builds for the server from macOS. Needs Docker and the build image, pulled once with the platform flag on Apple Silicon (`Cross.toml` pins this tag) | `cargo install cross && docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main` |
-| 2.5 | **cargo-audit** | Security vulnerability scanner | `cargo install cargo-audit` |
-| 2.6 | **cargo-outdated** | Check outdated dependencies | `cargo install cargo-outdated` |
-| 2.7 | **cargo-update** | Update all cargo binaries | `cargo install cargo-update` |
-| 2.8 | **cargo-sweep** | Incremental target/ cleanup (delete artifacts unused N+ days) | `cargo install cargo-sweep` |
-| 2.9 | **cargo-binstall** | Installs cargo tools from prebuilt binaries instead of compiling them | `cargo install cargo-binstall` |
-
-## 2b. Local Services
+## 2. Optional Cargo Tools
 
 | # | Tool | Purpose | Install |
 |-----|------|---------|---------|
-| 2b.1 | **Mailpit** | Local SMTP catcher. `config/development.yaml` sends mail to `localhost:1025`; registration and password reset need something listening there. Inbox at http://localhost:8025 | `brew install mailpit && brew services start mailpit` |
-| 2b.2 | **sqlite3** | Inspect the database files (`app_development.sqlite`, and on the server `app_<env>.sqlite`); `.backup` makes a consistent copy while the app runs | ships with macOS |
+| 2.1 | **cargo-watch** | Only for `cargo loco watch` (server-only reload); `cargo leptos watch -- start` is the normal loop | `cargo install --locked cargo-watch` |
+| 2.2 | **cargo-audit** | Known-vulnerability scan of `Cargo.lock`; CI runs it, `.cargo/audit.toml` lists the ignored advisories | `cargo install --locked cargo-audit` |
+| 2.3 | **cross** | Linux x86_64 binary for a server from another platform (`DEPLOY.md`). Needs Docker; `Cross.toml` pins the build image | `cargo install --locked cross` |
+| 2.4 | **cargo-binstall** | Installs cargo tools from prebuilt binaries instead of compiling them; CI uses it for cargo-leptos and cargo-audit | `cargo install --locked cargo-binstall` |
+| 2.5 | **loco** | The Loco CLI, only for `loco new` and its generators. Not needed to run this project: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
 
-## 3. Downloaded by cargo-leptos
+On an arm64 host (Apple Silicon and others) `cross` emulates x86_64 and the
+default image tag has no arm64 manifest; pull the pinned one once with
+`docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main`.
+
+## 3. Local Services
+
+| # | Tool | Purpose | Install |
+|-----|------|---------|---------|
+| 3.1 | **SMTP catcher** | `config/development.yaml` sends mail to `localhost:1025`; registration and password reset need something listening there. Mailpit, MailHog and maildev all default to 1025 with a web inbox on 8025 | `docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit`, or a native build from https://github.com/axllent/mailpit. Or set `stub: true` under `mailer:` to record mail in memory instead |
+| 3.2 | **sqlite3** | Inspect the database files (`app_<env>.sqlite`); `.backup` makes a consistent copy while the app runs | Package manager, or https://sqlite.org/download.html |
+
+## 4. Downloaded by cargo-leptos
 
 Nothing to install. Fetched into `~/.cache/cargo-leptos` on first build; the
 version is derived from `Cargo.lock` where one applies.
 
 | # | Tool | Purpose | Pin a version |
 |-----|------|---------|---------------|
-| 3.1 | **tailwindcss** | Compiles `style/tailwind.css` | `LEPTOS_TAILWIND_VERSION=v4.x.y` |
-| 3.2 | **wasm-bindgen** | JS glue for the wasm bundle | matched to the crate in `Cargo.lock` |
-| 3.3 | **wasm-opt** | Shrinks the release wasm | `LEPTOS_WASM_OPT_VERSION=version_NNN` |
+| 4.1 | **tailwindcss** | Compiles `style/tailwind.css` | `LEPTOS_TAILWIND_VERSION=v4.x.y` |
+| 4.2 | **wasm-bindgen** | JS glue for the wasm bundle | matched to the crate in `Cargo.lock` |
+| 4.3 | **wasm-opt** | Shrinks the release wasm | `LEPTOS_WASM_OPT_VERSION=version_NNN` |
 
-## 4. Optional
+## 5. On a Server Only
 
-| # | Tool | Purpose | Install |
-|-----|------|---------|---------|
-| 4.1 | **Docker** | The engine behind `cross` (2.4), and the container path (README.Docker.md); the reference deploy is a bare binary | `brew install --cask docker` |
-| 4.2 | **Caddy** | Reverse proxy (HTTPS) in front of Loco. On the server it is the shared native Caddy (README.DPY-falkenstein-1.md); nothing to run locally | not needed on macOS |
+| # | Tool | Purpose |
+|-----|------|---------|
+| 5.1 | **Docker** | The engine behind `cross` (2.3) on the build machine; nothing else in this template needs it |
+| 5.2 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`DEPLOY.md`); nothing to run locally |
 
-## 5. Editor (VS Code)
+## 6. Editor (VS Code)
 
 | # | Extension | Purpose |
 |-----|-----------|---------|
-| 5.1 | **rust-analyzer** | Rust language support |
-| 5.2 | **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss`) | Class completion and hover previews inside `view!` macros; `.vscode/settings.json` already maps Rust files for it |
+| 6.1 | **rust-analyzer** | Rust language support |
+| 6.2 | **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss`) | Class completion and hover previews inside `view!` macros; `.vscode/settings.json` already maps Rust files for it |
 
 ## Verify
 
 ```bash
-rustup target list --installed | grep wasm32 && cargo leptos --version && cargo loco --version
+rustup target list --installed | grep wasm32 && cargo leptos --version
 ```
 
 ## Updates
 
-### Rust and Included Tools
 ```bash
-rustup update
-```
-
-### Cargo Tools
-```bash
-cargo install-update -a
-```
-
-### Brew Packages
-```bash
-brew update && brew upgrade
+rustup update                              # Rust, clippy, rustfmt
+cargo install --locked cargo-leptos        # reinstalling a cargo tool updates it
 ```

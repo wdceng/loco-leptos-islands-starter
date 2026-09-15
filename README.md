@@ -1,150 +1,101 @@
-# Loco + Leptos SSR Starter
+# Loco + Leptos Islands Starter
 
-A GitHub template for full-stack Rust web apps. One crate, two builds: Loco on the server, Leptos in islands mode for the pages. Users, JWT authentication and transactional mail come from Loco's SaaS starter; the database is SQLite, one file per environment, next to the binary. Security headers, a per-page CSP with nonces, per-visitor rate limiting, hashed asset names and a config canary test are wired in and documented.
+[![CI](https://github.com/wdceng/loco-leptos-islands-starter/actions/workflows/ci.yaml/badge.svg)](https://github.com/wdceng/loco-leptos-islands-starter/actions/workflows/ci.yaml)
 
-Use it with GitHub's **Use this template** button, then follow "After creating a project" below.
+A whole web app in one Rust project: the server, the pages, the database, user accounts, e-mail. No JavaScript to write, no Node to install. Clone it, run one command, and you have a working site to build on.
 
-## Tech Stack
+This is a GitHub template. Press **Use this template** at the top of the page and you get your own copy to start from.
 
-Built with a minimal-dependency philosophy: compile-time safety over runtime errors, one language end to end, and no framework JavaScript shipped for static content. No JavaScript is written by hand.
+## What you get
 
-**Rust + Loco** - Rails-style framework on top of Axum and tower, generated from the `SaaS` starter with a REST API. Loco supplies the app skeleton: per-environment YAML config, the middleware stack, Sea-ORM with migrations, JWT auth, the mailer, background workers, the CLI (`start`, `routes`, `middleware`, `doctor`, `db`, `task`) and tracing setup. Loco controllers own every URL: page controllers render one Leptos page each, the auth controller answers JSON under `/api/auth`.
+- **A web server** built on Loco (which sits on Axum, the most used Rust web framework). It serves your pages and a small JSON API.
+- **Pages written in Rust** with Leptos. The server turns them into plain HTML, so they load fast and work even before any code runs in the browser.
+- **Interactive parts when you want them.** Mark a component with `#[island]` and it runs in the browser as WebAssembly. Only those components are sent to the browser, nothing else. Everything without the mark stays plain HTML.
+- **Tailwind CSS** for styling. You write class names, the build tool produces the stylesheet.
+- **A SQLite database** with migrations, through Sea-ORM. It is a single file next to your code. Nothing to install, nothing to run.
+- **User accounts**: registration, e-mail verification, login, password reset and magic links, all from Loco's SaaS starter.
+- **E-mail sending** with text and HTML templates.
+- **Security already set up**: safe HTTP headers, a Content Security Policy, a rate limit per visitor, and secrets kept out of the code. Tests check that none of it quietly disappears.
 
-**Leptos (islands mode)** - Views are type-checked Rust components rendered to HTML on the server. Pages are plain static HTML by default. Only components marked `#[island]` are hydrated in the browser, so the WebAssembly bundle contains just those components, not the whole site. There is no client-side router: every navigation is a normal full-page request handled by Loco. No island exists yet; the first candidates are the login and registration forms, which would call the JSON API from the browser.
+## Run it in five minutes
 
-Wiring: `leptos` is built with the `islands` feature; the client entry calls `leptos::mount::hydrate_islands()`; the page shell renders `<HydrationScripts options islands=true/>`; the `target/site` output of `cargo leptos` is served by Loco's `static` middleware.
-
-**Tailwind CSS v4** - Utility classes written directly in `view!` macros. cargo-leptos runs the Tailwind standalone binary as part of the build, so there is still no Node or npm; only classes actually used end up in the stylesheet, which is emitted next to the islands bundle. Release builds hash the bundle and stylesheet names, so production caches them for a year and every deploy is a fresh URL. Inter font family, self-hosted.
-
-**SQLite** - Sea-ORM over SQLx, SQLite driver only (`sqlx-postgres` was dropped on purpose). Each environment names its own file (`app_<env>.sqlite`), created on first boot by `auto_migrate`. Loco sets the SQLite PRAGMAs at boot (WAL, `synchronous = NORMAL`, foreign keys on, 5 s busy timeout). The `-wal` and `-shm` files next to the database are part of it: back up with `sqlite3 <file> ".backup <copy>"`, never by copying the file alone.
-
-## After Creating a Project
-
-The crate, binary and asset bundle are all named `app`. To rename them, change the name in `Cargo.toml` (`[package]`, `[[bin]]` and `output-name`), `LEPTOS_OUTPUT_NAME` in `.cargo/config.toml`, the `use app::` imports in `src/bin/main.rs`, `examples/playground.rs` and `tests/`, the `/pkg/app.css` links in `public/404.html` and `src/middleware/rate_limit.html`, the asserted names in `tests/requests/home.rs`, and the `app_<env>.sqlite` defaults in `config/*.yaml`. Then delete any `app_*.sqlite*` files, since the next boot creates the new ones.
-
-Also yours to set: `APP_NAME` in `src/views/layout.rs` (page title, header, footer), `name` and `description` in `public/favicon/site.webmanifest`, the `HOST` defaults in `config/staging.yaml` and `config/production.yaml`, and the icons in `public/favicon/` (the template ships a placeholder set; `theme_color` in the manifest matches it). On the server, the secrets in the systemd unit (`README.DEPLOY.md`). `Cross.toml` pins the Linux build image; change the target if the server is not x86_64.
-
-## What Is in the App
-
-| Area | Where | Notes |
-|------|-------|-------|
-| Pages | `src/controllers/home.rs`, `src/views/` | `/` (home) and `/robots.txt`. `views/layout.rs` is the document shell; `render.rs` renders a page with the per-request CSP nonce |
-| Users and auth | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry |
-| Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml` |
-| Background | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
-| Migrations | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
-| Config | `config/<env>.yaml` | development, test, staging, production. Typed app settings (`rate_limit`, `security`) in `src/settings.rs` |
-
-## Security
-
-`cargo loco middleware` shows which Loco middlewares are on for the current `LOCO_ENV`.
-
-| Layer | Implementation | Provided by | Status |
-|-------|----------------|-------------|--------|
-| Security headers | `secure_headers` middleware, `github` preset plus overrides, and a per-page nonce CSP (see below) | Loco + this project | on |
-| Request body limit | `limit_payload` middleware | Loco | on (Loco default) |
-| Request timeout | `timeout_request` middleware, 15 s in every environment: a hung handler is cancelled with 408 instead of holding a connection; well under a CDN's origin limit (Cloudflare: 100 s) | Loco | on |
-| Panic isolation | `catch_panic` middleware | Loco | on (Loco default) |
-| Static files, ETag | `static` and `etag` middlewares. `compression` stays off on purpose: the reverse proxy compresses in front of the app | Loco | on |
-| Authentication | JWT (`auth.jwt` in config), passwords hashed by Loco, e-mail verification, magic links, reset tokens | Loco | on |
-| Secrets | `JWT_SECRET` and `MAILER_*` are read from the environment. Production has no defaults and refuses to boot without them; staging has placeholder defaults so it boots with `LOCO_ENV` alone | this project | on |
-| Outbound TLS (mailer) | Loco's mailer is `lettre` with RusTLS | Loco | on |
-| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`): a `tower_governor` token bucket per visitor IP, keyed by the same source as Loco's `remote_ip` (`CF-Connecting-IP` behind Cloudflare, the TCP peer locally), tuned per environment under `settings.rate_limit` in `config/*.yaml`; only routes count, static assets are exempt; 429 is an HTML page with `Retry-After`. Loco has no built-in limiter. | this project | on |
-
-Not used: `cors` (no cross-origin callers), `fallback` (Loco's welcome page; the static `404.html` serves instead), `powered_by` (`server.ident: ""` drops the header).
-
-### HTTP Security Headers
-
-Two sources, both in `config/*.yaml`:
-
-**Static headers** come from Loco's `secure_headers` middleware under `server.middlewares`. The `github` preset sets Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options, X-Download-Options, X-Permitted-Cross-Domain-Policies and X-Xss-Protection. Five headers are added and two replaced through `overrides`:
-
-| Header | Why it is an override |
-|--------|----------------------|
-| X-Frame-Options | Preset says `sameorigin`; `DENY` matches the CSP's `frame-ancestors 'none'` |
-| Strict-Transport-Security | Preset sends a bare `max-age`; replaced with the preload form, `max-age=31536000; includeSubDomains; preload`. Behind a CDN the zone's HSTS setting overwrites it at the edge and must say the same. The preload list itself is joined once, for the apex domain after go-live, at https://hstspreload.org; from then on every subdomain must be https. |
-| Referrer-Policy | Not in the preset: `strict-origin-when-cross-origin` |
-| Permissions-Policy | Not in the preset: camera, microphone, geolocation off |
-| Cross-Origin-Opener-Policy | Not in the preset: `same-origin` |
-| Cross-Origin-Resource-Policy | Not in the preset: `same-origin`, our files load only on our own pages |
-| Cross-Origin-Embedder-Policy | Not in the preset: `require-corp`, our pages load nothing cross-origin. Together with COOP this makes pages cross-origin isolated (the Spectre-class defence). An embed from another domain (map, video, payment widget) would need that resource to opt in via CORP or CORS, or this header dropped. |
-
-**The page CSP** is a template under `settings.security.content_security_policy`, filled per request by `render_page` in `src/render.rs`. Leptos stamps a nonce on every inline script it emits (the islands loader, the dev live-reload hook); the same nonce goes into `script-src 'self' 'nonce-…' 'wasm-unsafe-eval'`, so no `'unsafe-inline'` is needed. The policy starts with `default-src 'none'` and lists every resource kind the page uses (scripts, styles, images, fonts, the manifest, fetches); a new kind of resource is blocked until its directive is added on purpose. Loco's middleware only adds a header the response does not already carry, which is why the page CSP wins on pages while the preset CSP remains the fallback for the JSON API, assets, `robots.txt` and the static 404 and 429 pages. Development and test add the `cargo leptos watch` websocket to `connect-src`; staging and production are identical.
-
-A CDN in front of the app may inject its own HSTS, so a header scan of a proxied host shows the zone setting, not the origin's value.
-
-`tests/config.rs` is the canary: it loads all four config files and pins the headers, timeout, rate limit, cache policy and CSP shape per environment, so a config change that alters policy must update that test too.
-
-## Environments
-
-| `LOCO_ENV` | Database | Secrets | Static files | Detail |
-|------------|----------|---------|--------------|--------|
-| `development` | `app_development.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `README.DEV.md` |
-| `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `README.TESTING.md` |
-| `staging` | `app_staging.sqlite` next to the binary | placeholder defaults; the unit may override | `site/`, 60 s | `README.DEPLOY.md` |
-| `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, hashed names | `README.DEPLOY.md` |
-
-The environment is picked by `LOCO_ENV`. Secrets are read from environment variables through the `get_env` helper inside the YAML; Loco does not load a `.env` file. On the server the variables live in the systemd unit.
-
-## Development
+You need Rust. If you do not have it yet, install it from https://rustup.rs and come back. Then, in a terminal inside your copy of the project:
 
 ```sh
-cargo install --locked loco cargo-leptos     # once; see PREREQUISITES.md
-brew services start mailpit                  # local SMTP on 1025, inbox on http://localhost:8025
-cargo leptos watch -- start                  # both halves, Tailwind, live reload, server on http://localhost:5150
+rustup target add wasm32-unknown-unknown   # lets Rust compile for the browser
+cargo install --locked cargo-leptos        # the build tool for Leptos projects
+cargo leptos watch -- start                # build everything and run the server
 ```
 
-`cargo loco start` runs the server alone against whatever `target/site` holds. The first boot creates `app_development.sqlite` and applies the migrations. `cargo clippy --all-targets` and `cargo test` before handing over; `cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate` proves nothing leaked out of the `ssr` gate.
+The first build takes a few minutes, because every dependency compiles once. After that, builds take seconds. When the terminal says the server is listening, open http://localhost:5150.
 
-Tailwind is enabled by `tailwind-input-file = "style/tailwind.css"` in the `[package.metadata.leptos]` section of `Cargo.toml`. The Tailwind version is pinned with the `LEPTOS_TAILWIND_VERSION` environment variable when needed.
+Now open `src/views/home.rs`, change the text, save. The page in your browser reloads by itself.
 
-## Docs
+A file called `app_development.sqlite` appeared in the project folder. That is your database. You can delete it whenever you like; it is recreated on the next start.
 
-| File | Covers |
+Two things you may want soon:
+
+- **Mail.** Registering a user sends an e-mail, and on your machine there is no mail server to receive it. Either run a fake one with `docker run -p 1025:1025 -p 8025:8025 axllent/mailpit` and read the mail at http://localhost:8025, or open `config/development.yaml` and set `stub: true` under `mailer:` so mail is kept in memory instead of sent.
+- **Tests.** `cargo test` runs them all. They take about a second.
+
+## Where things are
+
+| You want to... | Look in |
 |---|---|
-| `PREREQUISITES.md` | One-time tool setup |
-| `README.DEV.md` | Day-to-day commands, environments, release builds, gotchas |
-| `README.TESTING.md` | What each test covers, manual checks |
-| `README.DEPLOY.md` | Bare-binary deploy with placeholders: systemd unit, Caddy, Cloudflare notes |
-| `README.DPY-falkenstein-1.md`, `README.DPY.STG.md` | The same deploy on the falkenstein-1 server: one-time setup, the staging pipeline |
-| `README.Docker.md` | Container path: image, compose with Caddy (`Caddyfile`) |
-| `CLAUDE.md` | Architecture and conventions for AI-assisted work; `AGENTS.md` is Loco's generic guide |
+| Change what a page shows | `src/views/` |
+| Add a URL or decide what it answers | `src/controllers/` |
+| Change the database or add a table | `src/models/` and `migration/` |
+| Change the e-mails the app sends | `src/mailers/auth/` |
+| Change styling | Tailwind classes in the views; `style/tailwind.css` for fonts and colours |
+| Add an image, a font, a static file | `public/` |
+| Change settings per environment | `config/development.yaml`, `staging.yaml`, `production.yaml` |
 
-## Crates
+## Your first page
 
-Loco already ships the HTTP middleware (tower-http), the mailer (lettre + RusTLS), tracing initialisation and config loading, so none of those are declared here. Every server-only crate is `optional` and pulled in by the `ssr` feature, so the browser build never sees it.
+Every page is two small files: a view (what it looks like) and a controller (which URL shows it). The home page is the example to copy.
 
-**Declared by the Loco SaaS starter**
+1. Copy `src/views/home.rs` to `src/views/about.rs`, rename the component, change the content. Add `pub mod about;` to `src/views/mod.rs`.
+2. Copy `src/controllers/home.rs` to `src/controllers/about.rs`. Point it at your new component and change the URL in `routes()` to `/about`. Add `pub mod about;` to `src/controllers/mod.rs`.
+3. In `src/app.rs`, find `fn routes` and add `.add_route(controllers::about::routes())` next to the home one.
 
-| Crate | Purpose |
-|-------|---------|
-| `loco-rs` | Application framework, default features (`auth`, `cli`, `with-db`, `worker`, `cache_inmem`) |
-| `axum` | Handler and router types used in controllers |
-| `serde` / `serde_json` | Serialization; the only two crates shared with the browser half |
-| `tokio` | Async runtime; `time` for the rate limiter's housekeeping |
-| `async-trait` | Required by Loco's `Hooks` trait |
-| `tracing` / `tracing-subscriber` | Log macros and subscriber (initialised by Loco) |
-| `regex` | E-mail domain check in the auth controller |
-| `sea-orm` / `migration` | ORM with the SQLite driver, and the migrations crate |
-| `chrono` | Timestamps on the users model; the footer year at render time |
-| `validator` | Model validation. Pinned to the version `loco-rs` uses (0.20): the `Validate` derive comes through Loco's prelude and a second version breaks the trait |
-| `uuid` | User `pid` and API key |
-| `ts-rs` | TypeScript bindings for `src/dtos/`. The export is commented out until a TypeScript consumer exists |
-| `include_dir` | Embeds the mail templates |
+Save, and http://localhost:5150/about is live. `cargo loco routes` prints every URL the app knows, if you want to check.
 
-**Added by this template**
+## Your first island
 
-| Crate | Purpose |
-|-------|---------|
-| `leptos` | Components and SSR; `islands` feature on, `ssr` on the server build, `hydrate` on the browser build |
-| `leptos_axum` | Turns a rendered page into an HTTP response in controllers (`ssr` only) |
-| `any_spawner` | The task executor Leptos renders on, started once at boot (`ssr` only) |
-| `wasm-bindgen` / `console_error_panic_hook` | Browser bindings and panic reporting (`hydrate` only) |
-| `tower_governor` | Token-bucket rate limiting behind the `rate_limit` middleware |
+Say you want a button that counts clicks. That needs code running in the browser.
 
-**Tests only**
+Write the component as usual, but with `#[island]` instead of `#[component]`. That is the whole change: the build tool compiles it for the browser too, and the page wakes it up after loading. Two rules to keep in mind: anything you pass into an island as a prop has to be plain data (a `String`, a number, a struct with `#[derive(Serialize, Deserialize)]`), and an island cannot touch server-only things like the database. Fetch what it needs from the JSON API instead.
 
-| Crate | Purpose |
-|-------|---------|
-| `serial_test`, `rstest`, `insta` | Serialised request tests, parameterised cases, snapshots |
-| `tera` / `serde_yaml` | The config canary renders the YAML with placeholder secrets instead of touching the process environment |
+The template ships without any island on purpose, so the first one is yours.
+
+## How it fits together
+
+When the browser asks for a page, Loco finds the controller for that URL. The controller hands a Leptos component to the renderer, which produces the finished HTML and sends it back. The browser shows it right away. Then a small WebAssembly file loads and switches on the islands, if the page has any. Links are normal links: clicking one requests a new page from the server, like a classic website. There is no client-side router to learn.
+
+If you are curious why things are built the way they are, `ARCHITECTURE.md` explains it.
+
+## Make it yours
+
+The project is called `app` in a handful of places. To rename it, search the repo for `app` in `Cargo.toml`, `.cargo/config.toml`, `src/bin/main.rs`, `examples/playground.rs`, the `tests/` folder, `public/404.html`, `src/middleware/rate_limit.html` and the `app_<env>.sqlite` lines in `config/*.yaml`. Or leave it; nothing breaks if you keep the name.
+
+What people see: `APP_NAME` in `src/views/layout.rs` sets the title, header and footer. The page description is in `src/controllers/home.rs`, the tagline in `src/views/home.rs`, the icons in `public/favicon/`, and the app name for phone home screens in `public/favicon/site.webmanifest`.
+
+One thing to know: magic-link login only accepts `@example.com` and `@gmail.com` addresses, because that is how Loco's starter ships. The list is `EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`.
+
+## Going further
+
+- `DEVELOPMENT.md`: every command, what each environment does, release builds, and the gotchas we ran into.
+- `TESTING.md`: what the tests cover and how to check the security features by hand.
+- `DEPLOY.md`: putting it on a Linux server, step by step, with Caddy for HTTPS. Read this before your first deploy: the staging and production configs assume a reverse proxy in front of the app, and the file explains what to change if yours is different.
+- `ARCHITECTURE.md`: the reasoning. The security headers and what each one does, why the database is SQLite, what every crate is for.
+- `PREREQUISITES.md`: every tool, including the optional ones.
+
+## Known gaps
+
+- The "page not found" page is served with status 200, not 404, until a proper not-found handler exists.
+- There is no island yet. The wiring is done; the first component is up to you.
+- Behind a proxy, a request that reaches the server directly could fake its IP address for the rate limiter. `DEPLOY.md` explains the fix.
+
+## License
+
+MIT or Apache-2.0, your choice (`LICENSE-MIT`, `LICENSE-APACHE`). The Inter font in `public/fonts/` has its own license, the SIL Open Font License, in `public/fonts/OFL.txt`.
