@@ -1,0 +1,19 @@
+[alias]
+loco = "run --"
+loco-tool = "run --"
+
+playground = "run --example playground"
+
+[env]
+# Leptos picks the wasm file name at compile time from this variable: with it
+# set the page loads `app.wasm`, which is what cargo-leptos writes; without
+# it the page asks for `app_bg.wasm`, which never exists. cargo-leptos sets
+# the variable during its own builds; this keeps a plain `cargo loco start`
+# or `cargo test` build consistent with it. Must match `output-name` in
+# [package.metadata.leptos].
+LEPTOS_OUTPUT_NAME = "app"
+
+# https://github.com/rust-lang/rust/issues/141626
+# (can be removed once link.exe is fixed)
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld"

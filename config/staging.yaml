@@ -1,0 +1,180 @@
+# Staging: the online test copy of the app, on its own subdomain.
+#
+# Same deploy layout as production (binary, config/, site/), selected with
+# LOCO_ENV=staging. It differs from production only where testing benefits:
+# readable debug logs, a short asset cache so testers always see the latest
+# build, and its own host. Unlike production, every value has a default so
+# the unit boots with nothing but LOCO_ENV; the unit overrides BINDING and
+# PORT so the app listens on loopback behind Caddy, and JWT_SECRET and
+# MAILER_* replace the placeholder defaults below once they exist.
+
+# Application logging configuration
+logger:
+  enable: true
+  # Backtraces on: a crash on staging should be as loud as possible.
+  pretty_backtrace: true
+  # Debug by default; testers read these logs directly.
+  level: <%= get_env(name="LOG_LEVEL", default="debug") %>
+  # Human-readable, not json: nobody aggregates staging logs.
+  format: compact
+
+# Web server configuration
+server:
+  port: <%= get_env(name="PORT", default="5150") %>
+  # `0.0.0.0`: reachable from outside a container or VM.
+  binding: <%= get_env(name="BINDING", default="0.0.0.0") %>
+  # Public origin of the staging site, used for links in outgoing mail.
+  # Not a secret, so it has a default; HOST overrides it at start.
+  host: <%= get_env(name="HOST", default="https://staging.example.com") %>
+  # No `X-Powered-By` header.
+  ident: ""
+  middlewares:
+    # The reference deployment (README.DEPLOY.md) is Cloudflare in front of
+    # Caddy: Cloudflare overwrites CF-Connecting-IP at the edge and Caddy
+    # passes it through unchanged; X-Forwarded-For here would be Cloudflare's
+    # own address. The rate limiter keys on the same source, and refuses to
+    # boot a deployed environment keyed on the peer. Without any proxy use
+    # ConnectInfo. Requests that reach the origin directly, bypassing the
+    # CDN, could forge the header; hardening that is a Caddy trusted_proxies
+    # change.
+    remote_ip:
+      enable: true
+      source: CfConnectingIp
+    # Cancels a request that has not produced response headers in time and
+    # answers 408, so a hung handler cannot hold a connection open forever.
+    # Milliseconds. Sized to the slowest legitimate path (a mail send) with
+    # margin, far below a CDN's origin limit (Cloudflare: 100 s).
+    timeout_request:
+      enable: true
+      timeout: 15000
+    # Loco's github preset (HSTS, nosniff, X-Frame-Options, ...) plus what it
+    # lacks. Only added to responses that do not already carry the header:
+    # pages set their own nonce-based CSP (settings.security below), so the
+    # preset CSP is the fallback for assets, robots.txt and the 404/429 pages.
+    secure_headers:
+      enable: true
+      preset: github
+      overrides:
+        # Matches frame-ancestors 'none' in the CSP; preset says sameorigin.
+        X-Frame-Options: DENY
+        Referrer-Policy: strict-origin-when-cross-origin
+        Permissions-Policy: camera=(), microphone=(), geolocation=()
+        Cross-Origin-Opener-Policy: same-origin
+        # Cross-origin isolation: our files load only on our own pages, and
+        # our pages load nothing cross-origin. An embed from another domain
+        # (map, video, payment widget) would need that resource to opt in,
+        # or COEP dropped.
+        Cross-Origin-Resource-Policy: same-origin
+        Cross-Origin-Embedder-Policy: require-corp
+        # Preload-ready HSTS (one year, subdomains, consent). Replaces the
+        # preset's bare max-age. Behind a CDN the zone's HSTS setting
+        # overwrites this at the edge; the origin still sends the full form.
+        # Preloading itself is submitted for the apex domain, never for this
+        # subdomain.
+        Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+        # Staging must never appear in search results. robots.txt keeps
+        # crawlers out; this drops any URL they reach through a link.
+        X-Robots-Tag: noindex, nofollow
+    # Loco's welcome page for unmatched routes: off, plain 404 instead.
+    fallback:
+      enable: false
+    # Serves the cargo-leptos output deployed as `site/` next to the binary.
+    static:
+      enable: true
+      # A staging build without its bundle is as broken as a production one.
+      must_exist: true
+      folder:
+        uri: "/"
+        path: "site"
+      fallback: "site/404.html"
+      # One minute: testers should see a fresh deploy on the next reload.
+      cache_control: "public, max-age=60"
+
+# App settings, typed in src/settings.rs and parsed at boot: a missing or
+# unknown key refuses to start.
+settings:
+  rate_limit:
+    enable: true
+    # 120 requests at once per visitor IP, then a sustained 60 per minute.
+    # Only routes count, never static assets.
+    per_second: 1
+    burst: 120
+  security:
+    # Per-page CSP; {nonce} is replaced per request with the nonce Leptos
+    # stamps on its inline scripts. 'wasm-unsafe-eval' is what the islands
+    # bundle needs; nothing else is inline or third party.
+    content_security_policy: >-
+      default-src 'none';
+      script-src 'self' 'nonce-{nonce}' 'wasm-unsafe-eval';
+      style-src 'self';
+      img-src 'self' data:;
+      font-src 'self';
+      manifest-src 'self';
+      connect-src 'self';
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none'
+
+# Worker Configuration
+workers:
+  # specifies the worker mode. Options:
+  #   - BackgroundQueue - Workers operate asynchronously in the background, processing queued.
+  #   - ForegroundBlocking - Workers operate in the foreground and block until tasks are completed.
+  #   - BackgroundAsync - Workers operate asynchronously in the background, processing tasks with async capabilities.
+  mode: BackgroundAsync
+
+# Mailer Configuration.
+mailer:
+  # SMTP mailer configuration.
+  smtp:
+    # Enable/Disable smtp mailer.
+    enable: true
+    # SMTP server. Defaults let staging boot without an SMTP account; a
+    # mail send then fails with a connection error until MAILER_* are set.
+    host: <%= get_env(name="MAILER_HOST", default="localhost") %>
+    # SMTP server port
+    port: <%= get_env(name="MAILER_PORT", default="587") %>
+    # Use secure connection (SSL/TLS).
+    secure: true
+    # Quoted: an empty default must render as "" (a string), not as YAML null.
+    auth:
+      user: '<%= get_env(name="MAILER_USER", default="") %>'
+      password: '<%= get_env(name="MAILER_PASSWORD", default="") %>'
+    # Override the SMTP hello name (default is the machine's hostname)
+    # hello_name:
+
+# Database Configuration
+database:
+  # Database connection URI. Defaults to a SQLite file in the unit's working
+  # directory (the deploy directory, README.DEPLOY.md), created on first boot
+  # by auto_migrate.
+  uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_staging.sqlite?mode=rwc") %>
+  # When enabled, the sql query will be logged.
+  enable_logging: <%= get_env(name="DB_LOGGING", default="false") %>
+  # Set the timeout duration when acquiring a connection.
+  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="500") %>
+  # Set the idle duration before closing a connection.
+  idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="500") %>
+  # Minimum number of connections for a pool.
+  min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="1") %>
+  # Maximum number of connections for a pool.
+  max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="10") %>
+  # Run migration up when application loaded.
+  auto_migrate: <%= get_env(name="DB_AUTO_MIGRATE", default="true") %>
+  # Truncate database when application loaded. This is a dangerous operation, make sure that you using this flag only on dev environments or test mode
+  dangerously_truncate: false
+  # Recreating schema when application loaded.  This is a dangerous operation, make sure that you using this flag only on dev environments or test mode
+  dangerously_recreate: false
+
+# Authentication Configuration
+auth:
+  # JWT authentication
+  jwt:
+    # Secret key for token generation and verification. Required, and a
+    # different value from production: a staging token must not open a
+    # production account. The default is for staging only and is public
+    # (it is in git); set JWT_SECRET in the unit to replace it.
+    secret: <%= get_env(name="JWT_SECRET", default="staging-only-not-a-secret") %>
+    # Token expiration time in seconds
+    expiration: 604800 # 7 days

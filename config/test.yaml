@@ -1,0 +1,137 @@
+# Loco configuration file documentation
+
+# Application logging configuration
+logger:
+  # Enable or disable logging.
+  enable: false
+  # Enable pretty backtrace (sets RUST_BACKTRACE=1)
+  pretty_backtrace: true
+  # Log level, options: trace, debug, info, warn or error.
+  level: debug
+  # Define the logging format. options: compact, pretty or json
+  format: compact
+  # By default the logger has filtering only logs that came from your code or logs that came from `loco` framework. to see all third party libraries
+  # Uncomment the line below to override to see all third party libraries you can enable this config and override the logger filters.
+  # override_filter: trace
+
+# Web server configuration
+server:
+  # Port on which the server will listen. the server binding is 0.0.0.0:{PORT}
+  port: 5150
+  # The UI hostname or IP address that mailers will point to.
+  host: http://localhost
+  # Empty removes the X-Powered-By header, as in every other environment.
+  ident: ""
+  # Out of the box middleware configuration. to disable middleware you can changed the `enable` field to `false` of comment the middleware block
+  middlewares:
+    # The harness serves over a real loopback port, so the peer address is
+    # available and every test request keys on 127.0.0.1.
+    remote_ip:
+      enable: true
+      source: ConnectInfo
+    # Same value as the deployed environments so a test that hangs fails the
+    # same way production would (408 after 15 s).
+    timeout_request:
+      enable: true
+      timeout: 15000
+    # Same headers as the deployed environments so the request tests assert
+    # the real values. See development.yaml for the reasoning.
+    secure_headers:
+      enable: true
+      preset: github
+      overrides:
+        X-Frame-Options: DENY
+        Referrer-Policy: strict-origin-when-cross-origin
+        Permissions-Policy: camera=(), microphone=(), geolocation=()
+        Cross-Origin-Opener-Policy: same-origin
+        Cross-Origin-Resource-Policy: same-origin
+        Cross-Origin-Embedder-Policy: require-corp
+        Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+# App settings, typed in src/settings.rs and parsed at boot. Small burst so
+# a request test can exhaust the bucket, but larger than the longest auth
+# test's request count (register, verify, login, then the call under test);
+# each test boots a fresh app.
+settings:
+  rate_limit:
+    enable: true
+    per_second: 1
+    burst: 20
+  security:
+    # Same policy as development, so the tests see what a developer sees.
+    content_security_policy: >-
+      default-src 'none';
+      script-src 'self' 'nonce-{nonce}' 'wasm-unsafe-eval';
+      style-src 'self';
+      img-src 'self' data:;
+      font-src 'self';
+      manifest-src 'self';
+      connect-src 'self' ws://localhost:3001 ws://127.0.0.1:3001;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none'
+
+# Worker Configuration
+workers:
+  # specifies the worker mode. Options:
+  #   - BackgroundQueue - Workers operate asynchronously in the background, processing queued.
+  #   - ForegroundBlocking - Workers operate in the foreground and block until tasks are completed.
+  #   - BackgroundAsync - Workers operate asynchronously in the background, processing tasks with async capabilities.
+  mode: ForegroundBlocking
+
+  
+
+# Mailer Configuration.
+mailer:
+  stub: true
+  # SMTP mailer configuration.
+  smtp:
+    # Enable/Disable smtp mailer.
+    enable: true
+    # SMTP server host. e.x localhost, smtp.gmail.com
+    host: <%= get_env(name="MAILER_HOST", default="localhost") %>
+    # SMTP server port
+    port: 1025
+    # Use secure connection (SSL/TLS).
+    secure: false
+    # auth:
+    #   user:
+    #   password:
+
+# Initializers Configuration
+# initializers:
+#  oauth2:
+#    authorization_code: # Authorization code grant type
+#      - client_identifier: google # Identifier for the OAuth2 provider. Replace 'google' with your provider's name if different, must be unique within the oauth2 config.
+#        ... other fields
+
+# Database Configuration
+database:
+  # Database connection URI
+  uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_test.sqlite?mode=rwc") %>
+  # When enabled, the sql query will be logged.
+  enable_logging: false
+  # Set the timeout duration when acquiring a connection.
+  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="500") %>
+  # Set the idle duration before closing a connection.
+  idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="500") %>
+  # Minimum number of connections for a pool.
+  min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="1") %>
+  # Maximum number of connections for a pool.
+  max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="1") %>
+  # Run migration up when application loaded
+  auto_migrate: true
+  # Truncate database when application loaded. This is a dangerous operation, make sure that you using this flag only on dev environments or test mode
+  dangerously_truncate: true
+  # Recreating schema when application loaded.  This is a dangerous operation, make sure that you using this flag only on dev environments or test mode
+  dangerously_recreate: true
+
+# Authentication Configuration
+auth:
+  # JWT authentication
+  jwt:
+    # Secret key for token generation and verification
+    secret: UvCUKkd7MXzsAp3uv4BS
+    # Token expiration time in seconds
+    expiration: 604800 # 7 days

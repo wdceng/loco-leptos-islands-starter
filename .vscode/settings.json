@@ -1,0 +1,16 @@
+{
+  // VS Code's built-in CSS checker predates Tailwind v4 and flags its
+  // at-rules (@source, @theme) as unknown. Tailwind itself validates them
+  // at build time, so the built-in check adds nothing here.
+  "css.lint.unknownAtRules": "ignore",
+
+  // For the Tailwind CSS IntelliSense extension (bradlc.vscode-tailwindcss),
+  // if installed: treat Rust files as markup so class names inside `view!`
+  // macros get completion, hover previews and typo warnings.
+  "tailwindCSS.includeLanguages": {
+    "rust": "html"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["class\\s*=\\s*\"([^\"]*)\"", "([^\\s\"]+)"]
+  ]
+}

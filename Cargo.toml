@@ -1,0 +1,199 @@
+[workspace]
+
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+# One crate, two builds. The library compiles twice: natively with `ssr`
+# (linked into the Loco server) and to wasm32 with `hydrate` (the islands
+# bundle). `cdylib` is what wasm-bindgen needs; `rlib` is for the binary and
+# the tests.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[workspace.dependencies]
+loco-rs = { version = "1.1" }
+
+[dependencies]
+# ---------------------------------------------------------------------------
+# Loco: everything the SaaS starter declared. The server crates are
+# `optional`, pulled in by the `ssr` feature only, so they stay out of the
+# browser bundle. serde and serde_json are the exception: island props
+# derive Serialize/Deserialize in both halves.
+#
+# Unlike the lightweight-service starter, this app keeps Loco's default
+# features: `with-db` (Sea-ORM, migrations), `auth` (JWT), `worker`,
+# `cache_inmem` and `cli`. The users model and the auth controller depend
+# on them.
+# ---------------------------------------------------------------------------
+loco-rs = { workspace = true, optional = true }
+axum = { version = "0.8", optional = true }
+tokio = { version = "1.45", default-features = false, features = [
+  "rt-multi-thread",
+  "time", # rate limiter housekeeping interval
+], optional = true }
+async-trait = { version = "0.1", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "json",
+], optional = true }
+regex = { version = "1.11", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+
+# Database and the typed API contract. All server only: none of these build
+# for wasm32. SQLite in every environment, a file next to the binary on the
+# server; `sqlx-postgres` was dropped on purpose, so a `postgres://` URL
+# refuses to boot rather than silently working on one machine only.
+migration = { path = "migration", optional = true }
+sea-orm = { version = "2.0", features = [
+  "sqlx-sqlite",
+  "runtime-tokio-rustls",
+  "macros",
+], optional = true }
+# Timestamps on the users model (via Sea-ORM) and the current year in the
+# footer, computed at render time. Default features stay on: Sea-ORM needs
+# them.
+chrono = { version = "0.4", optional = true }
+# Must track the version loco-rs depends on: the `Validate` derive comes
+# through Loco's prelude and its output names this crate. A different
+# version here is a second `validator` in the graph and the trait no longer
+# matches (E0277). Loco 1.1 pins 0.20.
+validator = { version = "0.20", optional = true }
+uuid = { version = "1.6", features = ["v4"], optional = true }
+# ts-rs derives the TypeScript bindings for the `dtos` (the typed JSON API
+# contract). Present for every db app; the SPA frontend consumes the exports,
+# and a headless app can still emit them for external consumers.
+ts-rs = { version = "12", features = [
+  "chrono-impl",
+  "serde-compat",
+], optional = true }
+include_dir = { version = "0.7", optional = true }
+
+# ---------------------------------------------------------------------------
+# Leptos: the views. `leptos` builds in both halves. Server only (`ssr`):
+# `leptos_axum` turns a rendered page into an HTTP response, `any_spawner`
+# is the task executor Leptos renders on (started once at boot in app.rs).
+# The last two exist only for the browser bundle (`hydrate`).
+# ---------------------------------------------------------------------------
+leptos = { version = "0.8", features = ["islands"] }
+leptos_axum = { version = "0.8", optional = true }
+any_spawner = { version = "0.3", features = ["tokio"], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+# ---------------------------------------------------------------------------
+# Other: crates this project adds on its own (rate limiting, ...).
+# ---------------------------------------------------------------------------
+# Per-visitor token-bucket rate limiting (src/middleware/rate_limit.rs).
+# `default-features = false` drops the tonic (gRPC) integration the crate
+# enables by default; `axum` gives the Response<Body> conversion. Server only.
+tower_governor = { version = "0.8", default-features = false, features = [
+  "axum",
+], optional = true }
+
+[features]
+# Plain `cargo build` / `cargo test` / `cargo loco start` build the server.
+# cargo-leptos ignores the default and builds each half with only the
+# features listed under [package.metadata.leptos].
+default = ["ssr"]
+ssr = [
+  "leptos/ssr",
+  # Per-request CSP nonce in src/render.rs. Server only: its random-number
+  # dependency does not build for wasm32.
+  "leptos/nonce",
+  "dep:leptos_axum",
+  "dep:any_spawner",
+  "dep:loco-rs",
+  "dep:axum",
+  "dep:tokio",
+  "dep:async-trait",
+  "dep:tracing",
+  "dep:tracing-subscriber",
+  "dep:regex",
+  "dep:migration",
+  "dep:sea-orm",
+  "dep:chrono",
+  "dep:validator",
+  "dep:uuid",
+  "dep:ts-rs",
+  "dep:include_dir",
+  "dep:tower_governor",
+]
+hydrate = [
+  "leptos/hydrate",
+  "dep:wasm-bindgen",
+  "dep:console_error_panic_hook",
+]
+
+[[bin]]
+# Named after the package rather than Loco's default `app-cli`: cargo-leptos
+# normalises binary names and trips over the suffix (see the Loco + Leptos
+# showcase).
+name = "app"
+path = "src/bin/main.rs"
+required-features = ["ssr"]
+
+[dev-dependencies]
+loco-rs = { workspace = true, features = ["testing"] }
+serial_test = { version = "4.0.1" }
+rstest = { version = "0.27" }
+insta = { version = "1.34", features = ["redactions", "yaml", "filters"] }
+# The config canary (tests/config.rs) renders the staging and production
+# YAML with placeholder secrets instead of touching the process environment.
+# Both crates are already in the tree through loco-rs; same versions.
+tera = { version = "2" }
+serde_yaml = { version = "0.9" }
+
+[package.metadata.leptos]
+# Name of the js/wasm/css files. Mandatory: Leptos's config loader has no
+# default for it when it reads this file at boot. Must match
+# LEPTOS_OUTPUT_NAME in .cargo/config.toml.
+output-name = "app"
+# Everything cargo-leptos produces lands here. Loco's `static` middleware
+# serves this folder. WARNING: erased on every rebuild.
+site-root = "target/site"
+# Tailwind v4 entry point; cargo-leptos runs the Tailwind standalone binary.
+tailwind-input-file = "style/tailwind.css"
+# Static files copied verbatim into site-root (favicon, robots.txt, images).
+assets-dir = "public"
+# Must match where Loco listens (config/development.yaml).
+site-addr = "127.0.0.1:5150"
+# Server half builds with `ssr`, browser half with `hydrate`, nothing else.
+bin-features = ["ssr"]
+lib-features = ["hydrate"]
+lib-profile-release = "wasm-release"
+
+# Dev: fast incremental rebuilds of our own code; dependencies are optimised
+# once and cached, so they cost nothing on later builds.
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# Release: the server binary, maximum optimisation.
+# Deliberately no `panic = "abort"`: Loco's catch_panic middleware relies on
+# unwinding to turn a handler panic into a 500 instead of killing the process.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+# Release profile for the browser (WASM) half, selected above via
+# `lib-profile-release`. Size beats speed for the islands bundle. `strip`
+# stays off because wasm-bindgen reads custom sections that stripping would
+# remove; cargo-leptos runs wasm-opt on the output anyway.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = false

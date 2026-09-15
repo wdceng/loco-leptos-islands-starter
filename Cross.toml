@@ -1,0 +1,8 @@
+# cross-rs configuration for the Linux server build (README.DEPLOY.md).
+#
+# cross 0.2.5 defaults to an image tagged with its own version, which has no
+# arm64 manifest, so on Apple Silicon the pull fails. Pin the `main` image and
+# pull it once with the platform flag:
+#   docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main
+[target.x86_64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main"

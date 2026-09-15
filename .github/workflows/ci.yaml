@@ -1,0 +1,87 @@
+# The same checks as a local pre-deploy pass, so a green run means what a
+# local pass means. No database service: the app is SQLite-only and the
+# tests create their own file.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      # Never `--all-features`: `ssr` and `hydrate` are mutually exclusive
+      # halves of the same crate.
+      - run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test
+
+  wasm:
+    # The browser half alone: fails if a server-only dependency leaked out
+    # of the `ssr` feature gate.
+    name: Browser half (wasm32)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+
+  leptos:
+    # Both halves plus Tailwind, as cargo-leptos builds them. cargo-leptos
+    # comes prebuilt via cargo-binstall; it downloads the Tailwind and
+    # wasm-bindgen binaries itself.
+    name: cargo leptos build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall -y cargo-leptos
+      - run: cargo leptos build
+
+  audit:
+    # Known vulnerabilities in the dependency tree (RustSec database).
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall -y cargo-audit
+      - run: cargo audit

@@ -1,0 +1,131 @@
+/* Tailwind v4 entry point. cargo-leptos feeds this to the Tailwind
+   standalone binary and writes the result to target/site/pkg/app.css. */
+@import "tailwindcss";
+
+/* Tailwind scans these files for class names. Our views are Rust, not HTML,
+   so the .rs sources have to be listed explicitly; public/ holds the static
+   404 page, which uses the same classes. */
+@source "../src/**/*.rs";
+@source "../public/**/*.html";
+
+/* Inter, self-hosted from public/fonts (SIL Open Font License, OFL.txt next
+   to the files). Absolute URLs: this stylesheet is served from /pkg/, so a
+   relative "fonts/..." would resolve to /pkg/fonts/ and 404. */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Design tokens. Everything in @theme becomes both a CSS variable
+   (var(--color-blue-6)) and a utility class (bg-blue-6, text-gray-7). */
+@theme {
+  /* Make Inter the default sans font: Tailwind's base styles apply
+     --font-sans to <html>, and the `font-sans` utility uses it too. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Colours from Open Color (0 = lightest). Tailwind's own blue and gray
+     scales are cleared first so only one scale per name exists. */
+  --color-blue-*: initial;
+  --color-blue-0: #e7f5ff;
+  --color-blue-1: #d0ebff;
+  --color-blue-2: #a5d8ff;
+  --color-blue-3: #74c0fc;
+  --color-blue-4: #4dabf7;
+  --color-blue-5: #339af0;
+  --color-blue-6: #228be6;
+  --color-blue-7: #1c7ed6;
+  --color-blue-8: #1971c2;
+  --color-blue-9: #1864ab;
+  --color-blue-10: #004a96;
+
+  --color-gray-*: initial;
+  --color-gray-0: #f8f9fa;
+  --color-gray-1: #f1f3f5;
+  --color-gray-2: #e9ecef;
+  --color-gray-3: #dee2e6;
+  --color-gray-4: #ced4da;
+  --color-gray-5: #adb5bd;
+  --color-gray-6: #868e96;
+  --color-gray-7: #495057;
+  --color-gray-8: #343a40;
+  --color-gray-9: #212529;
+}
+
+/* Semantic colours, named by role, aliases of the scale above. `inline` is
+   Tailwind's documented form for tokens that reference other variables:
+   utilities get the target value directly (bg-primary -> var(--color-blue-10)). */
+@theme inline {
+  --color-primary: var(--color-blue-10); /* brand: buttons, links */
+  --color-surface: var(--color-gray-1); /* page background */
+  --color-surface-glow: var(--color-blue-2); /* the bottom gradient */
+  --color-ink: var(--color-gray-9); /* body text */
+  --color-ink-muted: var(--color-gray-7); /* secondary text */
+}
+
+/* Element defaults on top of Tailwind's own reset (Preflight), which already
+   covers box-sizing, zero margins/paddings, tap highlight and text-size
+   adjust. `base` is the layer utilities override. */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* No double-tap zoom, pinch zoom stays. */
+    touch-action: manipulation;
+    /* Defined canvas colour for everything outside the document
+       (overscroll, short pages); same as background_color in the manifest. */
+    background-color: var(--color-surface);
+  }
+  /* The viewport meta in views/layout.rs uses viewport-fit=cover, so the
+     page runs under the notch and home indicator; these insets (zero on
+     desktop) keep content clear of them. */
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Smooth anchor scrolling, except for visitors who asked for less motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+  /* Soft glow along the bottom edge of the viewport. Colour, text and
+     min-height come from classes on <body> in views/layout.rs. iOS Safari
+     ignores `fixed` and scrolls the glow with the page. */
+  body {
+    background-image:
+      radial-gradient(60% 45% at 0% 100%, var(--color-surface-glow), transparent 65%),
+      radial-gradient(
+        60% 45% at 100% 100%,
+        var(--color-surface-glow),
+        transparent 65%
+      ),
+      radial-gradient(70% 30% at 50% 100%, var(--color-surface-glow), transparent 60%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+}
