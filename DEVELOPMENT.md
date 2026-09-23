@@ -138,6 +138,7 @@ app                 <- target/release/app, Linux build
 hash.txt            <- target/release/hash.txt, must sit next to the binary
 config/<env>.yaml
 site/               <- target/site, renamed
+secrets.env         <- JWT_SECRET and MAILER_*, loaded by the systemd unit (DEPLOYMENT.md)
 ```
 Start from that folder:
 ```bash

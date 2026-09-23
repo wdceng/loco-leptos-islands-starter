@@ -99,7 +99,7 @@ A CDN in front of the app may inject its own HSTS, so a header scan of a proxied
 | `staging` | `app_staging.sqlite` next to the binary | placeholder defaults; the environment may override | `site/`, 60 s; adds `X-Robots-Tag: noindex, nofollow` | `DEPLOYMENT.md` |
 | `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, immutable (requires the `LEPTOS_HASH_FILES=true` build) | `DEPLOYMENT.md` |
 
-The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOYMENT.md` sets them.
+The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOYMENT.md` loads them from a `secrets.env` file that only the service user can read.
 
 The server binary has two Cargo profiles (`Cargo.toml`): `release` for production, fully optimised with fat LTO, and `staging`, which inherits it but links with thin LTO in parallel, rebuilds incrementally and keeps line tables so `pretty_backtrace` on staging prints function names. The browser half always uses the `wasm-release` profile.
 
