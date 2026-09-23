@@ -29,7 +29,7 @@ server:
   # No `X-Powered-By` header.
   ident: ""
   middlewares:
-    # The reference deployment (DEPLOY.md) is Cloudflare in front of
+    # The reference deployment (DEPLOYMENT.md) is Cloudflare in front of
     # Caddy: Cloudflare overwrites CF-Connecting-IP at the edge and Caddy
     # passes it through unchanged; X-Forwarded-For here would be Cloudflare's
     # own address. The rate limiter keys on the same source, and refuses to
@@ -118,7 +118,7 @@ settings:
   # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
   # `zone` (an IANA name; UTC as shipped, set your own) the server stops
   # itself and the service manager starts it again. `Restart=always` in the
-  # unit (DEPLOY.md) is what makes that a restart. A fresh process every day
+  # unit (DEPLOYMENT.md) is what makes that a restart. A fresh process every day
   # is cheap insurance against whatever a long-running one accumulates.
   nightly_restart:
     enable: true
@@ -156,7 +156,7 @@ mailer:
 # Database Configuration
 database:
   # Database connection URI. Defaults to a SQLite file in the unit's working
-  # directory (the deploy directory, DEPLOY.md), created on first boot
+  # directory (the deploy directory, DEPLOYMENT.md), created on first boot
   # by auto_migrate.
   uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_staging.sqlite?mode=rwc") %>
   # When enabled, the sql query will be logged.

@@ -22,7 +22,7 @@ where you prefer one.
 |-----|------|---------|---------|
 | 2.1 | **cargo-watch** | Only for `cargo loco watch` (server-only reload); `cargo leptos watch -- start` is the normal loop | `cargo install --locked cargo-watch` |
 | 2.2 | **cargo-audit** | Known-vulnerability scan of `Cargo.lock`; CI runs it, `.cargo/audit.toml` lists the ignored advisories | `cargo install --locked cargo-audit` |
-| 2.3 | **cross** | Linux x86_64 binary for a server from another platform (`DEPLOY.md`). Needs Docker; `Cross.toml` pins the build image | `cargo install --locked cross` |
+| 2.3 | **cross** | Linux x86_64 binary for a server from another platform (`DEPLOYMENT.md`). Needs Docker; `Cross.toml` pins the build image | `cargo install --locked cross` |
 | 2.4 | **cargo-binstall** | Installs cargo tools from prebuilt binaries instead of compiling them; CI uses it for cargo-leptos and cargo-audit | `cargo install --locked cargo-binstall` |
 | 2.5 | **loco** | The Loco CLI, only for `loco new` and its generators. Not needed to run this project: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
 
@@ -53,7 +53,7 @@ version is derived from `Cargo.lock` where one applies.
 | # | Tool | Purpose |
 |-----|------|---------|
 | 5.1 | **Docker** | The engine behind `cross` (2.3) on the build machine; nothing else in this template needs it |
-| 5.2 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`DEPLOY.md`); nothing to run locally |
+| 5.2 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`DEPLOYMENT.md`); nothing to run locally |
 
 ## 6. Editor (VS Code)
 

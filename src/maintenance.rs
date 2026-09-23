@@ -13,7 +13,7 @@
 //! flight finish, `on_shutdown` runs, exit status 0. If the signal cannot
 //! be raised, or the platform has no signals, the process exits directly
 //! instead. Either way the restart itself is the unit's `Restart=always`
-//! (`DEPLOY.md`): without that line the stop is just a stop.
+//! (`DEPLOYMENT.md`): without that line the stop is just a stop.
 //!
 //! Deployed environments only: `spawn` refuses to run in development, where
 //! the stop would kill the `cargo leptos watch` server with nothing to

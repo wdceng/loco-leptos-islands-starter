@@ -49,7 +49,7 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 
 ### Reverse Proxy and the Visitor IP
 
-Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which is why the `compression` middleware is off. `config/staging.yaml` and `config/production.yaml` set `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same header, because the reference deployment in `DEPLOY.md` is Cloudflare in front of Caddy. That is a property of the config, not the code, but it is enforced: the limiter refuses to boot a deployed environment keyed on the TCP peer, which behind any proxy is the proxy itself. With a different proxy, change `remote_ip.source` and extend `KeySource` in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in `DEPLOY.md`); `tests/config.rs` and the limiter's tests pin the current mapping.
+Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which is why the `compression` middleware is off. `config/staging.yaml` and `config/production.yaml` set `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same header, because the reference deployment in `DEPLOYMENT.md` is Cloudflare in front of Caddy. That is a property of the config, not the code, but it is enforced: the limiter refuses to boot a deployed environment keyed on the TCP peer, which behind any proxy is the proxy itself. With a different proxy, change `remote_ip.source` and extend `KeySource` in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in `DEPLOYMENT.md`); `tests/config.rs` and the limiter's tests pin the current mapping.
 
 ### Layers
 
@@ -96,14 +96,14 @@ A CDN in front of the app may inject its own HSTS, so a header scan of a proxied
 |------------|----------|---------|--------------|--------|
 | `development` | `app_development.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `DEVELOPMENT.md` |
 | `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `TESTING.md` |
-| `staging` | `app_staging.sqlite` next to the binary | placeholder defaults; the environment may override | `site/`, 60 s; adds `X-Robots-Tag: noindex, nofollow` | `DEPLOY.md` |
-| `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, immutable (requires the `LEPTOS_HASH_FILES=true` build) | `DEPLOY.md` |
+| `staging` | `app_staging.sqlite` next to the binary | placeholder defaults; the environment may override | `site/`, 60 s; adds `X-Robots-Tag: noindex, nofollow` | `DEPLOYMENT.md` |
+| `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, immutable (requires the `LEPTOS_HASH_FILES=true` build) | `DEPLOYMENT.md` |
 
-The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOY.md` sets them.
+The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOYMENT.md` sets them.
 
 ## Nightly Restart
 
-A fresh process every day is cheap insurance against whatever a long-running one accumulates. `src/maintenance.rs` is spawned once per server start from `Hooks::after_routes` in `src/app.rs` (not `after_context`, which Loco's CLI runs before the logger is up and `create_app` runs again). It reads `settings.nightly_restart` (`enable`, `hour`, `zone`, typed in `src/settings.rs`; an unknown zone name or an hour above 23 refuses the boot), sleeps until the next `hour` o'clock in `zone`, and then sends SIGTERM to its own process. That is the signal `systemctl stop` sends, so Loco's graceful shutdown runs: no new connections, requests in flight finish, `on_shutdown` runs, exit status 0. The restart itself is `Restart=always` in the systemd unit (`DEPLOY.md`); without it the stop is just a stop. On a platform without signals, or if raising one fails, the task exits the process directly.
+A fresh process every day is cheap insurance against whatever a long-running one accumulates. `src/maintenance.rs` is spawned once per server start from `Hooks::after_routes` in `src/app.rs` (not `after_context`, which Loco's CLI runs before the logger is up and `create_app` runs again). It reads `settings.nightly_restart` (`enable`, `hour`, `zone`, typed in `src/settings.rs`; an unknown zone name or an hour above 23 refuses the boot), sleeps until the next `hour` o'clock in `zone`, and then sends SIGTERM to its own process. That is the signal `systemctl stop` sends, so Loco's graceful shutdown runs: no new connections, requests in flight finish, `on_shutdown` runs, exit status 0. The restart itself is `Restart=always` in the systemd unit (`DEPLOYMENT.md`); without it the stop is just a stop. On a platform without signals, or if raising one fails, the task exits the process directly.
 
 Development and test never restart, whatever the config says: the stop would kill the `cargo leptos watch` server with nothing to restart it, and the test harness boots the app inside the test process. The shipped configs keep the block off locally as well, and `tests/config.rs` pins that. Daylight saving is handled: a time that does not exist on the spring-forward night makes the loop wait an hour and look again, and a time that happens twice in autumn takes the later instance.
 
@@ -132,7 +132,7 @@ The last one compiles the browser half alone and fails if a server-only crate le
 ## Known Gaps
 
 - The static `404.html` is served with status 200, and in production is cached for the URL that missed, until a real not-found handler replaces Loco's static fallback.
-- A request that reaches the origin directly, bypassing the CDN, could forge `CF-Connecting-IP` until Caddy's `trusted_proxies` or a firewall rule is configured (`DEPLOY.md`).
+- A request that reaches the origin directly, bypassing the CDN, could forge `CF-Connecting-IP` until Caddy's `trusted_proxies` or a firewall rule is configured (`DEPLOYMENT.md`).
 - No stricter per-route rate limit on login and password reset yet; the hook for one is described in `src/middleware/rate_limit.rs`.
 - Magic-link login is limited to two e-mail domains (`EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`).
 - The `ts-rs` TypeScript export in `src/dtos/` is commented out until a TypeScript consumer exists.

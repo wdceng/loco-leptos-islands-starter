@@ -68,7 +68,7 @@ pub fn detect(options: &mut LeptosOptions, env: &Environment) -> Result<Assets> 
             let file = format!("{name}.css");
             if check_disk && pkg_dir.exists() && !pkg_dir.join(&file).exists() {
                 return Err(Error::Message(format!(
-                    "{} has no {file} and no {} exists next to the binary: a hashed build must be deployed together with its hash file (see DEPLOY.md); locally, `cargo leptos build` restores plain names",
+                    "{} has no {file} and no {} exists next to the binary: a hashed build must be deployed together with its hash file (see DEPLOYMENT.md); locally, `cargo leptos build` restores plain names",
                     pkg_dir.display(),
                     hash_path.display()
                 )));

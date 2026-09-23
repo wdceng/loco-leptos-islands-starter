@@ -98,7 +98,7 @@ A binary built on your Mac or Windows machine will not run on a Linux server,
 so the server binary is built for Linux with `cross`, which does the build
 inside a Linux container. The `site/` folder and `hash.txt` are just files
 and work anywhere, so they are built natively. The full walkthrough is in
-`DEPLOY.md`; the two build steps are:
+`DEPLOYMENT.md`; the two build steps are:
 
 ```bash
 LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only   # target/site + target/release/hash.txt, native

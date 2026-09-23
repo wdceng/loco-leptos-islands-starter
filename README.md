@@ -88,7 +88,7 @@ Staging and production restart themselves once a day, at 03:00 UTC as shipped, s
 
 - `DEVELOPMENT.md`: every command, what each environment does, release builds, and the gotchas we ran into.
 - `TESTING.md`: what the tests cover and how to check the security features by hand.
-- `DEPLOY.md`: putting it on a Linux server, step by step, with Caddy for HTTPS. Read this before your first deploy: the staging and production configs assume a reverse proxy in front of the app, and the file explains what to change if yours is different.
+- `DEPLOYMENT.md`: putting it on a Linux server, step by step, with Caddy for HTTPS. Read this before your first deploy: the staging and production configs assume a reverse proxy in front of the app, and the file explains what to change if yours is different.
 - `ARCHITECTURE.md`: the reasoning. The security headers and what each one does, why the database is SQLite, what every crate is for.
 - `PREREQUISITES.md`: every tool, including the optional ones.
 
@@ -96,7 +96,7 @@ Staging and production restart themselves once a day, at 03:00 UTC as shipped, s
 
 - The "page not found" page is served with status 200, not 404, until a proper not-found handler exists.
 - There is no island yet. The wiring is done; the first component is up to you.
-- Behind a proxy, a request that reaches the server directly could fake its IP address for the rate limiter. `DEPLOY.md` explains the fix.
+- Behind a proxy, a request that reaches the server directly could fake its IP address for the rate limiter. `DEPLOYMENT.md` explains the fix.
 
 ## License
 

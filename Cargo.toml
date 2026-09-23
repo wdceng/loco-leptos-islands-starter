@@ -52,7 +52,7 @@ serde_json = { version = "1" }
 # server; `sqlx-postgres` was dropped on purpose, so a `postgres://` URL
 # refuses to boot rather than silently working on one machine only.
 migration = { path = "migration", optional = true }
-sea-orm = { version = "2.0", features = [
+sea-orm = { version = "2.0.3", features = [
   "sqlx-sqlite",
   "runtime-tokio-rustls",
   "macros",

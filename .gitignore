@@ -7,7 +7,7 @@ debug/
 target/
 
 # Linux deploy artifacts (binary, hash.txt, site/) staged by the pipeline
-# in DEPLOY.md before upload.
+# in DEPLOYMENT.md before upload.
 dist/
 
 # include cargo lock

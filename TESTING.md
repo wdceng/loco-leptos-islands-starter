@@ -93,7 +93,7 @@ the auth tests; `insta` snapshots live next to the model and auth tests.
 `.github/workflows/ci.yaml` runs on every push to `main` and on pull
 requests: `cargo fmt --check`, `cargo clippy --all-targets -D warnings`,
 `cargo test`, the wasm32 build below, a full `cargo leptos build`, and
-`cargo audit`. The same list as the pre-deploy checks in `DEPLOY.md`.
+`cargo audit`. The same list as the pre-deploy checks in `DEPLOYMENT.md`.
 `cargo audit` fails on vulnerabilities; the advisories deliberately ignored,
 each with its reason, are listed in `.cargo/audit.toml`.
 
