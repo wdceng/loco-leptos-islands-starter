@@ -39,6 +39,7 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 | Users and auth | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry |
 | Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml` |
 | Background | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
+| Nightly restart | `src/maintenance.rs` | Staging and production stop themselves once a day (`settings.nightly_restart`: hour and zone in `config/<env>.yaml`) and systemd starts them again; development and test never do |
 | Migrations | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
 | Config | `config/<env>.yaml` | development, test, staging, production. Typed app settings (`rate_limit`, `security`) in `src/settings.rs` |
 
@@ -99,6 +100,12 @@ A CDN in front of the app may inject its own HSTS, so a header scan of a proxied
 | `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, immutable (requires the `LEPTOS_HASH_FILES=true` build) | `DEPLOY.md` |
 
 The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOY.md` sets them.
+
+## Nightly Restart
+
+A fresh process every day is cheap insurance against whatever a long-running one accumulates. `src/maintenance.rs` is spawned once per server start from `Hooks::after_routes` in `src/app.rs` (not `after_context`, which Loco's CLI runs before the logger is up and `create_app` runs again). It reads `settings.nightly_restart` (`enable`, `hour`, `zone`, typed in `src/settings.rs`; an unknown zone name or an hour above 23 refuses the boot), sleeps until the next `hour` o'clock in `zone`, and then sends SIGTERM to its own process. That is the signal `systemctl stop` sends, so Loco's graceful shutdown runs: no new connections, requests in flight finish, `on_shutdown` runs, exit status 0. The restart itself is `Restart=always` in the systemd unit (`DEPLOY.md`); without it the stop is just a stop. On a platform without signals, or if raising one fails, the task exits the process directly.
+
+Development and test never restart, whatever the config says: the stop would kill the `cargo leptos watch` server with nothing to restart it, and the test harness boots the app inside the test process. The shipped configs keep the block off locally as well, and `tests/config.rs` pins that. Daylight saving is handled: a time that does not exist on the spring-forward night makes the loop wait an hour and look again, and a time that happens twice in autumn takes the later instance.
 
 ## The Checks CI Runs
 

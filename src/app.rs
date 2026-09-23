@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use axum::Router;
 use leptos::config::get_configuration;
 use loco_rs::{
     Error, Result,
@@ -17,9 +18,8 @@ use loco_rs::{
 use migration::Migrator;
 use std::path::Path;
 
-#[allow(unused_imports)]
 use crate::{
-    assets, controllers, middleware::rate_limit::RateLimit, models::_entities::users,
+    assets, controllers, maintenance, middleware::rate_limit::RateLimit, models::_entities::users,
     settings::Settings, tasks, workers::downloader::DownloadWorker,
 };
 
@@ -81,6 +81,22 @@ impl Hooks for App {
         Ok(ctx)
     }
 
+    /// Once per server start, after the routes exist and the logger is up:
+    /// schedules the nightly restart. Not in `after_context`: Loco's CLI
+    /// runs that before the logger and `create_app` runs it again, so a
+    /// spawn there would run twice and log nowhere. `routes`, `task` and the
+    /// other CLI commands never reach this hook; the test harness does, with
+    /// the restart off in `config/test.yaml` and refused in the test
+    /// environment anyway.
+    async fn after_routes(router: Router, ctx: &AppContext) -> Result<Router> {
+        let settings: Settings = ctx
+            .shared_store
+            .get()
+            .ok_or_else(|| Error::Message("settings missing from shared store".into()))?;
+        maintenance::spawn(&settings.nightly_restart, &ctx.environment)?;
+        Ok(router)
+    }
+
     /// Loco's default, config-driven stack plus the project's own
     /// `rate_limit`, inserted just outside `remote_ip`. Later in the list is
     /// further out on the request path, so the limiter runs inside `logger`,
@@ -108,7 +124,6 @@ impl Hooks for App {
         Ok(())
     }
 
-    #[allow(unused_variables)]
     fn register_tasks(tasks: &mut Tasks) {
         // tasks-inject (do not remove)
         tasks.register(tasks::user_create::UserCreate);

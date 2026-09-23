@@ -28,7 +28,8 @@ two boots at once would fight over the shared context.
   differences: the three `cache_control` values and that they are valid
   headers (Loco would silently fall back to a year), `CfConnectingIp` and
   burst 120 for staging and production, `ConnectInfo` and the live-reload
-  socket locally, `X-Robots-Tag` on staging only, burst 20 in test. Edit a
+  socket locally, `X-Robots-Tag` on staging only, burst 20 in test, the
+  nightly restart off locally and on (hour 3) when deployed. Edit a
   config file, run this first.
 - `tests/mod.rs`: module root, wires the folders below.
 - `tests/models/users.rs`: the users model against the test database:
@@ -69,6 +70,18 @@ two boots at once would fight over the shared context.
   are skipped in the test environment so `cargo test` passes whatever the
   last build left in `target/site`. The request tests run without a hash
   file, so they assert the plain `/pkg/app.css` name.
+- `src/maintenance.rs` (unit tests): the nightly restart's arithmetic. The
+  next restart is today while the hour is still ahead and tomorrow from
+  the hour on; in Europe/Zagreb a time inside the spring-forward gap
+  (2026-03-29 02:30) is `None`, 03:00 that night exists, and a time the
+  autumn night repeats (2026-10-25 02:30) resolves to the later, CET
+  instance; and the local guard (development and test never restart,
+  production and staging may). The stop itself is Loco's ordinary SIGTERM
+  shutdown, checked by hand below.
+- `src/settings.rs` (unit tests): the `settings:` block parses; unknown
+  keys, a CSP without `{nonce}` and a zero rate-limit burst are refused;
+  `nightly_restart` parses a zone name, refuses an unknown one and an hour
+  above 23, and defaults to off when the block is missing.
 - `tests/tasks/user_create.rs`: the `user_create` CLI task. `tests/workers/`
   is an empty Loco starter module.
 
@@ -181,6 +194,22 @@ After a deploy, scan the public host on https://securityheaders.com and
 https://observatory.mozilla.org: CSP and X-Frame-Options must not fail.
 A CDN such as Cloudflare injects its own HSTS and `nosniff` in front of the
 app, so those two appear on the live site even when the origin is down.
+
+### Nightly restart
+
+The timing is unit-tested. What the task does at the hour is send SIGTERM
+to its own process, and that can be watched any time on a running server:
+
+```bash
+cargo build
+./target/debug/app start & sleep 5; kill -TERM $!; wait $!; echo "exit status $?"
+```
+
+Expected: `shutting down...` in the log and exit status 0, which is what the
+unit's `Restart=always` turns into a restart. On a deployed copy,
+`journalctl -u <unit>` shows `nightly restart scheduled for 03:00 UTC` at
+boot and, the next morning, `nightly restart: stopping`, `shutting down...`
+and a fresh boot.
 
 ### Request timeout
 

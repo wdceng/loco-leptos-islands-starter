@@ -17,6 +17,8 @@ pub mod initializers;
 #[cfg(feature = "ssr")]
 pub mod mailers;
 #[cfg(feature = "ssr")]
+pub mod maintenance;
+#[cfg(feature = "ssr")]
 pub mod middleware;
 #[cfg(feature = "ssr")]
 pub mod models;

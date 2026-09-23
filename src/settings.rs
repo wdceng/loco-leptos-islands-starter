@@ -7,6 +7,8 @@
 //! production config is a loud failure rather than a silently disabled limit.
 
 use axum::http::HeaderValue;
+use chrono::NaiveTime;
+use chrono_tz::Tz;
 use loco_rs::{Error, Result, config::Config};
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +19,9 @@ use crate::render::NONCE_PLACEHOLDER;
 pub struct Settings {
     pub rate_limit: RateLimitSettings,
     pub security: SecuritySettings,
+    /// Optional: a config without the block has no nightly restart.
+    #[serde(default)]
+    pub nightly_restart: NightlyRestartSettings,
 }
 
 /// Headers the app sets itself, as opposed to Loco's `secure_headers`
@@ -39,6 +44,48 @@ pub struct RateLimitSettings {
     /// Bucket size: how many requests a visitor may make at once before the
     /// sustained rate applies.
     pub burst: u32,
+}
+
+/// Nightly restart (src/maintenance.rs): the server stops itself once a day
+/// at `hour` o'clock in `zone` and the service manager starts it again.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct NightlyRestartSettings {
+    pub enable: bool,
+    /// Hour of the day, 0 to 23, in `zone`.
+    pub hour: u32,
+    /// IANA zone name (`UTC`, `Europe/Zagreb`); a name chrono-tz does not
+    /// know refuses the boot.
+    pub zone: Tz,
+}
+
+impl Default for NightlyRestartSettings {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            hour: 3,
+            zone: Tz::UTC,
+        }
+    }
+}
+
+impl NightlyRestartSettings {
+    fn validate(&self) -> Result<()> {
+        if self.enable && self.hour > 23 {
+            return Err(Error::Message(format!(
+                "config: settings.nightly_restart.hour must be 0 to 23, got {}",
+                self.hour
+            )));
+        }
+        Ok(())
+    }
+
+    /// The restart as a time of day. `None` only for an hour out of range,
+    /// which [`Self::validate`] rejects at boot.
+    #[must_use]
+    pub fn time(&self) -> Option<NaiveTime> {
+        NaiveTime::from_hms_opt(self.hour, 0, 0)
+    }
 }
 
 impl Settings {
@@ -66,6 +113,7 @@ impl Settings {
             .map_err(|e| Error::Message(format!("config: invalid `settings:` block: {e}")))?;
         settings.rate_limit.validate()?;
         settings.security.validate()?;
+        settings.nightly_restart.validate()?;
         Ok(settings)
     }
 }
@@ -188,5 +236,60 @@ mod tests {
         })))
         .expect_err("newline cannot go into a header");
         assert!(err.to_string().contains("header value"), "{err}");
+    }
+
+    fn rate_limit() -> Value {
+        json!({ "enable": true, "per_second": 1, "burst": 5 })
+    }
+
+    #[test]
+    fn nightly_restart_parses_a_zone_name() {
+        let s = Settings::from_value(Some(&json!({
+            "rate_limit": rate_limit(),
+            "security": security(),
+            "nightly_restart": { "enable": true, "hour": 3, "zone": "Europe/Zagreb" }
+        })))
+        .expect("valid settings");
+        assert!(s.nightly_restart.enable);
+        assert_eq!(s.nightly_restart.hour, 3);
+        assert_eq!(s.nightly_restart.zone, chrono_tz::Europe::Zagreb);
+    }
+
+    #[test]
+    fn nightly_restart_is_off_when_the_block_is_missing() {
+        let s = Settings::from_value(Some(&json!({
+            "rate_limit": rate_limit(),
+            "security": security()
+        })))
+        .expect("the block is optional");
+        assert!(!s.nightly_restart.enable);
+    }
+
+    #[test]
+    fn nightly_restart_unknown_zone_is_an_error() {
+        let err = Settings::from_value(Some(&json!({
+            "rate_limit": rate_limit(),
+            "security": security(),
+            "nightly_restart": { "enable": true, "hour": 3, "zone": "Mars/Olympus" }
+        })))
+        .expect_err("an unknown zone must fail");
+        assert!(err.to_string().contains("settings"), "{err}");
+    }
+
+    #[test]
+    fn nightly_restart_hour_out_of_range_is_an_error_when_enabled() {
+        let err = Settings::from_value(Some(&json!({
+            "rate_limit": rate_limit(),
+            "security": security(),
+            "nightly_restart": { "enable": true, "hour": 24, "zone": "UTC" }
+        })))
+        .expect_err("hour 24 must fail");
+        assert!(err.to_string().contains("hour"), "{err}");
+        Settings::from_value(Some(&json!({
+            "rate_limit": rate_limit(),
+            "security": security(),
+            "nightly_restart": { "enable": false, "hour": 24, "zone": "UTC" }
+        })))
+        .expect("a disabled restart needs no valid hour");
     }
 }

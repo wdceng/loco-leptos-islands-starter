@@ -82,6 +82,8 @@ What people see: `APP_NAME` in `src/views/layout.rs` sets the title, header and 
 
 One thing to know: magic-link login only accepts `@example.com` and `@gmail.com` addresses, because that is how Loco's starter ships. The list is `EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`.
 
+Staging and production restart themselves once a day, at 03:00 UTC as shipped, so no process runs for weeks on end. The hour and the time zone are the `nightly_restart` block in `config/staging.yaml` and `config/production.yaml`; set the zone to your own, for example `Europe/Zagreb`.
+
 ## Going further
 
 - `DEVELOPMENT.md`: every command, what each environment does, release builds, and the gotchas we ran into.

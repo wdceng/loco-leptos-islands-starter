@@ -159,3 +159,8 @@ Things that cost us time once, so they do not cost you time twice.
 - Two preludes export a type called `Error`. In files that use both Loco and
   Leptos, import Leptos items by name instead of `leptos::prelude::*`.
 - `as` and `type` are Rust keywords: inside `view!` write `r#as` and `r#type`.
+- Staging and production stop themselves once a day (`settings.nightly_restart`
+  in the config, `src/maintenance.rs`) and rely on the unit's
+  `Restart=always` to come back. Development and test never do, even with
+  `enable: true`, so a `cargo leptos watch` left running overnight is still
+  there in the morning.

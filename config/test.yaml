@@ -71,6 +71,12 @@ settings:
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none'
+  # Nightly restart (src/maintenance.rs): off, the harness boots the app
+  # inside the test process, and the app ignores the flag in test anyway.
+  nightly_restart:
+    enable: false
+    hour: 3
+    zone: UTC
 
 # Worker Configuration
 workers:

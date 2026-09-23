@@ -117,6 +117,15 @@ settings:
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none'
+  # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
+  # `zone` (an IANA name; UTC as shipped, set your own) the server stops
+  # itself and the service manager starts it again. Off locally: nothing
+  # would restart the dev loop, and the app ignores the flag in development
+  # and test anyway.
+  nightly_restart:
+    enable: false
+    hour: 3
+    zone: UTC
 
 # Worker Configuration
 workers:

@@ -115,6 +115,15 @@ settings:
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none'
+  # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
+  # `zone` (an IANA name; UTC as shipped, set your own) the server stops
+  # itself and the service manager starts it again. `Restart=always` in the
+  # unit (DEPLOY.md) is what makes that a restart. A fresh process every day
+  # is cheap insurance against whatever a long-running one accumulates.
+  nightly_restart:
+    enable: true
+    hour: 3
+    zone: UTC
 
 # Worker Configuration
 workers:

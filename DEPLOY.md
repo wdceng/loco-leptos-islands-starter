@@ -142,19 +142,28 @@ prints its help and exits, and `Restart=always` would loop forever. Keep
 `BINDING=127.0.0.1`: `0.0.0.0` would bind the port publicly and bypass
 Caddy.
 
+The app also stops itself once a day, at `nightly_restart.hour` in
+`config/<env>.yaml` (03:00 UTC as shipped; `src/maintenance.rs`), and
+`Restart=always` is what starts it again: keep that line. `RestartSec=5` is
+the nightly downtime. The journal shows `nightly restart scheduled for
+03:00 UTC` at boot and, at the hour, `nightly restart: stopping` followed by
+Loco's `shutting down...` and a fresh boot.
+
 ### Enable and start (on the server)
 
 ```bash
 systemctl daemon-reload && systemctl enable --now <unit> && systemctl status <unit>
 ```
 
-Three boot refusals and what they mean:
+Boot refusals and what they mean:
 
 | Message | Cause |
 |---|---|
 | `one of the static path are not found` | `site/` upload missing or incomplete (`must_exist: true` in staging and production) |
 | `a hashed build must be deployed together with its hash file` | `hash.txt` not uploaded |
 | `the hash file is stale` | `hash.txt` and `site/` come from different builds |
+| `invalid settings: block: failed to parse timezone` | `nightly_restart.zone` is not an IANA zone name (`UTC`, `Europe/Zagreb`) |
+| `settings.nightly_restart.hour must be 0 to 23` | the restart hour is out of range |
 
 ## Caddy
 
@@ -227,7 +236,9 @@ ssh <user>@<host> "ss -tln | grep -E ':(80|443|<port>)\b'"
 ```
 
 To run by hand, stop the unit first, otherwise `Restart=always` keeps a
-second copy fighting for the port:
+second copy fighting for the port. Without systemd the nightly stop is just
+a stop: at the restart hour the process exits and nothing starts it again,
+which is fine for a short session:
 
 ```bash
 systemctl stop <unit> && cd <app-dir> &&

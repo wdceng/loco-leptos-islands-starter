@@ -97,6 +97,17 @@ console_error_panic_hook = { version = "0.1", optional = true }
 tower_governor = { version = "0.8", default-features = false, features = [
   "axum",
 ], optional = true }
+# Nightly restart (src/maintenance.rs): the hour is read in a fixed IANA
+# zone from config, not the server's local time. `serde` lets the zone name
+# deserialize straight into a `Tz`, so a typo refuses to boot. Already in
+# the graph through loco-rs, so no extra compile. Server only.
+chrono-tz = { version = "0.10", features = ["serde"], optional = true }
+
+# The nightly restart stops the server by sending SIGTERM to its own
+# process, so Loco's graceful shutdown runs and requests in flight finish.
+# Unix only; elsewhere src/maintenance.rs falls back to a plain exit.
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", features = ["signal"], optional = true }
 
 [features]
 # Plain `cargo build` / `cargo test` / `cargo loco start` build the server.
@@ -125,6 +136,8 @@ ssr = [
   "dep:ts-rs",
   "dep:include_dir",
   "dep:tower_governor",
+  "dep:chrono-tz",
+  "dep:nix",
 ]
 hydrate = [
   "leptos/hydrate",

@@ -143,6 +143,7 @@ dependencies = [
  "async-trait",
  "axum",
  "chrono",
+ "chrono-tz 0.10.4",
  "console_error_panic_hook",
  "include_dir",
  "insta",
@@ -150,6 +151,7 @@ dependencies = [
  "leptos_axum",
  "loco-rs",
  "migration",
+ "nix",
  "regex",
  "rstest",
  "sea-orm",
@@ -908,6 +910,7 @@ checksum = "a6139a8597ed92cf816dfb33f5dd6cf0bb93a6adc938f11039f371bc5bcd26c3"
 dependencies = [
  "chrono",
  "phf 0.12.1",
+ "serde",
 ]
 
 [[package]]

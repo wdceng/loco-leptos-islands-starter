@@ -308,6 +308,22 @@ fn only_staging_hides_from_search_engines() {
     }
 }
 
+/// The nightly restart (src/maintenance.rs) must be off wherever nothing
+/// would restart the process: locally, and in the test harness.
+#[rstest]
+#[case::development(Environment::Development, false)]
+#[case::test_env(Environment::Test, false)]
+#[case::staging(staging(), true)]
+#[case::production(Environment::Production, true)]
+fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] enabled: bool) {
+    let settings = Settings::from_config(&load(&env)).expect("settings");
+    assert_eq!(
+        settings.nightly_restart.enable, enabled,
+        "{env}: nightly_restart.enable"
+    );
+    assert_eq!(settings.nightly_restart.hour, 3, "{env}: agreed hour");
+}
+
 /// The request tests count on this: twenty requests pass, the next is a 429.
 /// Large enough that the auth tests (register, verify, login, then the call
 /// under test) never trip it.
