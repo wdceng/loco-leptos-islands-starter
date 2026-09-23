@@ -29,6 +29,17 @@ async fn home_renders_html() {
             body.contains(&format!("© {year} {APP_NAME}")),
             "footer year missing or stale:\n{body}"
         );
+        // One <h1> per page, and the skip link points at an element that
+        // exists.
+        assert_eq!(
+            body.matches("<h1").count(),
+            1,
+            "a page has exactly one <h1>:\n{body}"
+        );
+        assert!(
+            body.contains("href=\"#content\"") && body.contains("id=\"content\""),
+            "skip link or its target missing:\n{body}"
+        );
         // The shell must wire up the islands bundle and the stylesheet. No
         // hash file sits next to the test binary, so the names are plain.
         assert!(

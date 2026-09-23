@@ -6,6 +6,7 @@
 cargo test                                   # all
 cargo test home_renders_html                 # one, by name
 cargo test -- --nocapture                    # show println! output
+cargo nextest run                            # the same suite under nextest
 ```
 
 Request tests use Loco's harness: `request::<App, _, _>(|request, ctx| ...)`
@@ -16,7 +17,12 @@ requests to it. No server, port or browser is involved. The database is
 second.
 
 `#[serial]` on every request test is required: each one boots the app, and
-two boots at once would fight over the shared context.
+two boots at once would fight over the shared context. Under cargo-nextest
+every test is its own process and that lock reaches nothing, so
+`.config/nextest.toml` pins the binary built from `tests/mod.rs` to one
+thread instead; the unit tests and the config canary still run in parallel.
+Without it the boots race on `app_test.sqlite` and fail with
+`UNIQUE constraint failed: seaql_migrations.version` or `no such table`.
 
 **Test files:**
 - `tests/config.rs`: the config canary. Loads each `config/<env>.yaml`
@@ -43,7 +49,7 @@ two boots at once would fight over the shared context.
   `tests/requests/prepare_data.rs` holds the shared setup.
 - `tests/requests/home.rs`: the home page. Asserts a 200 with an HTML content
   type, a real document (doctype, `lang="en"`), the app name (`APP_NAME`),
-  the islands loader script, the wasm file name it loads (`app.wasm`,
+  exactly one `<h1>`, the skip link and its target, the islands loader script, the wasm file name it loads (`app.wasm`,
   guarding the compile-time `LEPTOS_OUTPUT_NAME` gotcha), and the footer
   year computed at render time.
 - `tests/requests/robots.rs`: `/robots.txt` over HTTP in the test environment
@@ -97,14 +103,15 @@ requests: `cargo fmt --check`, `cargo clippy --all-targets -D warnings`,
 `cargo audit` fails on vulnerabilities; the advisories deliberately ignored,
 each with its reason, are listed in `.cargo/audit.toml`.
 
-### Browser half compile check
+### Browser half lint
 
-The normal build and test only compile the server. This compiles the library
-for wasm32 with only the `hydrate` feature and fails if any server-only
-dependency leaked out of the `ssr` gate:
+The normal build and test only compile the server. This lints the library
+for wasm32 with only the `hydrate` feature: it fails if any server-only
+dependency leaked out of the `ssr` gate, and it is the only pass that sees
+the islands:
 
 ```bash
-cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
 
 ## Manual Testing
@@ -134,7 +141,9 @@ Open http://localhost:5150 with the developer console open. Expected: no
 errors, no warning about a missing island function, and the wasm and JS
 requests visible in the network tab. Once an island exists (a login form,
 say), interact with it: a working island proves the whole chain, server
-markers, bundle load, `hydrate()`, hydration.
+markers, bundle load, `hydrate()`, hydration. An island lives in
+`src/islands.rs`; one written in `views/` is exactly what produces that
+missing-function warning.
 
 ### Rate limiting
 
@@ -241,4 +250,7 @@ milliseconds. Remove the handler afterwards.
   replaces the static fallback.
 - The first island (a login or registration form): validation rejects bad
   input, a valid submission reaches the JSON API, a stricter per-route rate
-  limit blocks a burst. The natural home for `rstest`.
+  limit blocks a burst. The natural home for `rstest`. Its request test
+  asserts the server render: `<leptos-island data-component="Name_` (the
+  prefix only, the name carries a hash) and `<leptos-children>`, which
+  proves the content was passed as children and stayed out of the wasm.

@@ -67,12 +67,16 @@ pub fn shell(
                 <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png"/>
                 <link rel="manifest" href="/favicon/site.webmanifest"/>
                 // Tints the browser's own bars (Safari, Chrome on Android).
-                // The page's surface colour, so the bars blend with the
-                // page instead of framing it in brand blue; the manifest
-                // keeps the blue theme_color for the installed app.
-                <meta name="theme-color" content="#f1f3f5"/>
-                // iOS home-screen install: full-screen launch and the label
-                // under the icon. Android takes both from the manifest.
+                // The page's surface colour (Tailwind slate-100 as hex; see
+                // --color-surface in style/tailwind.css), so the bars blend
+                // with the page instead of framing it in brand blue; the
+                // manifest keeps the blue theme_color for the installed app.
+                <meta name="theme-color" content="#f1f5f9"/>
+                // Home-screen install, full-screen launch: the standard tag
+                // (Chrome warns when it is missing) and Apple's original,
+                // which older iOS still needs. The label under the icon is
+                // the Apple tag below; Android takes it from the manifest.
+                <meta name="mobile-web-app-capable" content="yes"/>
                 <meta name="apple-mobile-web-app-capable" content="yes"/>
                 <meta name="apple-mobile-web-app-title" content=APP_NAME/>
                 <link rel="stylesheet" href=stylesheet/>
@@ -83,14 +87,25 @@ pub fn shell(
                 // wakes up only the `#[island]` components on the page.
                 <HydrationScripts options islands=true/>
             </head>
-            <body class="min-h-dvh bg-surface text-ink">
+            // No background colour here: the page colour is on <html> and the
+            // bottom glow is a fixed box behind the body (style/tailwind.css);
+            // a body background would paint over it.
+            <body class="min-h-dvh text-ink">
+                // First focusable element: keyboard and screen-reader users
+                // jump past the navigation. Invisible until it has focus.
+                <a
+                    href="#content"
+                    class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-white"
+                >
+                    "Skip to content"
+                </a>
                 // The landmarks live here, once. Pages supply only what goes
                 // inside <main>. All three share the prose column for now;
                 // header and footer can take a wider frame later.
                 <header class=format!("{COLUMN} py-6")>
                     <a href="/" class="font-semibold">{APP_NAME}</a>
                 </header>
-                <main class=format!("{COLUMN} py-16")>
+                <main id="content" class=format!("{COLUMN} py-16")>
                     {page}
                 </main>
                 <footer class=format!("{COLUMN} py-6 text-sm text-ink-muted")>

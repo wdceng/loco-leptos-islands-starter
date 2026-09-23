@@ -2,6 +2,10 @@
 //! server, and with `hydrate` into the browser bundle that wakes up the
 //! Leptos islands. Everything below the first gate is server only.
 
+// Compiled in both halves: the server renders an island, the browser
+// hydrates it. The only module without a gate.
+pub mod islands;
+
 #[cfg(feature = "ssr")]
 pub mod app;
 #[cfg(feature = "ssr")]

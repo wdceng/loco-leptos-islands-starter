@@ -41,8 +41,10 @@ middlewares are on, whether the config is valid.
 ```bash
 cargo loco routes                          # every URL the app answers
 cargo loco middleware                      # middleware on/off per config
+cargo loco middleware -c                   # the same, with each middleware's settings
 cargo loco doctor                          # config and environment check
 LOCO_ENV=staging cargo loco middleware     # same, for another environment
+LOCO_CONFIG_FOLDER=/path/to/copy cargo loco start   # boot against an edited copy of config/, e.g. to see a refusal
 ```
 
 ## Lint and Format
@@ -55,11 +57,26 @@ cargo clippy --all-targets
 cargo fmt
 ```
 
-Compile check of the browser half on its own. Catches a server-only
-dependency leaking out of the `ssr` gate, which the normal build would not:
+Lint the browser half on its own. It catches a server-only dependency
+leaking out of the `ssr` gate, and it is the only pass that sees code under
+`hydrate` (the islands); the normal clippy run never compiles it:
 ```bash
-cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
+
+## Database and Tasks
+
+```bash
+cargo loco db status              # which migrations have run
+cargo loco db migrate             # apply pending migrations
+cargo loco db reset               # drop every table and reapply all migrations (development only)
+cargo loco db entities            # regenerate src/models/_entities/ from the schema (needs sea-orm-cli)
+cargo loco task user_create       # run a task; `cargo loco task` alone lists them
+```
+`auto_migrate: true` in every config applies pending migrations at boot, so
+`migrate` by hand is for a stopped server or a fresh database file.
+`entities` is the one command that needs an extra tool, `sea-orm-cli`
+(`PREREQUISITES.md`).
 
 ## Tests
 
@@ -83,8 +100,11 @@ LEPTOS_HASH_FILES=true cargo leptos build --release
 ```
 Produces `target/release/app`, `target/release/hash.txt` and `target/site/`
 with hashed names (`pkg/app.<hash>.css` and so on). The wasm uses the
-`wasm-release` profile plus wasm-opt; with no island in the crate the bundle
-is only the hydration loader, a few tens of kilobytes.
+`wasm-release` profile plus wasm-opt. For reference: with no island the
+bundle is the hydration loader alone, about 66 KB raw, 28 KB gzipped. The
+first island brings in the Leptos reactive runtime, about 125 KB raw, 52 KB
+gzipped, 44 KB Brotli, plus 14 KB of JS glue (4.5 KB gzipped). Later islands
+share that runtime, so they cost far less than the first.
 
 `LEPTOS_HASH_FILES=true` is what every release build uses: cargo-leptos
 renames its outputs after their content hash and writes the hashes to
@@ -166,6 +186,10 @@ Things that cost us time once, so they do not cost you time twice.
 - Two preludes export a type called `Error`. In files that use both Loco and
   Leptos, import Leptos items by name instead of `leptos::prelude::*`.
 - `as` and `type` are Rust keywords: inside `view!` write `r#as` and `r#type`.
+- An island only hydrates if it lives in `src/islands.rs`, the one module
+  compiled for the browser. An `#[island]` in `src/views/` renders on the
+  server, then the browser warns about a missing island function and
+  nothing happens.
 - Staging and production stop themselves once a day (`settings.nightly_restart`
   in the config, `src/maintenance.rs`) and rely on the unit's
   `Restart=always` to come back. Development and test never do, even with

@@ -43,6 +43,7 @@ Two things you may want soon:
 | You want to... | Look in |
 |---|---|
 | Change what a page shows | `src/views/` |
+| Add something interactive (an island) | `src/islands.rs` |
 | Add a URL or decide what it answers | `src/controllers/` |
 | Change the database or add a table | `src/models/` and `migration/` |
 | Change the e-mails the app sends | `src/mailers/auth/` |
@@ -62,9 +63,13 @@ Save, and http://localhost:5150/about is live. `cargo loco routes` prints every 
 
 ## Your first island
 
-Say you want a button that counts clicks. That needs code running in the browser.
+Say you want a button that shows and hides a paragraph. That needs code running in the browser.
 
-Write the component as usual, but with `#[island]` instead of `#[component]`. That is the whole change: the build tool compiles it for the browser too, and the page wakes it up after loading. Two rules to keep in mind: anything you pass into an island as a prop has to be plain data (a `String`, a number, a struct with `#[derive(Serialize, Deserialize)]`), and an island cannot touch server-only things like the database. Fetch what it needs from the JSON API instead.
+Write the component in `src/islands.rs` with `#[island]` instead of `#[component]`, then use it from a view like any other component. The file matters: `src/islands.rs` is the one module compiled for the browser as well as the server. A component in `src/views/` is compiled for the server only, so an `#[island]` there renders fine but never wakes up in the browser.
+
+Three rules keep it small and working. Pass the content in as `children` (`pub fn ShowMore(children: Children)`): children are rendered on the server and never travel to the browser, so the island stays a thin wrapper around them. Anything you pass as a prop has to be plain data (a `String`, a number, a struct with `#[derive(Serialize, Deserialize)]`). And an island cannot touch server-only things like the database; fetch what it needs from the JSON API instead.
+
+The page wraps every island in a `<leptos-island>` element; the stylesheet already makes those invisible to layout, so grids and flex rows are not disturbed. Check that both halves compile cleanly with `cargo clippy --all-targets` and `cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate`.
 
 The template ships without any island on purpose, so the first one is yours.
 
@@ -76,9 +81,9 @@ If you are curious why things are built the way they are, `ARCHITECTURE.md` expl
 
 ## Make it yours
 
-The project is called `app` in a handful of places. To rename it, search the repo for `app` in `Cargo.toml`, `.cargo/config.toml`, `src/bin/main.rs`, `examples/playground.rs`, the `tests/` folder, `public/404.html`, `src/middleware/rate_limit.html` and the `app_<env>.sqlite` lines in `config/*.yaml`. Or leave it; nothing breaks if you keep the name.
+The project is called `app` in a handful of places. To rename it, search the repo for `app` in `Cargo.toml`, `.cargo/config.toml`, `src/bin/main.rs`, `examples/playground.rs`, the `tests/` folder, `public/404.html`, `src/middleware/rate_limit.html`, the `app_<env>.sqlite` lines in `config/*.yaml`, the `LEPTOS_OUTPUT_NAME=app` and `ExecStart=<app-dir>/app start` lines of the unit in `DEPLOYMENT.md`, and the `target/release/app` and `target/debug/app` commands in `DEVELOPMENT.md` and `TESTING.md`. Keep the binary named exactly like the package: cargo-leptos trips over Loco's default `-cli` suffix, and a `LEPTOS_OUTPUT_NAME` that does not match the new name makes production link asset files that do not exist. Or leave it; nothing breaks if you keep the name.
 
-What people see: `APP_NAME` in `src/views/layout.rs` sets the title, header and footer. The page description is in `src/controllers/home.rs`, the tagline in `src/views/home.rs`, the icons in `public/favicon/`, and the app name for phone home screens in `public/favicon/site.webmanifest`.
+What people see: `APP_NAME` in `src/views/layout.rs` sets the title, header and footer. The page description is in `src/controllers/home.rs`, the tagline in `src/views/home.rs`, the icons in `public/favicon/`, and the app name for phone home screens in `public/favicon/site.webmanifest`. Colours live in `style/tailwind.css`: one brand colour (`--color-primary`) and a few role tokens on top of Tailwind's default palette. The page background is repeated as a hex value in two places, the `theme-color` tag in `src/views/layout.rs` and `background_color` in the manifest, so change all three together.
 
 One thing to know: magic-link login only accepts `@example.com` and `@gmail.com` addresses, because that is how Loco's starter ships. The list is `EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`.
 

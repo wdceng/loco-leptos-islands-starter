@@ -40,7 +40,8 @@ hashes in that file, which the app reads at boot (`src/assets.rs`) to link
 the right names. Every deploy is therefore a new URL for each asset, which is
 what lets production cache them for a year. The binary refuses to boot when
 `site/` holds hashed names and the file is missing next to it, or when the
-two come from different builds.
+two come from different builds. Minification is not a step: a release build
+minifies the stylesheet, the JS glue and the wasm itself.
 
 No `.env` file: Loco does not read one. The non-secret variables live in the
 systemd unit and the secrets in `secrets.env`, which the unit puts into the
@@ -73,7 +74,7 @@ they differ:
 
 ```bash
 cargo clippy --all-targets && cargo test &&
-cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
 
 Before a **production** deploy, two more gates. `cargo audit`, because
@@ -130,12 +131,24 @@ travel with the binary. `cross` reads `.cargo/config.toml` inside its
 container, so the compile-time `LEPTOS_OUTPUT_NAME` is the same as in a
 native build.
 
+The binary links against the glibc of the `cross` image. The `:main` tag in
+`Cross.toml` needs glibc 2.39 or newer at the time of writing (measured on a
+build from this file): Debian 13 and Ubuntu 24.04 run it, Debian 12 and
+Ubuntu 22.04 fail at start with `version GLIBC_2.39 not found`. `:main` is a
+moving tag, so check both sides rather than trusting the number here:
+
+```bash
+strings dist/app | grep -oE 'GLIBC_[0-9.]+' | sort -Vu | tail -1   # what the binary needs
+ssh <user>@<host> "ldd --version | head -1"                        # what the server has; must be at least that
+```
+
 ## One-Time Server Setup
 
-### Step 0: Check the Port Is Free (on the server)
+### Step 0: Check the Port and the glibc (on the server)
 
 ```bash
 ss -tlnp | grep ':<port>\b' || echo "<port> free"
+ldd --version | head -1    # at least the GLIBC_ version the binary needs (see "Build the Artifacts")
 ```
 
 If something is listening, pick another port and change it in two places
@@ -404,7 +417,9 @@ start.
 `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same
 header, because the reference deployment proxies the domain through
 Cloudflare. Cloudflare overwrites `CF-Connecting-IP` at the edge; Caddy
-passes it through unchanged. Consequences:
+passes it through unchanged. Loco trusts exactly one `remote_ip.source`,
+with no list of trusted proxies, so that header has to be trustworthy end
+to end. Consequences:
 
 - `curl` from outside may hit a challenge page if one is enabled for the
   zone; smoke-test on the server instead.
@@ -423,11 +438,14 @@ passes it through unchanged. Consequences:
 
 ### Without Cloudflare
 
-With Caddy alone in front of the app, the peer address Loco sees is Caddy's,
-so `CfConnectingIp` would key every visitor on a header nobody sets and
-`ConnectInfo` would put every visitor into one rate-limit bucket. The rate
-limiter refuses to boot a deployed environment keyed on the peer. Supporting
-`X-Forwarded-For` (Loco's `XForwardedFor` source) means extending `KeySource`
-in `src/middleware/rate_limit.rs` and its config-to-key mapping; the request
-tests for the limiter and `tests/config.rs` pin the current behaviour and
-must change with it.
+With Caddy alone in front of the app, the peer address Loco sees is Caddy's.
+Keeping `CfConnectingIp` would then be wrong in two ways: Caddy passes a
+client's own `CF-Connecting-IP` header through, so any client can choose its
+rate-limit bucket by sending one, and every client that sends none falls back
+to Caddy's address and shares a single bucket. `ConnectInfo` is no better
+behind a proxy, which is why the rate limiter refuses to boot a deployed
+environment keyed on the peer. The right source for a plain Caddy setup is
+`X-Forwarded-For`, which Loco calls `RightmostXForwardedFor`; supporting it
+means extending `KeySource` in `src/middleware/rate_limit.rs` and its
+config-to-key mapping, and the request tests for the limiter and
+`tests/config.rs` pin the current behaviour and must change with it.

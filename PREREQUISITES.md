@@ -25,6 +25,9 @@ where you prefer one.
 | 2.3 | **cross** | Linux x86_64 binary for a server from another platform (`DEPLOYMENT.md`). Needs Docker; `Cross.toml` pins the build image | `cargo install --locked cross` |
 | 2.4 | **cargo-binstall** | Installs cargo tools from prebuilt binaries instead of compiling them; CI uses it for cargo-leptos and cargo-audit | `cargo install --locked cargo-binstall` |
 | 2.5 | **loco** | The Loco CLI, only for `loco new` and its generators. Not needed to run this project: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
+| 2.6 | **cargo-nextest** | Runs the suite one test per process (`cargo nextest run`); `.config/nextest.toml` keeps the app-booting tests on one thread | `cargo install --locked cargo-nextest` |
+| 2.7 | **cargo-sweep** | Cleans old artifacts out of `target/`, which holds native, wasm32 and cross builds | `cargo install --locked cargo-sweep` |
+| 2.8 | **sea-orm-cli** | Only for `cargo loco db entities` (regenerating `src/models/_entities/`); `cargo loco doctor` reports it missing otherwise | `cargo install --locked sea-orm-cli` |
 
 On an arm64 host (Apple Silicon and others) `cross` emulates x86_64 and the
 default image tag has no arm64 manifest; pull the pinned one once with
@@ -61,6 +64,9 @@ version is derived from `Cargo.lock` where one applies.
 |-----|-----------|---------|
 | 6.1 | **rust-analyzer** | Rust language support |
 | 6.2 | **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss`) | Class completion and hover previews inside `view!` macros; `.vscode/settings.json` already maps Rust files for it |
+
+`.vscode/extensions.json` recommends both, so VS Code offers to install them
+when the folder is opened.
 
 ## Verify
 

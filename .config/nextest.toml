@@ -1,0 +1,16 @@
+# cargo-nextest runs every test in its own process, so `#[serial]`, a lock
+# inside one process, no longer keeps the tests that boot the app apart, and
+# they race on the shared app_test.sqlite ("UNIQUE constraint failed:
+# seaql_migrations.version", "no such table: seaql_migrations"). This pins
+# the integration-test binary built from tests/mod.rs (the request, model and
+# task tests, every one of which boots the app) to a single thread. The unit
+# tests in the library and the config canary in tests/config.rs boot nothing
+# and still run in parallel. `cargo test` needs none of this: one process,
+# `#[serial]` does the job.
+
+[test-groups]
+boots-the-app = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'binary_id(app::mod)'
+test-group = 'boots-the-app'

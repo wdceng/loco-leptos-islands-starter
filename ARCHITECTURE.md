@@ -22,9 +22,9 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 
 **Rust + Loco** - Rails-style framework on top of Axum and tower, generated from the `SaaS` starter. Loco supplies the app skeleton: per-environment YAML config, the middleware stack, Sea-ORM with migrations, JWT auth, the mailer, background workers, the CLI (`start`, `routes`, `middleware`, `doctor`, `db`, `task`) and tracing setup. Loco controllers own every URL: page controllers render one Leptos page each, the auth controller answers JSON under `/api/auth`.
 
-**Leptos (islands mode)** - Views are type-checked Rust components rendered to HTML on the server. Pages are plain static HTML by default. Only components marked `#[island]` are hydrated in the browser, so the WebAssembly bundle contains just those components, not the whole site. The template ships no island: the wiring is complete (`islands` feature, `hydrate_islands()` in `src/lib.rs`, `<HydrationScripts options islands=true/>` in the shell), so the first `#[island]` you add hydrates without further setup. Until then the bundle is only the loader.
+**Leptos (islands mode)** - Views are type-checked Rust components rendered to HTML on the server. Pages are plain static HTML by default. Only components marked `#[island]` are hydrated in the browser, so the WebAssembly bundle contains just those components, not the whole site. The template ships no island: the wiring is complete (`islands` feature, `hydrate_islands()` in `src/lib.rs`, `<HydrationScripts options islands=true/>` in the shell), so the first `#[island]` you add hydrates without further setup, provided it lives in `src/islands.rs`, the one module compiled in both halves; everything under `views/` is server only. Until then the bundle is only the loader.
 
-**Tailwind CSS v4** - Utility classes written directly in `view!` macros. cargo-leptos runs the Tailwind standalone binary as part of the build, so there is no Node or npm; only classes actually used end up in the stylesheet, which is emitted next to the islands bundle. Inter font family, self-hosted.
+**Tailwind CSS v4** - Utility classes written directly in `view!` macros. cargo-leptos runs the Tailwind standalone binary as part of the build, so there is no Node or npm; only classes actually used end up in the stylesheet, which is emitted next to the islands bundle. Inter font family, self-hosted. Colours are Tailwind's default palette, untouched, plus one brand colour and a handful of role tokens (`primary`, `surface`, `ink`, `ink-muted`, `line`, `card`) defined in `style/tailwind.css`; views use the tokens only, never a scale step, so the palette changes in one place.
 
 **Hashed asset names** - A release is built with `LEPTOS_HASH_FILES=true cargo leptos build --release`. cargo-leptos then names the bundle and stylesheet after their content hash and writes `hash.txt`, which the app reads at boot (`src/assets.rs`) to link the right names. Production's one-year cache depends on this, so a release must always be built that way. Nothing in `Cargo.toml` turns hashing on, deliberately: the watch loop hashes only its first build and would go stale afterwards.
 
@@ -49,7 +49,7 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 
 ### Reverse Proxy and the Visitor IP
 
-Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which is why the `compression` middleware is off. `config/staging.yaml` and `config/production.yaml` set `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same header, because the reference deployment in `DEPLOYMENT.md` is Cloudflare in front of Caddy. That is a property of the config, not the code, but it is enforced: the limiter refuses to boot a deployed environment keyed on the TCP peer, which behind any proxy is the proxy itself. With a different proxy, change `remote_ip.source` and extend `KeySource` in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in `DEPLOYMENT.md`); `tests/config.rs` and the limiter's tests pin the current mapping.
+Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which is why the `compression` middleware is off. `config/staging.yaml` and `config/production.yaml` set `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same header, because the reference deployment in `DEPLOYMENT.md` is Cloudflare in front of Caddy. Loco 1.1 trusts exactly one source; there is no list of trusted proxies. That is a property of the config, not the code, but it is enforced: the limiter refuses to boot a deployed environment keyed on the TCP peer, which behind any proxy is the proxy itself. With a different proxy, change `remote_ip.source` and extend `KeySource` in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in `DEPLOYMENT.md`); `tests/config.rs` and the limiter's tests pin the current mapping.
 
 ### Layers
 
@@ -113,17 +113,17 @@ Development and test never restart, whatever the config says: the stop would kil
 
 ```sh
 cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test && cargo leptos build &&
-cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
 
-The last one compiles the browser half alone and fails if a server-only crate leaked out of the `ssr` feature gate. `cargo audit` runs as well; the advisories deliberately ignored, each with its reason, are in `.cargo/audit.toml`.
+The last one lints the browser half alone: it fails if a server-only crate leaked out of the `ssr` feature gate, and it is the only pass that sees code under `hydrate`. `cargo audit` runs as well; the advisories deliberately ignored, each with its reason, are in `.cargo/audit.toml`.
 
 `cargo loco` in this project is a cargo alias (`.cargo/config.toml`: `loco = "run --"`) that runs the app binary, not the `loco` CLI; the CLI is only needed for `loco new`, which this template has already done.
 
 ## Conventions
 
-- Add an `#[island]` only when a component genuinely needs browser interactivity; everything else stays a server-rendered `#[component]`.
-- Styling is Tailwind utility classes inside `view!` macros; the Tailwind input file is `style/tailwind.css`. Never a `style=` attribute: the CSP is `style-src 'self'` and the request test fails on one. `default-src 'none'` means a new resource kind (video, iframe, worker) needs its own directive in all four configs before it loads.
+- Add an `#[island]` only when a component genuinely needs browser interactivity; everything else stays a server-rendered `#[component]`. Islands go in `src/islands.rs`, the only module in `lib.rs` without an `ssr` gate, because both halves compile it; check both with `cargo clippy --all-targets` and the wasm clippy command above. Keep an island a thin wrapper and pass the content in as `children`, which are rendered on the server only and stay out of the wasm. Leptos wraps islands in `<leptos-island>` / `<leptos-children>`, which `style/tailwind.css` sets to `display: contents` so they do not disturb grid or flex layouts.
+- Styling is Tailwind utility classes inside `view!` macros; the Tailwind input file is `style/tailwind.css`. Colours: views use the role tokens only (`primary`, `surface`, `ink`, `ink-muted`, `line`, `card`), never a scale step such as `slate-200`; the surface colour is repeated as hex in the `theme-color` tag and the web manifest. Never a `style=` attribute: the CSP is `style-src 'self'` and the request test fails on one. `default-src 'none'` means a new resource kind (video, iframe, worker) needs its own directive in all four configs before it loads.
 - The document shell is `shell` in `src/views/layout.rs`; pages supply only what goes inside `<main>`. Per-page values travel in `PageMeta`. `APP_NAME` there is the one place the app's display name lives. The head already has favicons, the manifest, `theme-color`, the iOS install tags and the safe-area viewport; Open Graph tags wait for a 1200×630 image.
 - Everything under `public/` is copied into `site/` and served, in production with a year-long cache: a file whose content changes must change its name, and no `.DS_Store` or scratch files.
 - Static pages outside Leptos (`public/404.html`, `src/middleware/rate_limit.html`) use the same Tailwind classes as the shell so the scanner keeps them in the stylesheet.
@@ -171,6 +171,8 @@ Loco already ships the HTTP middleware (tower-http), the mailer (lettre + RusTLS
 | `any_spawner` | The task executor Leptos renders on, started once at boot (`ssr` only) |
 | `wasm-bindgen` / `console_error_panic_hook` | Browser bindings and panic reporting (`hydrate` only) |
 | `tower_governor` | Token-bucket rate limiting behind the `rate_limit` middleware |
+| `chrono-tz` | The nightly restart's hour is read in a fixed IANA zone; the `serde` feature turns the zone name in the config into a `Tz` at boot (`ssr` only) |
+| `nix` | Sends SIGTERM to the process itself at the restart hour so Loco's graceful shutdown runs (unix only, `ssr` only) |
 
 **Tests only**
 
@@ -181,6 +183,7 @@ Loco already ships the HTTP middleware (tower-http), the mailer (lettre + RusTLS
 
 ## Reference
 
+- Loco documentation: https://loco.rs/docs/ and Loco's guide for coding agents: https://loco.rs/AGENTS.md
 - Loco + Leptos SSR showcase, the integration recipe this template follows: https://github.com/loco-rs/loco/discussions/1748
 - Leptos islands: https://book.leptos.dev/islands.html
 - cargo-leptos: https://book.leptos.dev/ssr/21_cargo_leptos.html

@@ -3,9 +3,11 @@
 @import "tailwindcss";
 
 /* Tailwind scans these files for class names. Our views are Rust, not HTML,
-   so the .rs sources have to be listed explicitly; public/ holds the static
-   404 page, which uses the same classes. */
+   so the .rs sources have to be listed explicitly. The two static pages
+   outside Leptos, public/404.html and src/middleware/rate_limit.html, use
+   the same classes as the shell and are scanned as well. */
 @source "../src/**/*.rs";
+@source "../src/**/*.html";
 @source "../public/**/*.html";
 
 /* Inter, self-hosted from public/fonts (SIL Open Font License, OFL.txt next
@@ -41,49 +43,61 @@
 }
 
 /* Design tokens. Everything in @theme becomes both a CSS variable
-   (var(--color-blue-6)) and a utility class (bg-blue-6, text-gray-7). */
+   (var(--color-primary)) and a utility class (bg-primary, text-primary). */
 @theme {
   /* Make Inter the default sans font: Tailwind's base styles apply
      --font-sans to <html>, and the `font-sans` utility uses it too. */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* Colours from Open Color (0 = lightest). Tailwind's own blue and gray
-     scales are cleared first so only one scale per name exists. */
-  --color-blue-*: initial;
-  --color-blue-0: #e7f5ff;
-  --color-blue-1: #d0ebff;
-  --color-blue-2: #a5d8ff;
-  --color-blue-3: #74c0fc;
-  --color-blue-4: #4dabf7;
-  --color-blue-5: #339af0;
-  --color-blue-6: #228be6;
-  --color-blue-7: #1c7ed6;
-  --color-blue-8: #1971c2;
-  --color-blue-9: #1864ab;
-  --color-blue-10: #004a96;
-
-  --color-gray-*: initial;
-  --color-gray-0: #f8f9fa;
-  --color-gray-1: #f1f3f5;
-  --color-gray-2: #e9ecef;
-  --color-gray-3: #dee2e6;
-  --color-gray-4: #ced4da;
-  --color-gray-5: #adb5bd;
-  --color-gray-6: #868e96;
-  --color-gray-7: #495057;
-  --color-gray-8: #343a40;
-  --color-gray-9: #212529;
+  /* The brand colour: the one colour that is this app's own. Everything
+     else comes from Tailwind's default palette, untouched, so class names
+     from the Tailwind docs and component libraries work here as written.
+     The web manifest repeats this value as theme_color. */
+  --color-primary: #004a96;
 }
 
-/* Semantic colours, named by role, aliases of the scale above. `inline` is
-   Tailwind's documented form for tokens that reference other variables:
-   utilities get the target value directly (bg-primary -> var(--color-blue-10)). */
+/* Semantic colours, named by role. Views use these names only, never a
+   scale step such as `slate-200`, so the palette can change here without
+   touching a view. `inline` is Tailwind's documented form for tokens that
+   reference other variables: utilities get the target directly
+   (bg-surface -> var(--color-slate-100)). Slate is the grey with a blue
+   undertone, which sits well next to the brand blue. */
 @theme inline {
-  --color-primary: var(--color-blue-10); /* brand: buttons, links */
-  --color-surface: var(--color-gray-1); /* page background */
-  --color-surface-glow: var(--color-blue-2); /* the bottom gradient */
-  --color-ink: var(--color-gray-9); /* body text */
-  --color-ink-muted: var(--color-gray-7); /* secondary text */
+  /* Filled buttons on hover: the brand blue, a little lighter. */
+  --color-primary-hover: color-mix(in oklab, var(--color-primary) 85%, white);
+  /* Page background. views/layout.rs (theme-color) and the web manifest
+     (background_color) repeat it as #f1f5f9. */
+  --color-surface: var(--color-slate-100);
+  /* The bottom gradient. Light enough that the muted footer text on top of
+     it keeps its contrast. */
+  --color-surface-glow: var(--color-blue-200);
+  --color-ink: var(--color-slate-900); /* body text */
+  --color-ink-muted: var(--color-slate-600); /* secondary text */
+  --color-line: var(--color-slate-200); /* borders and separators */
+  --color-card: var(--color-white); /* cards */
+  /* A subtle fill for hover on icon buttons: halfway between a card
+     (white) and the page surface. */
+  --color-card-muted: var(--color-slate-50);
+  /* The soft glow along the bottom edge of the page, defined once as a
+     token: the page paints it behind everything (body::before, below), and
+     a component that covers the page can paint the same glow on itself
+     with `bg-glow` so it looks like what it covers. */
+  --background-image-glow:
+    radial-gradient(
+      60% 45% at 0% 100%,
+      var(--color-surface-glow),
+      transparent 65%
+    ),
+    radial-gradient(
+      60% 45% at 100% 100%,
+      var(--color-surface-glow),
+      transparent 65%
+    ),
+    radial-gradient(
+      70% 30% at 50% 100%,
+      var(--color-surface-glow),
+      transparent 60%
+    );
 }
 
 /* Element defaults on top of Tailwind's own reset (Preflight), which already
@@ -107,25 +121,36 @@
     padding-right: env(safe-area-inset-right);
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /* Leptos wraps an island in <leptos-island> and its server-rendered
+     children in <leptos-children>. Browsers lay unknown elements out as
+     inline boxes, which would sit between a grid and its items. `contents`
+     removes the wrappers from layout: the elements inside behave as if the
+     wrappers were not there. */
+  leptos-island,
+  leptos-children {
+    display: contents;
+  }
   /* Smooth anchor scrolling, except for visitors who asked for less motion. */
   @media (prefers-reduced-motion: no-preference) {
     html {
       scroll-behavior: smooth;
     }
   }
-  /* Soft glow along the bottom edge of the viewport. Colour, text and
-     min-height come from classes on <body> in views/layout.rs. iOS Safari
-     ignores `fixed` and scrolls the glow with the page. */
-  body {
-    background-image:
-      radial-gradient(60% 45% at 0% 100%, var(--color-surface-glow), transparent 65%),
-      radial-gradient(
-        60% 45% at 100% 100%,
-        var(--color-surface-glow),
-        transparent 65%
-      ),
-      radial-gradient(70% 30% at 50% 100%, var(--color-surface-glow), transparent 60%);
+  /* Soft glow along the bottom edge of the viewport, painted on a
+     viewport-sized box pinned behind the page. Not a fixed background:
+     iOS Safari treats `background-attachment: fixed` as `scroll` and the
+     glow would sit at the bottom of the document, not the screen. The
+     page colour is on <html> above; <body> must stay transparent, or the
+     body background paints over this box (negative z-index children go
+     below it). Text and min-height are classes on <body> in
+     views/layout.rs. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--background-image-glow);
     background-repeat: no-repeat;
-    background-attachment: fixed;
   }
 }

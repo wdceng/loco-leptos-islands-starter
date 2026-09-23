@@ -47,8 +47,10 @@ jobs:
       - run: cargo test
 
   wasm:
-    # The browser half alone: fails if a server-only dependency leaked out
-    # of the `ssr` feature gate.
+    # The browser half alone, linted: fails if a server-only dependency
+    # leaked out of the `ssr` feature gate, and lints the code that only
+    # exists under `hydrate` (the islands), which the clippy job above
+    # never compiles.
     name: Browser half (wasm32)
     runs-on: ubuntu-latest
     steps:
@@ -56,8 +58,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+      - run: cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 
   leptos:
     # Both halves plus Tailwind, as cargo-leptos builds them. cargo-leptos
