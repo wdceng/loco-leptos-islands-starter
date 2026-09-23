@@ -105,6 +105,12 @@ LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only   # target/s
 cross build --release --target x86_64-unknown-linux-gnu               # target/x86_64-unknown-linux-gnu/release/app
 ```
 
+For staging, swap `--release` on the second line for `--profile staging`
+and the binary lands in `target/x86_64-unknown-linux-gnu/staging/app`. The
+`staging` profile in `Cargo.toml` links faster, rebuilds incrementally and
+keeps line tables for readable backtraces; `release` is the fully optimised
+production build. The frontend half always uses `--release`.
+
 The cross-built binary names the wasm file correctly because `cross` reads
 `.cargo/config.toml` (and `Cross.toml`, which pins its build image) inside
 its container. On a host that has to emulate x86_64 (Apple Silicon, for

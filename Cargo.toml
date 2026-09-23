@@ -200,6 +200,22 @@ lto = true
 codegen-units = 1
 strip = true
 
+# Staging: the same optimisation class as production, because staging exists
+# to behave like it, but built to be redeployed often. A parallel thin-LTO
+# link replaces the single-threaded fat one, rebuilds are incremental, and
+# line tables are kept so `pretty_backtrace` on staging prints backtraces
+# with function names. The deploy pipeline (DEPLOYMENT.md) builds the server
+# binary with `cross build --profile staging`; production keeps `--release`.
+# The WASM half is unaffected: it uses `wasm-release` below.
+[profile.staging]
+inherits = "release"
+opt-level = 2
+lto = "thin"
+codegen-units = 16
+incremental = true
+strip = "none"
+debug = "line-tables-only"
+
 # Release profile for the browser (WASM) half, selected above via
 # `lib-profile-release`. Size beats speed for the islands bundle. `strip`
 # stays off because wasm-bindgen reads custom sections that stripping would

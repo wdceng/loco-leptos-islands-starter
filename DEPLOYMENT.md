@@ -11,6 +11,7 @@ guide uses placeholders; substitute them once per environment:
 | `<port>` | Loopback port Loco listens on | `3000` |
 | `<domain>` | Public host name | `staging.example.com` |
 | `<env>` | `staging` or `production` | `staging` |
+| `<profile>` | Cargo profile of the server binary: `staging` or `release` | `staging` |
 
 The reference setup is Cloudflare in front of Caddy in front of Loco. Caddy
 alone works too; see "Without Cloudflare" at the end.
@@ -63,20 +64,28 @@ container (`Cross.toml` pins the image; `PREREQUISITES.md` has the one-time
 pull). On Apple Silicon the container is emulated, so allow a few minutes on
 a cold build.
 
+Two Cargo profiles build the server binary (`Cargo.toml`): `release` for
+production, fully optimised with a slow single-threaded link, and `staging`,
+the same optimisation class but with a parallel thin-LTO link, incremental
+rebuilds and line tables kept, so a staging deploy is quick to rebuild and
+its backtraces show function names. The frontend half always builds with
+`--release`, whichever profile the binary uses.
+
 ```bash
 LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only &&
-cross build --release --target x86_64-unknown-linux-gnu &&
+cross build --profile <profile> --target x86_64-unknown-linux-gnu &&
 rm -rf dist && mkdir dist &&
-cp target/x86_64-unknown-linux-gnu/release/app dist/app &&
+cp target/x86_64-unknown-linux-gnu/<profile>/app dist/app &&
 cp target/release/hash.txt dist/hash.txt &&
 cp -r target/site dist/site
 ```
 
 `dist/` then holds `app`, `hash.txt` and `site/`. `hash.txt` is written by
-the frontend build into `target/release/` (cargo-leptos puts it where the
-native binary would be) and must travel with the binary. `cross` reads
-`.cargo/config.toml` inside its container, so the compile-time
-`LEPTOS_OUTPUT_NAME` is the same as in a native build.
+the frontend build into `target/release/` whatever the binary's profile
+(cargo-leptos puts it where the native release binary would be) and must
+travel with the binary. `cross` reads `.cargo/config.toml` inside its
+container, so the compile-time `LEPTOS_OUTPUT_NAME` is the same as in a
+native build.
 
 ## One-Time Server Setup
 

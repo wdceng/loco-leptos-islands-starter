@@ -101,6 +101,8 @@ A CDN in front of the app may inject its own HSTS, so a header scan of a proxied
 
 The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOYMENT.md` sets them.
 
+The server binary has two Cargo profiles (`Cargo.toml`): `release` for production, fully optimised with fat LTO, and `staging`, which inherits it but links with thin LTO in parallel, rebuilds incrementally and keeps line tables so `pretty_backtrace` on staging prints function names. The browser half always uses the `wasm-release` profile.
+
 ## Nightly Restart
 
 A fresh process every day is cheap insurance against whatever a long-running one accumulates. `src/maintenance.rs` is spawned once per server start from `Hooks::after_routes` in `src/app.rs` (not `after_context`, which Loco's CLI runs before the logger is up and `create_app` runs again). It reads `settings.nightly_restart` (`enable`, `hour`, `zone`, typed in `src/settings.rs`; an unknown zone name or an hour above 23 refuses the boot), sleeps until the next `hour` o'clock in `zone`, and then sends SIGTERM to its own process. That is the signal `systemctl stop` sends, so Loco's graceful shutdown runs: no new connections, requests in flight finish, `on_shutdown` runs, exit status 0. The restart itself is `Restart=always` in the systemd unit (`DEPLOYMENT.md`); without it the stop is just a stop. On a platform without signals, or if raising one fails, the task exits the process directly.
