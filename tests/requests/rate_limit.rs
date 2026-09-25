@@ -1,4 +1,5 @@
 use app::app::App;
+use axum::http::HeaderValue;
 use loco_rs::testing::prelude::*;
 use serial_test::serial;
 
@@ -11,6 +12,15 @@ const BURST: u32 = 20;
 /// `settings.rate_limit.auth.burst` in `config/test.yaml`: the bucket on
 /// `/api/auth` alone, inside the site-wide one.
 const AUTH_BURST: u32 = 10;
+
+/// A `retry-after` value, in whole seconds.
+fn retry_after_secs(value: &HeaderValue) -> u64 {
+    value
+        .to_str()
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| panic!("retry-after is not a number of seconds: {value:?}"))
+}
 
 #[tokio::test]
 #[serial]
@@ -27,14 +37,12 @@ async fn request_past_the_burst_is_rejected_with_a_page() {
         // Bucket empty: 429 with the rendered page and the retry headers.
         let res = request.get("/robots.txt").await;
         assert_eq!(res.status_code(), 429);
-        let retry_after = res.header("retry-after");
-        assert!(
-            retry_after
-                .to_str()
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .is_some(),
-            "retry-after is not a number of seconds: {retry_after:?}"
+        // The bucket refills once a second, which tower_governor rounds down
+        // to 0; `Retry-After: 0` would send the client straight back.
+        assert_eq!(
+            retry_after_secs(&res.header("retry-after")),
+            1,
+            "a wait under a second is 1, never 0"
         );
         assert_eq!(res.header("x-ratelimit-remaining"), "0");
         assert_eq!(res.header("cache-control"), "no-store");
@@ -89,13 +97,12 @@ async fn the_auth_api_has_its_own_stricter_bucket() {
         // next token.
         let res = request.post("/api/auth/login").json(&payload).await;
         assert_eq!(res.status_code(), 429);
+        // The wait is the auth bucket's, one token per 30 s, not the
+        // site-wide bucket's second.
+        let wait = retry_after_secs(&res.header("retry-after"));
         assert!(
-            res.header("retry-after")
-                .to_str()
-                .ok()
-                .and_then(|s| s.parse::<u64>().ok())
-                .is_some(),
-            "retry-after missing on the auth 429"
+            (2..=31).contains(&wait),
+            "retry-after {wait} is not the auth bucket's wait"
         );
         assert_eq!(res.header("cache-control"), "no-store");
         assert!(res.text().contains("Too many requests"));

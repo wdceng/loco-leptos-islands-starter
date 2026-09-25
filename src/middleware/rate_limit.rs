@@ -7,7 +7,10 @@
 //! The visitor address comes from the same place Loco's `remote_ip`
 //! middleware is configured to read it, so the limiter and the `RemoteIP`
 //! extractor can never disagree: behind Cloudflare that is
-//! `CF-Connecting-IP`, locally the TCP peer.
+//! `CF-Connecting-IP`, locally the TCP peer. The bucket is per IPv4
+//! address, but per /64 network for IPv6 ([`bucket_key`]): one machine
+//! usually owns a whole /64 and could otherwise take a fresh bucket for
+//! every request.
 //!
 //! Numbers live under `settings.rate_limit` in `config/<env>.yaml`
 //! (see `crate::settings`). `bucket` builds the same kind of limiter for a
@@ -16,7 +19,7 @@
 //! `/api/auth` alone with Loco's `Routes::layer` in `controllers::auth`.
 
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
     time::Duration,
 };
@@ -98,7 +101,24 @@ pub fn key_source(
     Ok(source)
 }
 
-/// tower_governor key extractor: one bucket per visitor IP.
+/// The bucket a visitor address belongs to. An IPv4 address is its own
+/// bucket. An IPv6 address is keyed by its /64 network, the high 64 bits:
+/// that is what one machine or one household is usually given, and every
+/// address in it is theirs, so keyed by the full address one server could
+/// send each request from a new address and never run out of tokens. An
+/// IPv4 address written as IPv6 (`::ffff:a.b.c.d`) is the IPv4 address.
+#[must_use]
+pub fn bucket_key(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V4(_) => ip,
+        IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
+            Some(v4) => IpAddr::V4(v4),
+            None => IpAddr::V6(Ipv6Addr::from(u128::from(v6) & !u128::from(u64::MAX))),
+        },
+    }
+}
+
+/// tower_governor key extractor: one bucket per visitor, see [`bucket_key`].
 #[derive(Debug, Clone)]
 pub struct VisitorIp {
     pub source: KeySource,
@@ -122,35 +142,40 @@ impl KeyExtractor for VisitorIp {
                 .map(|ConnectInfo(addr)| addr.ip())
         };
         // Never a 500: a request with no usable address shares one bucket.
-        Ok(from_header
-            .or_else(from_peer)
-            .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED)))
+        Ok(bucket_key(
+            from_header
+                .or_else(from_peer)
+                .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
+        ))
     }
 }
 
-/// The 429 page with the wait filled in. `wait_time` is whole seconds and
-/// can be 0 right before a token replenishes; the page says at least 1.
+/// The 429 page with the wait filled in, in whole seconds; never below 1.
 #[must_use]
 pub fn render_page(wait_secs: u64) -> String {
     PAGE.replace("{wait}", &wait_secs.max(1).to_string())
 }
 
-/// Turns the limiter's rejection into the HTML 429, keeping the headers
-/// tower_governor already computed (`retry-after`, `x-ratelimit-*`).
+/// Turns the limiter's rejection into the HTML 429, keeping the
+/// `x-ratelimit-*` headers tower_governor computed. The wait is rounded up:
+/// tower_governor rounds it down to whole seconds, so a bucket that refills
+/// once a second would always say 0, and `Retry-After: 0` sends a client
+/// straight back into another refusal. One second more is never too early.
 #[must_use]
 pub fn too_many_requests(err: GovernorError) -> Response<Body> {
     match err {
         GovernorError::TooManyRequests { wait_time, headers } => {
-            tracing::info!(wait_secs = wait_time, "rate limit exceeded");
+            let wait_secs = wait_time.saturating_add(1);
+            tracing::info!(wait_secs, "rate limit exceeded");
             let mut res =
-                (StatusCode::TOO_MANY_REQUESTS, Html(render_page(wait_time))).into_response();
+                (StatusCode::TOO_MANY_REQUESTS, Html(render_page(wait_secs))).into_response();
             if let Some(headers) = headers {
                 res.headers_mut().extend(headers);
             }
-            if !res.headers().contains_key(header::RETRY_AFTER) {
-                res.headers_mut()
-                    .insert(header::RETRY_AFTER, HeaderValue::from(wait_time));
-            }
+            // Both arrive with tower_governor's rounded-down value.
+            let wait = HeaderValue::from(wait_secs);
+            res.headers_mut().insert(header::RETRY_AFTER, wait.clone());
+            res.headers_mut().insert("x-ratelimit-after", wait);
             res.headers_mut()
                 .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
             res
@@ -325,6 +350,41 @@ mod tests {
         assert_eq!(extract(KeySource::Peer, Some("203.0.113.9"), true), PEER_IP);
     }
 
+    fn v6(address: &str) -> IpAddr {
+        IpAddr::V6(address.parse().expect("valid IPv6"))
+    }
+
+    #[test]
+    fn ipv6_addresses_share_the_bucket_of_their_64_network() {
+        let a = bucket_key(v6("2001:db8:1:2:aaaa:bbbb:cccc:dddd"));
+        let b = bucket_key(v6("2001:db8:1:2::1"));
+        assert_eq!(a, b, "one /64, one bucket");
+        assert_eq!(a, v6("2001:db8:1:2::"), "keyed by the network");
+        assert_ne!(
+            a,
+            bucket_key(v6("2001:db8:1:3::1")),
+            "the next /64 is another visitor"
+        );
+    }
+
+    #[test]
+    fn ipv4_keeps_its_own_bucket_also_when_written_as_ipv6() {
+        assert_eq!(bucket_key(HEADER_IP), HEADER_IP);
+        assert_eq!(bucket_key(v6("::ffff:203.0.113.9")), HEADER_IP);
+    }
+
+    #[test]
+    fn the_extractor_keys_an_ipv6_visitor_by_the_network() {
+        assert_eq!(
+            extract(
+                KeySource::CfConnectingIp,
+                Some("2001:db8:1:2:aaaa:bbbb:cccc:dddd"),
+                true
+            ),
+            v6("2001:db8:1:2::")
+        );
+    }
+
     #[test]
     fn no_address_at_all_shares_one_bucket() {
         assert_eq!(
@@ -350,8 +410,10 @@ mod tests {
 
     #[tokio::test]
     async fn rejection_is_an_html_429_with_retry_headers() {
+        // tower_governor's 5 is a wait of 5.x seconds rounded down.
         let mut given = HeaderMap::new();
         given.insert("x-ratelimit-limit", HeaderValue::from_static("3"));
+        given.insert("x-ratelimit-after", HeaderValue::from_static("5"));
         given.insert(header::RETRY_AFTER, HeaderValue::from_static("5"));
         let res = too_many_requests(GovernorError::TooManyRequests {
             wait_time: 5,
@@ -359,7 +421,8 @@ mod tests {
         });
 
         assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(res.headers()[header::RETRY_AFTER], "5");
+        assert_eq!(res.headers()[header::RETRY_AFTER], "6", "rounded up");
+        assert_eq!(res.headers()["x-ratelimit-after"], "6", "rounded up");
         assert_eq!(res.headers()["x-ratelimit-limit"], "3");
         assert_eq!(res.headers()[header::CACHE_CONTROL], "no-store");
         assert!(
@@ -373,7 +436,10 @@ mod tests {
             .expect("body");
         let body = String::from_utf8(body.to_vec()).expect("utf-8");
         assert!(body.contains("Too many requests"));
-        assert!(body.contains("in 5 seconds"));
+        assert!(
+            body.contains("in 6 seconds"),
+            "the page says what the header says"
+        );
     }
 
     #[test]
@@ -382,7 +448,22 @@ mod tests {
             wait_time: 2,
             headers: None,
         });
-        assert_eq!(res.headers()[header::RETRY_AFTER], "2");
+        assert_eq!(res.headers()[header::RETRY_AFTER], "3");
+    }
+
+    /// A bucket that refills once a second leaves less than a second to
+    /// wait, which tower_governor reports as 0: "retry now".
+    #[test]
+    fn a_wait_under_a_second_is_never_zero() {
+        let mut given = HeaderMap::new();
+        given.insert("x-ratelimit-after", HeaderValue::from_static("0"));
+        given.insert(header::RETRY_AFTER, HeaderValue::from_static("0"));
+        let res = too_many_requests(GovernorError::TooManyRequests {
+            wait_time: 0,
+            headers: Some(given),
+        });
+        assert_eq!(res.headers()[header::RETRY_AFTER], "1");
+        assert_eq!(res.headers()["x-ratelimit-after"], "1");
     }
 
     fn remote_ip(enable: bool, source: ClientIpSource) -> RemoteIpMiddleware {

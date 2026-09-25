@@ -62,12 +62,15 @@ Without it the boots race on `app_test.sqlite` and fail with
   the harness only boots the `test` environment.
 - `tests/requests/rate_limit.rs`: with `burst: 20` from `config/test.yaml`,
   twenty requests pass with `x-ratelimit-remaining` counting down, the next
-  is a 429 HTML page with `retry-after` and `cache-control: no-store`, and an
-  unmatched path is still a 404 (the limiter only covers routes). A second
-  test covers the auth API's own bucket (`auth.burst: 10`): ten logins are
-  401s, the eleventh is the 429 page, and `/robots.txt` still answers
-  because the site-wide bucket has tokens left. The key extractor, the 429
-  page and the config-to-key-source mapping have unit tests in
+  is a 429 HTML page with `retry-after: 1` (a wait under a second, rounded
+  up, never 0) and `cache-control: no-store`, and an unmatched path is still
+  a 404 (the limiter only covers routes). A second test covers the auth
+  API's own bucket (`auth.burst: 10`): ten logins are 401s, the eleventh is
+  the 429 page with that bucket's own wait of about 30 s in `retry-after`,
+  and `/robots.txt` still answers because the site-wide bucket has tokens
+  left. The key extractor (an IPv6 address keyed by its /64 network, an
+  IPv4 address written as IPv6 keyed as IPv4), the 429 page with its
+  rounded-up wait, and the config-to-key-source mapping have unit tests in
   `src/middleware/rate_limit.rs`; the `settings:` parsing in `src/settings.rs`.
 - `tests/requests/security_headers.rs`: the home page carries a CSP whose
   nonce matches the one on every inline script, with `'wasm-unsafe-eval'`,
@@ -168,7 +171,7 @@ Expected: `300 200` and `5 429`, run in one go (the bucket refills at one
 request per second). Then:
 
 ```bash
-curl -i http://localhost:5150/robots.txt          # the 429 page: retry-after, x-ratelimit-*, cache-control: no-store
+curl -i http://localhost:5150/robots.txt          # the 429 page: retry-after: 1, x-ratelimit-*, cache-control: no-store
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5150/pkg/app.css   # 200: assets are never limited
 cargo loco middleware -c                           # shows rate_limit with its numbers and key source
 ```
@@ -180,9 +183,22 @@ proxy passes it through), so on a deployed copy a burst with
 exhausts only that fake visitor's bucket. Direct hits without the header all
 share the proxy's address and therefore one bucket.
 
+An IPv6 visitor is its /64 network, not its address: one machine is usually
+given a whole /64 and could otherwise send every request from a new
+address. On a deployed copy, a burst that changes the address every time
+but stays inside one /64 still exhausts one bucket:
+
+```bash
+for i in $(seq 1 125); do curl -s -o /dev/null -w '%{http_code}\n' -H "CF-Connecting-IP: 2001:db8:1:2::$i" http://127.0.0.1:<port>/robots.txt; done | sort | uniq -c
+```
+
+Expected: `120 200` and `5 429`. With `2001:db8:1:$i::1` instead, every
+request comes from a different /64, a different visitor, and all 125 pass.
+
 The auth API has its own, smaller bucket (`settings.rate_limit.auth`, burst
-30 in development). It is a layer on those routes, not a middleware, so
-`cargo loco middleware -c` does not list it; this shows it:
+30 in development). It is a layer on those routes, not a middleware of its
+own; `cargo loco middleware -c` shows its numbers inside the `rate_limit`
+entry, under `auth`. This shows it at work:
 
 ```bash
 seq 1 35 | xargs -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"x"}' http://localhost:5150/api/auth/login | sort | uniq -c
