@@ -74,7 +74,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: cargo-bins/cargo-binstall@main
+      # Pinned to a release, not `@main`: an unreviewed change in that
+      # repository must not run here. Bump deliberately.
+      - uses: cargo-bins/cargo-binstall@v1.23.0
       - run: cargo binstall -y cargo-leptos
       - run: cargo leptos build
 
@@ -85,6 +87,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: cargo-bins/cargo-binstall@main
+      # Pinned to a release, not `@main`: an unreviewed change in that
+      # repository must not run here. Bump deliberately.
+      - uses: cargo-bins/cargo-binstall@v1.23.0
       - run: cargo binstall -y cargo-audit
       - run: cargo audit

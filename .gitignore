@@ -10,6 +10,12 @@ target/
 # in DEPLOYMENT.md before upload.
 dist/
 
+# Secrets of a deployed copy (JWT_SECRET, MAILER_*): the unit loads them
+# from secrets.env on the server (DEPLOYMENT.md). A local copy, if you keep
+# one, must never reach git.
+secrets.env
+*.secrets.env
+
 # include cargo lock
 !Cargo.lock
 

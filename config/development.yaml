@@ -22,8 +22,10 @@ server:
   port: <%= get_env(name="PORT", default="5150") %>
   # Binding for the server (which interface to bind to)
   binding: <%= get_env(name="BINDING", default="localhost") %>
-  # The UI hostname or IP address that mailers will point to.
-  host: http://localhost
+  # The public origin, the start of every link in outgoing mail. The port is
+  # part of it: links are built from this value alone, not from `port`.
+  # Running on another port? Change it here too.
+  host: http://localhost:5150
   # Value of the `X-Powered-By` response header. Empty removes the header:
   # no reason to advertise the stack.
   ident: ""
@@ -100,6 +102,11 @@ settings:
     # locally: the dev loop reloads pages constantly.
     per_second: 1
     burst: 300
+    # The auth API's own bucket, inside the one above: a request to
+    # /api/auth spends a token from both. Generous locally too.
+    auth:
+      per_second: 1
+      burst: 30
   security:
     # Per-page CSP; {nonce} is replaced per request with the nonce Leptos
     # stamps on its inline scripts. 'wasm-unsafe-eval' is what the islands
@@ -117,6 +124,10 @@ settings:
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none'
+  # Outgoing mail (src/mailers/): the sender on every message, `Name
+  # <address>`. The local catcher on port 1025 accepts any sender.
+  mail:
+    from: SaaS Starter <noreply@example.com>
   # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
   # `zone` (an IANA name; UTC as shipped, set your own) the server stops
   # itself and the service manager starts it again. Off locally: nothing

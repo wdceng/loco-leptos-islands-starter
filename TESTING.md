@@ -35,8 +35,10 @@ Without it the boots race on `app_test.sqlite` and fail with
   headers (Loco would silently fall back to a year), `CfConnectingIp` and
   burst 120 for staging and production, `ConnectInfo` and the live-reload
   socket locally, `X-Robots-Tag` on staging only, burst 20 in test, the
-  nightly restart off locally and on (hour 3) when deployed. Edit a
-  config file, run this first.
+  auth API's own bucket (ten at once, then one per 30 s, in test and when
+  deployed), a sender for outgoing mail in every environment (production's
+  from `MAILER_FROM`), the nightly restart off locally and on (hour 3) when
+  deployed. Edit a config file, run this first.
 - `tests/mod.rs`: module root, wires the folders below.
 - `tests/models/users.rs`: the users model against the test database:
   create with password, find by e-mail and pid, validation, duplicate
@@ -44,7 +46,9 @@ Without it the boots race on `app_test.sqlite` and fail with
   snapshots in `tests/models/snapshots/`.
 - `tests/requests/auth.rs`: the `/api/auth` endpoints end to end: register,
   verify, login (valid and invalid password, unverified user), current user,
-  forgot and reset, magic link, resend verification. `rstest` cases for the
+  forgot and reset, magic link, resend verification. Register also reads the
+  recorded mail back: the sender from `settings.mail.from` and a
+  verification link that starts with `server.host`. `rstest` cases for the
   login variants, `insta` snapshots in `tests/requests/snapshots/`;
   `tests/requests/prepare_data.rs` holds the shared setup.
 - `tests/requests/home.rs`: the home page. Asserts a 200 with an HTML content
@@ -59,9 +63,12 @@ Without it the boots race on `app_test.sqlite` and fail with
 - `tests/requests/rate_limit.rs`: with `burst: 20` from `config/test.yaml`,
   twenty requests pass with `x-ratelimit-remaining` counting down, the next
   is a 429 HTML page with `retry-after` and `cache-control: no-store`, and an
-  unmatched path is still a 404 (the limiter only covers routes). The key
-  extractor, the 429 page and the config-to-key-source mapping have unit tests
-  in `src/middleware/rate_limit.rs`; the `settings:` parsing in `src/settings.rs`.
+  unmatched path is still a 404 (the limiter only covers routes). A second
+  test covers the auth API's own bucket (`auth.burst: 10`): ten logins are
+  401s, the eleventh is the 429 page, and `/robots.txt` still answers
+  because the site-wide bucket has tokens left. The key extractor, the 429
+  page and the config-to-key-source mapping have unit tests in
+  `src/middleware/rate_limit.rs`; the `settings:` parsing in `src/settings.rs`.
 - `tests/requests/security_headers.rs`: the home page carries a CSP whose
   nonce matches the one on every inline script, with `'wasm-unsafe-eval'`,
   `frame-ancestors 'none'` and no `unsafe-inline`, plus the preset headers and
@@ -85,9 +92,11 @@ Without it the boots race on `app_test.sqlite` and fail with
   production and staging may). The stop itself is Loco's ordinary SIGTERM
   shutdown, checked by hand below.
 - `src/settings.rs` (unit tests): the `settings:` block parses; unknown
-  keys, a CSP without `{nonce}` and a zero rate-limit burst are refused;
-  `nightly_restart` parses a zone name, refuses an unknown one and an hour
-  above 23, and defaults to off when the block is missing.
+  keys, a CSP without `{nonce}` and a zero rate-limit burst are refused; the
+  auth bucket is required and refuses zeros while the limiter is on;
+  `mail.from` takes `Name <address>` or a bare address and refuses anything
+  else; `nightly_restart` parses a zone name, refuses an unknown one and an
+  hour above 23, and defaults to off when the block is missing.
 - `tests/tasks/user_create.rs`: the `user_create` CLI task. `tests/workers/`
   is an empty Loco starter module.
 
@@ -171,6 +180,32 @@ proxy passes it through), so on a deployed copy a burst with
 exhausts only that fake visitor's bucket. Direct hits without the header all
 share the proxy's address and therefore one bucket.
 
+The auth API has its own, smaller bucket (`settings.rate_limit.auth`, burst
+30 in development). It is a layer on those routes, not a middleware, so
+`cargo loco middleware -c` does not list it; this shows it:
+
+```bash
+seq 1 35 | xargs -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"x"}' http://localhost:5150/api/auth/login | sort | uniq -c
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5150/robots.txt
+```
+
+Expected: `30 401` and `5 429`, then a `200`: the site-wide bucket of 300
+still has tokens, only the auth one is empty.
+
+### Outgoing mail
+
+With a catcher on port 1025 (`PREREQUISITES.md`) and the dev server running:
+
+```bash
+curl -s -X POST -H 'content-type: application/json' -d '{"name":"Ana","email":"ana@example.com","password":"12341234"}' http://localhost:5150/api/auth/register
+```
+
+Expected in the catcher's inbox (http://localhost:8025): one mail from
+`SaaS Starter <noreply@example.com>` (`settings.mail.from` in
+`config/development.yaml`, never Loco's `System <system@example.com>`)
+whose verification link starts with `http://localhost:5150/api/auth/verify/`
+(`server.host` as written, not `host:port`).
+
 ### Hashed asset names
 
 ```bash
@@ -249,8 +284,9 @@ milliseconds. Remove the handler afterwards.
 - Not-found: status 404 and the rendered not-found page, once a real handler
   replaces the static fallback.
 - The first island (a login or registration form): validation rejects bad
-  input, a valid submission reaches the JSON API, a stricter per-route rate
-  limit blocks a burst. The natural home for `rstest`. Its request test
+  input, a valid submission reaches the JSON API (whose own rate-limit
+  bucket `tests/requests/rate_limit.rs` already covers). The natural home
+  for `rstest`. Its request test
   asserts the server render: `<leptos-island data-component="Name_` (the
   prefix only, the name carries a hash) and `<leptos-children>`, which
   proves the content was passed as children and stayed out of the wasm.

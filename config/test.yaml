@@ -18,8 +18,9 @@ logger:
 server:
   # Port on which the server will listen. the server binding is 0.0.0.0:{PORT}
   port: 5150
-  # The UI hostname or IP address that mailers will point to.
-  host: http://localhost
+  # The start of every link in outgoing mail; the port is part of it, as in
+  # development.yaml.
+  host: http://localhost:5150
   # Empty removes the X-Powered-By header, as in every other environment.
   ident: ""
   # Out of the box middleware configuration. to disable middleware you can changed the `enable` field to `false` of comment the middleware block
@@ -51,12 +52,18 @@ server:
 # App settings, typed in src/settings.rs and parsed at boot. Small burst so
 # a request test can exhaust the bucket, but larger than the longest auth
 # test's request count (register, verify, login, then the call under test);
-# each test boots a fresh app.
+# each test boots a fresh app. The auth bucket's ten covers that chain too.
 settings:
   rate_limit:
     enable: true
     per_second: 1
     burst: 20
+    # The auth API's own bucket, production's numbers: ten calls pass, the
+    # eleventh is a 429 while the site-wide bucket still has tokens
+    # (tests/requests/rate_limit.rs).
+    auth:
+      per_second: 30
+      burst: 10
   security:
     # Same policy as development, so the tests see what a developer sees.
     content_security_policy: >-
@@ -71,6 +78,9 @@ settings:
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none'
+  # Outgoing mail: the stub mailer records the sender with the message.
+  mail:
+    from: SaaS Starter <noreply@example.com>
   # Nightly restart (src/maintenance.rs): off, the harness boots the app
   # inside the test process, and the app ignores the flag in test anyway.
   nightly_restart:

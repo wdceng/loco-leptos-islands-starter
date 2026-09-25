@@ -11,7 +11,7 @@ The same crate compiles twice. Natively with the `ssr` feature it becomes the Lo
 ## How a Page Is Served
 
 1. The request hits Loco's router. A controller route wins; anything else falls through to the `static` middleware, which serves the cargo-leptos output (`target/site` locally, `site/` on a server).
-2. On routes only, Loco's middleware stack runs together with the project's `rate_limit` layer, one token bucket per visitor IP. Static files are never rate limited.
+2. On routes only, Loco's middleware stack runs together with the project's `rate_limit` layer, one token bucket per visitor IP, and a second, stricter bucket on `/api/auth` alone. Static files are never rate limited.
 3. The page controller (`src/controllers/home.rs`) builds a `PageMeta` and calls `render_page` in `src/render.rs`.
 4. `render_page` generates a nonce, streams the document shell (`src/views/layout.rs`) around the page component, and sets the page's Content-Security-Policy with that nonce.
 5. The browser loads `/pkg/app.js` and the wasm bundle; `hydrate_islands()` in `src/lib.rs` wakes only the `#[island]` components. There is no client-side router: every navigation is a full request.
@@ -36,12 +36,12 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 |------|-------|-------|
 | Pages | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/views/` | `/` renders `views/home.rs` inside the shell (`views/layout.rs`) through `render.rs`, which adds the per-request CSP nonce. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` everywhere else |
 | Health | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health`, `/_readiness` (the last two check the database and queue). Rate-limited like every other route |
-| Users and auth | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry |
-| Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml` |
+| Users and auth | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry. Under their own rate-limit bucket (`settings.rate_limit.auth`), inside the site-wide one |
+| Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml`, from the sender in `settings.mail.from`; the links start with `server.host` as configured (locally the port is part of it) |
 | Background | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
 | Nightly restart | `src/maintenance.rs` | Staging and production stop themselves once a day (`settings.nightly_restart`: hour and zone in `config/<env>.yaml`) and systemd starts them again; development and test never do |
 | Migrations | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
-| Config | `config/<env>.yaml` | development, test, staging, production. Typed app settings (`rate_limit`, `security`) in `src/settings.rs` |
+| Config | `config/<env>.yaml` | development, test, staging, production. Typed app settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
 
 ## Security
 
@@ -61,9 +61,9 @@ Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which
 | Panic isolation | `catch_panic` middleware | Loco | on (Loco default) |
 | Static files, ETag | `static` and `etag` middlewares. `compression` stays off on purpose: the reverse proxy compresses | Loco | on |
 | Authentication | JWT (`auth.jwt` in config), passwords hashed by Loco, e-mail verification, magic links, reset tokens | Loco | on |
-| Secrets | `JWT_SECRET` and `MAILER_*` are read from the environment. Production has no defaults and refuses to boot without them; staging has placeholder defaults so it boots with `LOCO_ENV` alone | this project | on |
+| Secrets | `JWT_SECRET` and `MAILER_*` (host, user, password, sender) are read from the environment. Production has no defaults and refuses to boot without them; staging has placeholder defaults so it boots with `LOCO_ENV` alone | this project | on |
 | Outbound TLS (mailer) | Loco's mailer is `lettre` with RusTLS | Loco | on |
-| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`): a `tower_governor` token bucket per visitor IP, keyed by the same source as Loco's `remote_ip` (`CF-Connecting-IP` behind the reference CDN, the TCP peer locally), tuned per environment under `settings.rate_limit` in `config/*.yaml`; only routes count, static assets are exempt; 429 is an HTML page with `Retry-After`. Loco has no built-in limiter | this project | on |
+| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`): a `tower_governor` token bucket per visitor IP, keyed by the same source as Loco's `remote_ip` (`CF-Connecting-IP` behind the reference CDN, the TCP peer locally), tuned per environment under `settings.rate_limit` in `config/*.yaml`; only routes count, static assets are exempt; 429 is an HTML page with `Retry-After`. A second bucket from the same code (`rate_limit::bucket`) sits on `/api/auth` alone (`settings.rate_limit.auth`): those routes send mail to any address (`register`) or take a password, so when deployed they get ten calls at once, then one per 30 s, inside the site-wide limit. Loco has no built-in limiter | this project | on |
 
 Not used: `cors` (no cross-origin callers), `fallback` (Loco's welcome page; the static `404.html` serves instead) and `powered_by` (Loco's `X-Powered-By` middleware disables itself when `server.ident` is `""`, as it is in all four configs).
 
@@ -99,7 +99,7 @@ A CDN in front of the app may inject its own HSTS, so a header scan of a proxied
 | `staging` | `app_staging.sqlite` next to the binary | placeholder defaults; the environment may override | `site/`, 60 s; adds `X-Robots-Tag: noindex, nofollow` | `DEPLOYMENT.md` |
 | `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, immutable (requires the `LEPTOS_HASH_FILES=true` build) | `DEPLOYMENT.md` |
 
-The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOYMENT.md` loads them from a `secrets.env` file that only the service user can read.
+The environment is picked by `LOCO_ENV`. Secrets are environment variables, read through the `get_env` helper inside the YAML; Loco loads no `.env` file. How they reach the process is up to the deploy; the reference systemd unit in `DEPLOYMENT.md` loads them from a `secrets.env` file that only the service user can read. The links in outgoing mail start with `server.host` as written in the config, never with the bind port appended, so the unit also sets `HOST` to the public origin.
 
 The server binary has two Cargo profiles (`Cargo.toml`): `release` for production, fully optimised with fat LTO, and `staging`, which inherits it but links with thin LTO in parallel, rebuilds incrementally and keeps line tables so `pretty_backtrace` on staging prints function names. The browser half always uses the `wasm-release` profile.
 
@@ -135,7 +135,7 @@ The last one lints the browser half alone: it fails if a server-only crate leake
 
 - The static `404.html` is served with status 200, and in production is cached for the URL that missed, until a real not-found handler replaces Loco's static fallback.
 - A request that reaches the origin directly, bypassing the CDN, could forge `CF-Connecting-IP` until Caddy's `trusted_proxies` or a firewall rule is configured (`DEPLOYMENT.md`).
-- No stricter per-route rate limit on login and password reset yet; the hook for one is described in `src/middleware/rate_limit.rs`.
+- The 429 on `/api/auth` is the same HTML page as everywhere else, not JSON; an API client should read `Retry-After`.
 - Magic-link login is limited to two e-mail domains (`EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`).
 - The `ts-rs` TypeScript export in `src/dtos/` is commented out until a TypeScript consumer exists.
 - No island ships; the first one is yours.
@@ -171,6 +171,7 @@ Loco already ships the HTTP middleware (tower-http), the mailer (lettre + RusTLS
 | `any_spawner` | The task executor Leptos renders on, started once at boot (`ssr` only) |
 | `wasm-bindgen` / `console_error_panic_hook` | Browser bindings and panic reporting (`hydrate` only) |
 | `tower_governor` | Token-bucket rate limiting behind the `rate_limit` middleware |
+| `governor` | Names the limiter's config types in `rate_limit::bucket`, the helper behind both buckets; already in the graph through `tower_governor` (`ssr` only) |
 | `chrono-tz` | The nightly restart's hour is read in a fixed IANA zone; the `serde` feature turns the zone name in the config into a `Tz` at boot (`ssr` only) |
 | `nix` | Sends SIGTERM to the process itself at the restart hour so Loco's graceful shutdown runs (unix only, `ssr` only) |
 

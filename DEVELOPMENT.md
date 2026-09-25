@@ -143,14 +143,19 @@ from environment variables through `get_env` inside the YAML.
 
 | Environment | Used by | Static folder | Static cache | Host |
 |---|---|---|---|---|
-| `development` | local runs (default) | `target/site` | `no-cache`: every refresh revalidates | localhost |
-| `test` | `cargo test` | none | none | none |
+| `development` | local runs (default) | `target/site` | `no-cache`: every refresh revalidates | `http://localhost:5150` |
+| `test` | `cargo test` | none | none | `http://localhost:5150` |
 | `staging` | online test copy | `site/` | 60 s | `https://staging.example.com` (default, set `HOST`) |
 | `production` | live site | `site/` | one year, immutable (names are hashed) | `https://example.com` (default, set `HOST`) |
 
 The cache value is `static.cache_control` in each `config/<env>.yaml`.
 Production's year is safe only because release builds hash the asset names;
 it also covers the fonts, so a changed font file needs a new file name.
+
+The host is `server.host`, the origin every link in outgoing mail starts
+with. It is used as written, the bind port is never appended, which is why
+the local value carries `:5150` itself and why the deployed unit sets
+`HOST`. Running locally on another port? Change it there too.
 
 ### Deploy layout
 ```

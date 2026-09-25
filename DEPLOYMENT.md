@@ -172,14 +172,26 @@ ssh <user>@<host> "chmod +x <app-dir>/app"
 ### Step 2: Create the Secrets File (on the server)
 
 `config/production.yaml` takes no defaults for `JWT_SECRET`, `MAILER_HOST`,
-`MAILER_USER` and `MAILER_PASSWORD`; a missing one fails the boot at once.
-They live in a file only `<user>` can read, not in the unit (unit files are
-world-readable) and not in the repo. Run this as `<user>`, once, then
-replace the `MAILER_*` values with the real account:
+`MAILER_USER`, `MAILER_PASSWORD` and `MAILER_FROM`; a missing one fails the
+boot at once. They live in a file only `<user>` can read, not in the unit
+(unit files are world-readable) and not in the repo (`.gitignore` covers
+`secrets.env` and `*.secrets.env`, should you keep a local copy). Run this
+as `<user>`, once, then replace the `MAILER_*` values with the real account:
 
 ```bash
-umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-me\nMAILER_PASSWORD=replace-me\n' "$(openssl rand -base64 48)" > <app-dir>/secrets.env
+umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-me\nMAILER_PASSWORD=replace-me\nMAILER_FROM="App <replace-me>"\n' "$(openssl rand -base64 48)" > <app-dir>/secrets.env
 ```
+
+`MAILER_FROM` is the sender as SMTP sees it, `Name <address>`; keep the
+double quotes around it, both systemd and the shell in "Manual Run" below
+read them. With Gmail, `MAILER_USER` is the address, `MAILER_PASSWORD` an
+app password (Google account, Security, 2-Step Verification, App
+passwords), never the account password, and `MAILER_FROM` must carry that
+same address: Gmail rewrites any other. A transactional service (Postmark,
+SES, Mailgun) wants a sender it has verified. Port 587 with STARTTLS is the
+config's default; a provider that only speaks implicit TLS on 465 needs
+`MAILER_PORT=465` in this file and `tls: implicit` under `mailer.smtp` in
+the config.
 
 `JWT_SECRET` is generated on the spot and never leaves the server; give
 staging and production different ones. Staging boots without the file on the
@@ -207,6 +219,8 @@ Environment=LOCO_ENV=<env>
 # Loopback only: nothing but Caddy on this box may reach it
 Environment=BINDING=127.0.0.1
 Environment=PORT=<port>
+# The public origin: the links in outgoing mail start with it (no port)
+Environment=HOST=https://<domain>
 # Leptos options (no Cargo.toml on the server); site/ is next to the binary
 Environment=LEPTOS_OUTPUT_NAME=app
 Environment=LEPTOS_SITE_ROOT=site
@@ -403,7 +417,7 @@ systemctl stop <unit>
 cd <app-dir>
 pkill -f <app-dir>/app
 set -a && . ./secrets.env && set +a
-LOCO_ENV=<env> BINDING=127.0.0.1 PORT=<port> LEPTOS_OUTPUT_NAME=app LEPTOS_SITE_ROOT=site LEPTOS_SITE_PKG_DIR=pkg LEPTOS_ENV=PROD nohup ./app start > app.log 2>&1 &
+LOCO_ENV=<env> BINDING=127.0.0.1 PORT=<port> HOST=https://<domain> LEPTOS_OUTPUT_NAME=app LEPTOS_SITE_ROOT=site LEPTOS_SITE_PKG_DIR=pkg LEPTOS_ENV=PROD nohup ./app start > app.log 2>&1 &
 tail -f app.log
 ```
 

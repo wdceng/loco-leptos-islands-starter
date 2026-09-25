@@ -19,8 +19,12 @@ use migration::Migrator;
 use std::path::Path;
 
 use crate::{
-    assets, controllers, maintenance, middleware::rate_limit::RateLimit, models::_entities::users,
-    settings::Settings, tasks, workers::downloader::DownloadWorker,
+    assets, controllers, maintenance,
+    middleware::rate_limit::{self, RateLimit},
+    models::_entities::users,
+    settings::Settings,
+    tasks,
+    workers::downloader::DownloadWorker,
 };
 
 pub struct App;
@@ -63,6 +67,10 @@ impl Hooks for App {
     /// 3. Parses the `settings:` block of the config into `Settings` and
     ///    parks it in the shared store too. A missing or malformed block
     ///    fails the boot here, before any middleware is built from it.
+    /// 4. Builds the auth API's own token bucket from those settings and
+    ///    parks it as well: `Hooks::routes` cannot fail, so the one step
+    ///    that can (bad numbers, a key source that is unsafe when deployed)
+    ///    happens here, where it refuses the boot.
     async fn after_context(ctx: AppContext) -> Result<AppContext> {
         let _ = any_spawner::Executor::init_tokio();
 
@@ -77,6 +85,19 @@ impl Hooks for App {
         ctx.shared_store.insert(assets);
 
         let settings = Settings::from_config(&ctx.config)?;
+        let auth_limit = if settings.rate_limit.enable {
+            let source = rate_limit::key_source(
+                ctx.config.server.middlewares.remote_ip.as_ref(),
+                &ctx.environment,
+            )
+            .map_err(Error::Message)?;
+            let auth = &settings.rate_limit.auth;
+            Some(rate_limit::bucket(auth.per_second, auth.burst, source)?)
+        } else {
+            None
+        };
+        ctx.shared_store
+            .insert(controllers::auth::AuthLimit(auth_limit));
         ctx.shared_store.insert(settings);
         Ok(ctx)
     }
@@ -113,9 +134,9 @@ impl Hooks for App {
         Ok(vec![])
     }
 
-    fn routes(_ctx: &AppContext) -> AppRoutes {
+    fn routes(ctx: &AppContext) -> AppRoutes {
         AppRoutes::with_default_routes() // controller routes below
-            .add_route(controllers::auth::routes())
+            .add_route(controllers::auth::routes(ctx))
             .add_route(controllers::home::routes())
             .add_route(controllers::robots::routes())
     }

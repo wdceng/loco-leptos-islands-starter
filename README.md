@@ -15,7 +15,7 @@ This is a GitHub template. Press **Use this template** at the top of the page an
 - **A SQLite database** with migrations, through Sea-ORM. It is a single file next to your code. Nothing to install, nothing to run.
 - **User accounts**: registration, e-mail verification, login, password reset and magic links, all from Loco's SaaS starter.
 - **E-mail sending** with text and HTML templates.
-- **Security already set up**: safe HTTP headers, a Content Security Policy, a rate limit per visitor, and secrets kept out of the code. Tests check that none of it quietly disappears.
+- **Security already set up**: safe HTTP headers, a Content Security Policy, a rate limit per visitor (a stricter one on the sign-up and login API), and secrets kept out of the code. Tests check that none of it quietly disappears.
 
 ## Run it in five minutes
 
@@ -35,7 +35,7 @@ A file called `app_development.sqlite` appeared in the project folder. That is y
 
 Two things you may want soon:
 
-- **Mail.** Registering a user sends an e-mail, and on your machine there is no mail server to receive it. Either run a fake one with `docker run -p 1025:1025 -p 8025:8025 axllent/mailpit` and read the mail at http://localhost:8025, or open `config/development.yaml` and set `stub: true` under `mailer:` so mail is kept in memory instead of sent.
+- **Mail.** Registering a user sends an e-mail, and on your machine there is no mail server to receive it. Either run a fake one with `docker run -p 1025:1025 -p 8025:8025 axllent/mailpit` and read the mail at http://localhost:8025, or open `config/development.yaml` and set `stub: true` under `mailer:` so mail is kept in memory instead of sent. The address the mail comes from is `from:` under `settings: mail:` in the same file.
 - **Tests.** `cargo test` runs them all. They take about a second.
 
 ## Where things are
@@ -46,7 +46,7 @@ Two things you may want soon:
 | Add something interactive (an island) | `src/islands.rs` |
 | Add a URL or decide what it answers | `src/controllers/` |
 | Change the database or add a table | `src/models/` and `migration/` |
-| Change the e-mails the app sends | `src/mailers/auth/` |
+| Change the e-mails the app sends, or their sender | `src/mailers/auth/`; the sender is `settings.mail.from` in `config/` |
 | Change styling | Tailwind classes in the views; `style/tailwind.css` for fonts and colours |
 | Add an image, a font, a static file | `public/` |
 | Change settings per environment | `config/development.yaml`, `staging.yaml`, `production.yaml` |
@@ -83,7 +83,7 @@ If you are curious why things are built the way they are, `ARCHITECTURE.md` expl
 
 The project is called `app` in a handful of places. To rename it, search the repo for `app` in `Cargo.toml`, `.cargo/config.toml`, `src/bin/main.rs`, `examples/playground.rs`, the `tests/` folder, `public/404.html`, `src/middleware/rate_limit.html`, the `app_<env>.sqlite` lines in `config/*.yaml`, the `LEPTOS_OUTPUT_NAME=app` and `ExecStart=<app-dir>/app start` lines of the unit in `DEPLOYMENT.md`, and the `target/release/app` and `target/debug/app` commands in `DEVELOPMENT.md` and `TESTING.md`. Keep the binary named exactly like the package: cargo-leptos trips over Loco's default `-cli` suffix, and a `LEPTOS_OUTPUT_NAME` that does not match the new name makes production link asset files that do not exist. Or leave it; nothing breaks if you keep the name.
 
-What people see: `APP_NAME` in `src/views/layout.rs` sets the title, header and footer. The page description is in `src/controllers/home.rs`, the tagline in `src/views/home.rs`, the icons in `public/favicon/`, and the app name for phone home screens in `public/favicon/site.webmanifest`. Colours live in `style/tailwind.css`: one brand colour (`--color-primary`) and a few role tokens on top of Tailwind's default palette. The page background is repeated as a hex value in two places, the `theme-color` tag in `src/views/layout.rs` and `background_color` in the manifest, so change all three together.
+What people see: `APP_NAME` in `src/views/layout.rs` sets the title, header and footer. The page description is in `src/controllers/home.rs`, the tagline in `src/views/home.rs`, the icons in `public/favicon/`, and the app name for phone home screens in `public/favicon/site.webmanifest`. Colours live in `style/tailwind.css`: one brand colour (`--color-primary`) and a few role tokens on top of Tailwind's default palette. The page background is repeated as a hex value in two places, the `theme-color` tag in `src/views/layout.rs` and `background_color` in the manifest, so change all three together. The sender on outgoing mail, `SaaS Starter <noreply@example.com>`, is in `config/development.yaml` and `config/test.yaml`, with the staging default in `config/staging.yaml`; production reads it from `MAILER_FROM`.
 
 One thing to know: magic-link login only accepts `@example.com` and `@gmail.com` addresses, because that is how Loco's starter ships. The list is `EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`.
 

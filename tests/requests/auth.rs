@@ -55,6 +55,18 @@ async fn can_register() {
 
         let deliveries = ctx.mailer.unwrap().deliveries();
         assert_eq!(deliveries.count, 1, "Exactly one email should be sent");
+        // The sender is `settings.mail.from`, not Loco's default `System
+        // <system@example.com>`, and the link starts with `server.host` as
+        // configured, port included, never `host:port` (src/mailers/auth.rs).
+        let mail = &deliveries.messages[0];
+        assert!(
+            mail.contains("SaaS Starter") && mail.contains("noreply@example.com"),
+            "sender is not settings.mail.from:\n{mail}"
+        );
+        assert!(
+            mail.contains("http://localhost:5150/api/auth/verify/"),
+            "verification link does not start with server.host:\n{mail}"
+        );
 
         // with_settings!({
         //     filters => cleanup_email()

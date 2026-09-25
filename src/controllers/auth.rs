@@ -1,17 +1,28 @@
 use crate::{
     mailers::auth::AuthMailer,
+    middleware::rate_limit::VisitorIp,
     models::{
         _entities::users,
         users::{LoginParams, RegisterParams},
     },
     views::auth::{CurrentResponse, LoginResponse},
 };
+use axum::body::Body;
+use governor::middleware::StateInformationMiddleware;
 use loco_rs::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
+use tower_governor::GovernorLayer;
 
 pub static EMAIL_DOMAIN_RE: OnceLock<Regex> = OnceLock::new();
+
+/// The bucket on the `/api/auth` routes, built and validated in
+/// `after_context` (app.rs) from `settings.rate_limit.auth` and parked in
+/// the shared store, because `Hooks::routes` cannot fail. `None` when the
+/// limiter is off in the config.
+#[derive(Clone)]
+pub struct AuthLimit(pub Option<GovernorLayer<VisitorIp, StateInformationMiddleware, Body>>);
 
 fn get_allow_email_domain_re() -> &'static Regex {
     EMAIL_DOMAIN_RE.get_or_init(|| {
@@ -258,8 +269,14 @@ async fn resend_verification_email(
     format::json(())
 }
 
-pub fn routes() -> Routes {
-    Routes::new()
+/// The `/api/auth` routes under their own bucket ([`AuthLimit`]), inside
+/// the site-wide one: `register` mails any address and `login` takes a
+/// password, so these routes get a fraction of the site-wide rate. The
+/// bucket missing from the store cannot happen after `after_context`; the
+/// branch that says so leaves the routes under the site-wide limit rather
+/// than refusing to build them.
+pub fn routes(ctx: &AppContext) -> Routes {
+    let routes = Routes::new()
         .prefix("/api/auth")
         .add("/register", post(register))
         .add("/verify/{token}", get(verify))
@@ -269,5 +286,15 @@ pub fn routes() -> Routes {
         .add("/current", get(current))
         .add("/magic-link", post(magic_link))
         .add("/magic-link/{token}", get(magic_link_verify))
-        .add("/resend-verification-mail", post(resend_verification_email))
+        .add("/resend-verification-mail", post(resend_verification_email));
+    match ctx.shared_store.get::<AuthLimit>() {
+        Some(AuthLimit(Some(limit))) => routes.layer(limit),
+        Some(AuthLimit(None)) => routes,
+        None => {
+            tracing::error!(
+                "auth: bucket missing from the shared store, /api/auth has only the site-wide limit"
+            );
+            routes
+        }
+    }
 }

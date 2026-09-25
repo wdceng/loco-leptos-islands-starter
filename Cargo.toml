@@ -97,6 +97,10 @@ console_error_panic_hook = { version = "0.1", optional = true }
 tower_governor = { version = "0.8", default-features = false, features = [
   "axum",
 ], optional = true }
+# Only for naming the limiter's config types in `rate_limit::bucket`, the
+# per-route helper the auth API uses. Already in the graph through
+# tower_governor, so no extra compile. Server only.
+governor = { version = "0.10", optional = true }
 # Nightly restart (src/maintenance.rs): the hour is read in a fixed IANA
 # zone from config, not the server's local time. `serde` lets the zone name
 # deserialize straight into a `Tz`, so a typo refuses to boot. Already in
@@ -136,6 +140,7 @@ ssr = [
   "dep:ts-rs",
   "dep:include_dir",
   "dep:tower_governor",
+  "dep:governor",
   "dep:chrono-tz",
   "dep:nix",
 ]

@@ -10,10 +10,10 @@
 //! `CF-Connecting-IP`, locally the TCP peer.
 //!
 //! Numbers live under `settings.rate_limit` in `config/<env>.yaml`
-//! (see `crate::settings`). A stricter, separate bucket for a sensitive
-//! route (login, password reset) can later be attached to that route alone
-//! with Loco's `Routes::layer`, reusing `VisitorIp` and `too_many_requests`
-//! from here.
+//! (see `crate::settings`). `bucket` builds the same kind of limiter for a
+//! group of routes: the auth API has its own, stricter one
+//! (`settings.rate_limit.auth`), built in `after_context` and attached to
+//! `/api/auth` alone with Loco's `Routes::layer` in `controllers::auth`.
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -28,6 +28,7 @@ use axum::{
     http::{HeaderValue, Request, Response, StatusCode, header},
     response::{Html, IntoResponse},
 };
+use governor::middleware::StateInformationMiddleware;
 use loco_rs::{
     Error, Result,
     app::AppContext,
@@ -221,37 +222,57 @@ impl MiddlewareLayer for RateLimit {
 
     fn apply(&self, app: Router<AppContext>) -> Result<Router<AppContext>> {
         let c = self.inner.as_ref().map_err(|e| Error::Message(e.clone()))?;
-        let config = GovernorConfigBuilder::default()
-            .per_second(c.settings.per_second)
-            .burst_size(c.settings.burst)
-            .key_extractor(VisitorIp {
-                source: c.key_source.clone(),
-            })
-            .use_headers()
-            .finish()
-            .ok_or_else(|| Error::Message("rate_limit: per_second and burst must be > 0".into()))?;
-        let config = Arc::new(config);
-
-        // Housekeeping: drop buckets nobody has touched for a while, so the
-        // map does not grow with every IP ever seen. Holds only a Weak: the
-        // task ends when the limiter is dropped (tests boot many apps).
-        let limiter = Arc::downgrade(config.limiter());
-        tokio::spawn(async move {
-            let mut tick = tokio::time::interval(CLEANUP_INTERVAL);
-            tick.tick().await; // the first tick completes immediately
-            loop {
-                tick.tick().await;
-                let Some(limiter) = limiter.upgrade() else {
-                    break;
-                };
-                limiter.retain_recent();
-                tracing::debug!(buckets = limiter.len(), "rate_limit: dropped idle buckets");
-            }
-        });
-
-        let layer = GovernorLayer::new(config).error_handler(too_many_requests);
+        let layer = bucket(
+            c.settings.per_second,
+            c.settings.burst,
+            c.key_source.clone(),
+        )?;
         Ok(app.route_layer(layer))
     }
+}
+
+/// One token bucket per visitor IP, as a tower layer: `burst` requests at
+/// once, then one every `per_second` seconds, the HTML 429 on refusal.
+/// `apply` puts one on every route; `controllers::auth` puts a stricter one
+/// on `/api/auth` alone. A request under both spends a token from each, and
+/// the outer, site-wide layer writes `x-ratelimit-limit` and
+/// `x-ratelimit-remaining` last, so a response from `/api/auth` reports the
+/// site-wide numbers; `retry-after` on a 429 is from the bucket that refused.
+///
+/// # Errors
+/// `per_second` or `burst` is 0: no such limiter can be built.
+pub fn bucket(
+    per_second: u64,
+    burst: u32,
+    source: KeySource,
+) -> Result<GovernorLayer<VisitorIp, StateInformationMiddleware, Body>> {
+    let config = GovernorConfigBuilder::default()
+        .per_second(per_second)
+        .burst_size(burst)
+        .key_extractor(VisitorIp { source })
+        .use_headers()
+        .finish()
+        .ok_or_else(|| Error::Message("rate_limit: per_second and burst must be > 0".into()))?;
+    let config = Arc::new(config);
+
+    // Housekeeping: drop buckets nobody has touched for a while, so the
+    // map does not grow with every IP ever seen. Holds only a Weak: the
+    // task ends when the limiter is dropped (tests boot many apps).
+    let limiter = Arc::downgrade(config.limiter());
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(CLEANUP_INTERVAL);
+        tick.tick().await; // the first tick completes immediately
+        loop {
+            tick.tick().await;
+            let Some(limiter) = limiter.upgrade() else {
+                break;
+            };
+            limiter.retain_recent();
+            tracing::debug!(buckets = limiter.len(), "rate_limit: dropped idle buckets");
+        }
+    });
+
+    Ok(GovernorLayer::new(config).error_handler(too_many_requests))
 }
 
 #[cfg(test)]

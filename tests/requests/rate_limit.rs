@@ -8,6 +8,10 @@ use serial_test::serial;
 /// finish in milliseconds, well inside the one-second refill.
 const BURST: u32 = 20;
 
+/// `settings.rate_limit.auth.burst` in `config/test.yaml`: the bucket on
+/// `/api/auth` alone, inside the site-wide one.
+const AUTH_BURST: u32 = 10;
+
 #[tokio::test]
 #[serial]
 async fn request_past_the_burst_is_rejected_with_a_page() {
@@ -55,6 +59,55 @@ async fn request_past_the_burst_is_rejected_with_a_page() {
         // Unmatched paths never reach the limiter (`route_layer`): still 404.
         let res = request.get("/nope").await;
         assert_eq!(res.status_code(), 404);
+    })
+    .await;
+}
+
+/// The auth API has a second, stricter bucket (`controllers::auth::routes`):
+/// `register` mails any address and `login` takes a password. A request
+/// there spends a token from both buckets, and the site-wide layer, being
+/// the outer one, writes the `x-ratelimit-*` headers last.
+#[tokio::test]
+#[serial]
+async fn the_auth_api_has_its_own_stricter_bucket() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let payload = serde_json::json!({ "email": "nobody@example.com", "password": "wrong" });
+
+        // Within the auth burst: refused as bad credentials, not as too many.
+        // The headers show the site-wide bucket, twenty, counting down.
+        for attempt in 1..=AUTH_BURST {
+            let res = request.post("/api/auth/login").json(&payload).await;
+            assert_eq!(res.status_code(), 401, "login attempt {attempt}");
+            assert_eq!(res.header("x-ratelimit-limit"), BURST.to_string());
+            assert_eq!(
+                res.header("x-ratelimit-remaining"),
+                (BURST - attempt).to_string()
+            );
+        }
+
+        // The auth bucket is empty: the 429 page, with the wait until its
+        // next token.
+        let res = request.post("/api/auth/login").json(&payload).await;
+        assert_eq!(res.status_code(), 429);
+        assert!(
+            res.header("retry-after")
+                .to_str()
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+                .is_some(),
+            "retry-after missing on the auth 429"
+        );
+        assert_eq!(res.header("cache-control"), "no-store");
+        assert!(res.text().contains("Too many requests"));
+
+        // The site-wide bucket still has tokens (twenty, minus the eleven
+        // auth requests and this one), so everything else still answers.
+        let res = request.get("/robots.txt").await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(
+            res.header("x-ratelimit-remaining"),
+            (BURST - AUTH_BURST - 2).to_string()
+        );
     })
     .await;
 }

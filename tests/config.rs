@@ -33,6 +33,8 @@ const PLACEHOLDERS: &[(&str, &str)] = &[
     ("MAILER_HOST", "smtp.example.test"),
     ("MAILER_USER", "canary"),
     ("MAILER_PASSWORD", "canary"),
+    // A sender: `settings.mail.from` is validated as one at boot.
+    ("MAILER_FROM", "SaaS Starter <canary@example.test>"),
 ];
 
 /// `get_env(name="VAR", default="fallback")` with the placeholder table in
@@ -247,6 +249,15 @@ fn deployed_environments_key_on_the_proxy_header(#[case] env: Environment) {
     let settings = Settings::from_config(&config).expect("settings");
     assert_eq!(settings.rate_limit.burst, 120, "{env}: agreed burst");
     assert_eq!(settings.rate_limit.per_second, 1, "{env}: agreed refill");
+    // The auth API's own bucket: ten calls at once, then one every 30 s.
+    assert_eq!(
+        settings.rate_limit.auth.burst, 10,
+        "{env}: agreed auth burst"
+    );
+    assert_eq!(
+        settings.rate_limit.auth.per_second, 30,
+        "{env}: agreed auth refill"
+    );
     assert!(
         !settings.security.content_security_policy.contains("ws://"),
         "{env}: the live-reload socket is development only"
@@ -324,12 +335,30 @@ fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] ena
     assert_eq!(settings.nightly_restart.hour, 3, "{env}: agreed hour");
 }
 
+/// Every mail the app sends names its sender (`settings.mail.from`,
+/// src/mailers/auth.rs): Loco's own default is `System <system@example.com>`,
+/// which most SMTP services refuse. Deployed environments read it from
+/// `MAILER_FROM`, which the placeholder table stands in for here.
+#[rstest]
+#[case::development(Environment::Development, "SaaS Starter <noreply@example.com>")]
+#[case::test_env(Environment::Test, "SaaS Starter <noreply@example.com>")]
+#[case::staging(staging(), "SaaS Starter <canary@example.test>")]
+#[case::production(Environment::Production, "SaaS Starter <canary@example.test>")]
+fn every_environment_names_the_mail_sender(#[case] env: Environment, #[case] from: &str) {
+    let settings = Settings::from_config(&load(&env)).expect("settings");
+    assert_eq!(settings.mail.from, from, "{env}: settings.mail.from");
+}
+
 /// The request tests count on this: twenty requests pass, the next is a 429.
 /// Large enough that the auth tests (register, verify, login, then the call
-/// under test) never trip it.
+/// under test) never trip it. The auth API's own bucket takes production's
+/// numbers: ten calls pass, the eleventh is a 429 while the site-wide bucket
+/// still has tokens.
 #[test]
 fn test_environment_has_the_burst_the_request_tests_expect() {
     let settings = Settings::from_config(&load(&Environment::Test)).expect("settings");
     assert_eq!(settings.rate_limit.burst, 20);
     assert_eq!(settings.rate_limit.per_second, 1);
+    assert_eq!(settings.rate_limit.auth.burst, 10);
+    assert_eq!(settings.rate_limit.auth.per_second, 30);
 }
