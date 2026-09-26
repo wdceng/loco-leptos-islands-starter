@@ -77,7 +77,11 @@ jobs:
       # Pinned to a release, not `@main`: an unreviewed change in that
       # repository must not run here. Bump deliberately.
       - uses: cargo-bins/cargo-binstall@v1.23.0
-      - run: cargo binstall -y cargo-leptos
+      # Pinned like the action, and to the version used locally: a new
+      # cargo-leptos can change the Tailwind or wasm-bindgen it downloads
+      # between two runs of the same commit. Bump it here and locally
+      # together (`cargo install --locked cargo-leptos@<version>`).
+      - run: cargo binstall -y cargo-leptos@0.3.8
       - run: cargo leptos build
 
   audit:
@@ -90,5 +94,7 @@ jobs:
       # Pinned to a release, not `@main`: an unreviewed change in that
       # repository must not run here. Bump deliberately.
       - uses: cargo-bins/cargo-binstall@v1.23.0
-      - run: cargo binstall -y cargo-audit
+      # The tool is pinned; the advisory database it fetches is always the
+      # latest.
+      - run: cargo binstall -y cargo-audit@0.22.2
       - run: cargo audit

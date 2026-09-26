@@ -175,14 +175,15 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
     assert!(remote_ip.enable, "{env}: remote_ip disabled");
 
     // The reverse proxy compresses in front of the app; Loco's welcome page
-    // is never wanted.
+    // is never wanted. Its block must be there and off: without it Loco
+    // switches the page on everywhere but production.
     assert!(
         mw.compression.as_ref().is_none_or(|c| !c.enable),
         "{env}: compression must stay off"
     );
     assert!(
-        mw.fallback.as_ref().is_none_or(|f| !f.enable),
-        "{env}: Loco's fallback page must stay off"
+        mw.fallback.as_ref().is_some_and(|f| !f.enable),
+        "{env}: a `fallback:` block with `enable: false` is required"
     );
 
     let settings = Settings::from_config(&config)

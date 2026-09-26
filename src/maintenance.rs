@@ -25,10 +25,11 @@
 //! spring-forward night makes the loop wait and look again, and a time that
 //! happens twice in autumn picks the later instance.
 
+use std::time::Duration;
+
 use chrono::{DateTime, Days, LocalResult, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use loco_rs::{Error, Result, environment::Environment};
-use std::time::Duration;
 use tracing::{info, warn};
 
 use crate::settings::NightlyRestartSettings;

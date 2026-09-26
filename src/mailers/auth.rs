@@ -4,7 +4,7 @@
 use loco_rs::prelude::*;
 use serde_json::json;
 
-use crate::{models::users, settings::Settings};
+use crate::{app::stored, models::users, settings::Settings};
 
 // Each folder holds `subject.t`, `text.t` and `html.t`. Loco's Tera escapes
 // only templates named `.html`, `.htm` or `.xml`, so `html.t` escapes every
@@ -21,10 +21,7 @@ impl AuthMailer {
     /// The sender, `settings.mail.from`. Without it Loco would send as
     /// `System <system@example.com>`, which most SMTP services refuse.
     fn sender(ctx: &AppContext) -> Result<String> {
-        ctx.shared_store
-            .get::<Settings>()
-            .map(|settings| settings.mail.from)
-            .ok_or_else(|| Error::Message("settings missing from shared store".into()))
+        Ok(stored::<Settings>(ctx)?.mail.from)
     }
 
     /// The public origin the links in a mail start with: `server.host` as

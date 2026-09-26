@@ -72,12 +72,14 @@ pub fn shell(
                 // with the page instead of framing it in brand blue; the
                 // manifest keeps the blue theme_color for the installed app.
                 <meta name="theme-color" content="#f1f5f9"/>
-                // Home-screen install, full-screen launch: the standard tag
-                // (Chrome warns when it is missing) and Apple's original,
-                // which older iOS still needs. The label under the icon is
-                // the Apple tag below; Android takes it from the manifest.
+                // Home-screen install, full-screen launch: the manifest's
+                // `display: standalone` (Android, and iOS since 11.3) and
+                // Chrome's current tag. Apple's `apple-mobile-web-app-capable`
+                // is left out: Chrome reports it as deprecated, and iOS needs
+                // it only for startup images, which this template does not
+                // have. The label under the icon on an iPhone is the Apple
+                // tag below; Android takes the manifest's.
                 <meta name="mobile-web-app-capable" content="yes"/>
-                <meta name="apple-mobile-web-app-capable" content="yes"/>
                 <meta name="apple-mobile-web-app-title" content=APP_NAME/>
                 <link rel="stylesheet" href=stylesheet/>
                 // Live reload while `cargo leptos watch` runs; renders

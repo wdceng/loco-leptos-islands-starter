@@ -12,7 +12,7 @@ where you prefer one.
 | 1.1 | **C toolchain** | Linker and system libraries for the native build | Xcode Command Line Tools on macOS (`xcode-select --install`), `build-essential` on Debian/Ubuntu, Visual Studio Build Tools on Windows |
 | 1.2 | **Rust** (stable, 1.85+) | Server and browser halves | https://rustup.rs |
 | 1.3 | **wasm32 target** | Compiles the islands bundle | `rustup target add wasm32-unknown-unknown` |
-| 1.4 | **cargo-leptos** | Builds both halves, runs Tailwind, dev loop with live reload | `cargo install --locked cargo-leptos` |
+| 1.4 | **cargo-leptos** | Builds both halves, runs Tailwind, dev loop with live reload. CI pins 0.3.8 (`.github/workflows/ci.yaml`); use the same version locally | `cargo install --locked cargo-leptos@0.3.8` |
 
 `clippy` and `rustfmt` come with the Rust toolchain.
 
@@ -21,7 +21,7 @@ where you prefer one.
 | # | Tool | Purpose | Install |
 |-----|------|---------|---------|
 | 2.1 | **cargo-watch** | Only for `cargo loco watch` (server-only reload); `cargo leptos watch -- start` is the normal loop | `cargo install --locked cargo-watch` |
-| 2.2 | **cargo-audit** | Known-vulnerability scan of `Cargo.lock`; CI runs it, `.cargo/audit.toml` lists the ignored advisories | `cargo install --locked cargo-audit` |
+| 2.2 | **cargo-audit** | Known-vulnerability scan of `Cargo.lock`; CI runs it (pinned to 0.22.2), `.cargo/audit.toml` lists the ignored advisories | `cargo install --locked cargo-audit@0.22.2` |
 | 2.3 | **cross** | Linux x86_64 binary for a server from another platform (`DEPLOYMENT.md`). Needs Docker; `Cross.toml` pins the build image | `cargo install --locked cross` |
 | 2.4 | **cargo-binstall** | Installs cargo tools from prebuilt binaries instead of compiling them; CI uses it for cargo-leptos and cargo-audit | `cargo install --locked cargo-binstall` |
 | 2.5 | **loco** | The Loco CLI, only for `loco new` and its generators. Not needed to run this project: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
@@ -77,6 +77,6 @@ rustup target list --installed | grep wasm32 && cargo leptos --version
 ## Updates
 
 ```bash
-rustup update                              # Rust, clippy, rustfmt
-cargo install --locked cargo-leptos        # reinstalling a cargo tool updates it
+rustup update                                     # Rust, clippy, rustfmt
+cargo install --locked cargo-leptos@<version>     # then the same version in .github/workflows/ci.yaml
 ```

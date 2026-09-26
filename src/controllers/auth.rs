@@ -1,4 +1,5 @@
 use crate::{
+    app::stored,
     mailers::auth::AuthMailer,
     middleware::rate_limit::Bucket,
     models::{
@@ -284,13 +285,11 @@ pub fn routes(ctx: &AppContext) -> Routes {
         .add("/magic-link", post(magic_link))
         .add("/magic-link/{token}", get(magic_link_verify))
         .add("/resend-verification-mail", post(resend_verification_email));
-    match ctx.shared_store.get::<AuthLimit>() {
-        Some(AuthLimit(Some(limit))) => routes.layer(limit),
-        Some(AuthLimit(None)) => routes,
-        None => {
-            tracing::error!(
-                "auth: bucket missing from the shared store, /api/auth has only the site-wide limit"
-            );
+    match stored::<AuthLimit>(ctx) {
+        Ok(AuthLimit(Some(limit))) => routes.layer(limit),
+        Ok(AuthLimit(None)) => routes,
+        Err(e) => {
+            tracing::error!(error = %e, "auth: /api/auth has only the site-wide limit");
             routes
         }
     }

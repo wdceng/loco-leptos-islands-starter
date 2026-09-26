@@ -11,7 +11,8 @@
 //! additional-context hook, which leptos_axum runs after its own
 //! `provide_nonce()`: ours replaces it. Loco's `secure_headers` middleware
 //! adds a header only when the response does not already carry it, so this
-//! CSP wins on pages and the preset one remains the fallback elsewhere.
+//! CSP wins on pages and the config's fallback CSP (a `secure_headers`
+//! override) applies elsewhere.
 
 use axum::{
     extract::Request,
@@ -25,13 +26,11 @@ use leptos::{
 use loco_rs::prelude::*;
 
 use crate::{
+    app::stored,
     assets::Assets,
-    settings::Settings,
+    settings::{NONCE_PLACEHOLDER, Settings},
     views::layout::{PageMeta, shell},
 };
-
-/// Placeholder in `settings.security.content_security_policy`.
-pub const NONCE_PLACEHOLDER: &str = "{nonce}";
 
 /// Renders `page` inside the document shell and returns the HTTP response,
 /// streaming, with the nonce CSP attached.
@@ -50,18 +49,9 @@ where
     F: Fn() -> V + Clone + Send + Sync + 'static,
     V: IntoView + 'static,
 {
-    let options: LeptosOptions = ctx
-        .shared_store
-        .get()
-        .ok_or_else(|| Error::Message("Leptos options missing from shared store".into()))?;
-    let settings: Settings = ctx
-        .shared_store
-        .get()
-        .ok_or_else(|| Error::Message("settings missing from shared store".into()))?;
-    let assets: Assets = ctx
-        .shared_store
-        .get()
-        .ok_or_else(|| Error::Message("assets missing from shared store".into()))?;
+    let options: LeptosOptions = stored(ctx)?;
+    let settings: Settings = stored(ctx)?;
+    let assets: Assets = stored(ctx)?;
 
     let nonce = Nonce::new();
     let csp = csp_header(&settings.security.content_security_policy, &nonce)?;

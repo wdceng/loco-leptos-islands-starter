@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use async_trait::async_trait;
 use axum::Router;
 use leptos::config::get_configuration;
@@ -16,7 +18,6 @@ use loco_rs::{
     task::Tasks,
 };
 use migration::Migrator;
-use std::path::Path;
 
 use crate::{
     assets, controllers, maintenance,
@@ -74,7 +75,7 @@ impl Hooks for App {
     async fn after_context(ctx: AppContext) -> Result<AppContext> {
         let _ = any_spawner::Executor::init_tokio();
 
-        let manifest = std::path::Path::new("Cargo.toml");
+        let manifest = Path::new("Cargo.toml");
         let conf = get_configuration(manifest.exists().then_some("Cargo.toml"))
             .map_err(|e| Error::Message(format!("leptos configuration: {e}")))?;
         let mut options = conf.leptos_options;

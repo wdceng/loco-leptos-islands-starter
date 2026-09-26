@@ -22,9 +22,9 @@ This is a GitHub template. Press **Use this template** at the top of the page an
 You need Rust. If you do not have it yet, install it from https://rustup.rs and come back. Then, in a terminal inside your copy of the project:
 
 ```sh
-rustup target add wasm32-unknown-unknown   # lets Rust compile for the browser
-cargo install --locked cargo-leptos        # the build tool for Leptos projects
-cargo leptos watch -- start                # build everything and run the server
+rustup target add wasm32-unknown-unknown      # lets Rust compile for the browser
+cargo install --locked cargo-leptos@0.3.8     # the build tool for Leptos projects, the version CI uses
+cargo leptos watch -- start                   # build everything and run the server
 ```
 
 The first build takes a few minutes, because every dependency compiles once. After that, builds take seconds. When the terminal says the server is listening, open http://localhost:5150.
