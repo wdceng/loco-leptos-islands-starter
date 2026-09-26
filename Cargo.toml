@@ -16,8 +16,11 @@ license = "MIT OR Apache-2.0"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# Versions are written in full (major.minor.patch). Cargo still reads each as
+# "this or any compatible newer release", so the number is the lowest one
+# the project accepts, and Cargo.lock holds the one actually built.
 [workspace.dependencies]
-loco-rs = { version = "1.1" }
+loco-rs = { version = "1.1.0" }
 
 [dependencies]
 # ---------------------------------------------------------------------------
@@ -32,20 +35,20 @@ loco-rs = { version = "1.1" }
 # on them.
 # ---------------------------------------------------------------------------
 loco-rs = { workspace = true, optional = true }
-axum = { version = "0.8", optional = true }
-tokio = { version = "1.45", default-features = false, features = [
+axum = { version = "0.8.9", optional = true }
+tokio = { version = "1.53.1", default-features = false, features = [
   "rt-multi-thread",
   "time", # rate limiter housekeeping interval
 ], optional = true }
-async-trait = { version = "0.1", optional = true }
-tracing = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.3", features = [
+async-trait = { version = "0.1.92", optional = true }
+tracing = { version = "0.1.44", optional = true }
+tracing-subscriber = { version = "0.3.23", features = [
   "env-filter",
   "json",
 ], optional = true }
-regex = { version = "1.11", optional = true }
-serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1" }
+regex = { version = "1.13.1", optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151" }
 
 # Database and the typed API contract. All server only: none of these build
 # for wasm32. SQLite in every environment, a file next to the binary on the
@@ -60,21 +63,21 @@ sea-orm = { version = "2.0.3", features = [
 # Timestamps on the users model (via Sea-ORM) and the current year in the
 # footer, computed at render time. Default features stay on: Sea-ORM needs
 # them.
-chrono = { version = "0.4", optional = true }
+chrono = { version = "0.4.45", optional = true }
 # Must track the version loco-rs depends on: the `Validate` derive comes
 # through Loco's prelude and its output names this crate. A different
 # version here is a second `validator` in the graph and the trait no longer
 # matches (E0277). Loco 1.1 pins 0.20.
-validator = { version = "0.20", optional = true }
-uuid = { version = "1.6", features = ["v4"], optional = true }
+validator = { version = "0.20.0", optional = true }
+uuid = { version = "1.26.1", features = ["v4"], optional = true }
 # ts-rs derives the TypeScript bindings for the `dtos` (the typed JSON API
 # contract). The export itself is commented out in src/dtos/common.rs until
 # a TypeScript consumer of the JSON API exists.
-ts-rs = { version = "12", features = [
+ts-rs = { version = "12.0.1", features = [
   "chrono-impl",
   "serde-compat",
 ], optional = true }
-include_dir = { version = "0.7", optional = true }
+include_dir = { version = "0.7.4", optional = true }
 
 # ---------------------------------------------------------------------------
 # Leptos: the views. `leptos` builds in both halves. Server only (`ssr`):
@@ -82,11 +85,11 @@ include_dir = { version = "0.7", optional = true }
 # is the task executor Leptos renders on (started once at boot in app.rs).
 # The last two exist only for the browser bundle (`hydrate`).
 # ---------------------------------------------------------------------------
-leptos = { version = "0.8", features = ["islands"] }
-leptos_axum = { version = "0.8", optional = true }
-any_spawner = { version = "0.3", features = ["tokio"], optional = true }
-wasm-bindgen = { version = "0.2", optional = true }
-console_error_panic_hook = { version = "0.1", optional = true }
+leptos = { version = "0.8.21", features = ["islands"] }
+leptos_axum = { version = "0.8.10", optional = true }
+any_spawner = { version = "0.3.0", features = ["tokio"], optional = true }
+wasm-bindgen = { version = "0.2.129", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
 
 # ---------------------------------------------------------------------------
 # Other: crates this project adds on its own (rate limiting, ...).
@@ -94,36 +97,39 @@ console_error_panic_hook = { version = "0.1", optional = true }
 # Per-visitor token-bucket rate limiting (src/middleware/rate_limit.rs).
 # `default-features = false` drops the tonic (gRPC) integration the crate
 # enables by default; `axum` gives the Response<Body> conversion. Server only.
-tower_governor = { version = "0.8", default-features = false, features = [
+tower_governor = { version = "0.8.0", default-features = false, features = [
   "axum",
 ], optional = true }
 # Only for naming the limiter's config types in `rate_limit`, where every
 # bucket is built. Already in the graph through tower_governor, so no extra
 # compile. Server only.
-governor = { version = "0.10", optional = true }
+governor = { version = "0.10.4", optional = true }
 # The router's fallback (src/controllers/not_found.rs): file serving and the
 # cache header, the same pieces Loco's static middleware uses, plus a real
 # 404. Already in the graph through Loco; named here to use its types.
 # Server only.
-tower-http = { version = "0.6", features = ["fs", "set-header"], optional = true }
+tower-http = { version = "0.6.11", features = [
+  "fs",
+  "set-header",
+], optional = true }
 # Only for its address parser: `settings.mail.from` is parsed at boot
 # (src/settings.rs) the way Loco's mailer parses it when it sends, so a
 # sender it would refuse fails the start, not every mail. The version
 # loco-rs uses, already in the graph, so no extra compile. Server only.
-lettre = { version = "0.11", default-features = false, features = [
+lettre = { version = "0.11.23", default-features = false, features = [
   "builder",
 ], optional = true }
 # Nightly restart (src/maintenance.rs): the hour is read in a fixed IANA
 # zone from config, not the server's local time. `serde` lets the zone name
 # deserialize straight into a `Tz`, so a typo refuses to boot. Already in
 # the graph through loco-rs, so no extra compile. Server only.
-chrono-tz = { version = "0.10", features = ["serde"], optional = true }
+chrono-tz = { version = "0.10.4", features = ["serde"], optional = true }
 
 # The nightly restart stops the server by sending SIGTERM to its own
 # process, so Loco's graceful shutdown runs and requests in flight finish.
 # Unix only; elsewhere src/maintenance.rs falls back to a plain exit.
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.29", features = ["signal"], optional = true }
+nix = { version = "0.29.0", features = ["signal"], optional = true }
 
 [features]
 # Plain `cargo build` / `cargo test` / `cargo loco start` build the server.
@@ -175,21 +181,22 @@ required-features = ["ssr"]
 [dev-dependencies]
 loco-rs = { workspace = true, features = ["testing"] }
 serial_test = { version = "4.0.1" }
-rstest = { version = "0.27" }
-insta = { version = "1.34", features = ["redactions", "yaml", "filters"] }
+rstest = { version = "0.27.0" }
+insta = { version = "1.48.0", features = ["redactions", "yaml", "filters"] }
 # The config canary (tests/config.rs) renders the staging and production
 # YAML with placeholder secrets instead of touching the process environment.
 # Both crates are already in the tree through loco-rs; same versions.
-tera = { version = "2" }
-serde_yaml = { version = "0.9" }
+tera = { version = "2.4.0" }
+serde_yaml = { version = "0.9.34" }
 
 [package.metadata.leptos]
 # Name of the js/wasm/css files. Mandatory: Leptos's config loader has no
 # default for it when it reads this file at boot. Must match
 # LEPTOS_OUTPUT_NAME in .cargo/config.toml.
 output-name = "app"
-# Everything cargo-leptos produces lands here. Loco's `static` middleware
-# serves this folder. WARNING: erased on every rebuild.
+# Everything cargo-leptos produces lands here. The app's own fallback
+# (src/controllers/not_found.rs) serves this folder. WARNING: erased on
+# every rebuild.
 site-root = "target/site"
 # Tailwind v4 entry point; cargo-leptos runs the Tailwind standalone binary.
 tailwind-input-file = "style/tailwind.css"
