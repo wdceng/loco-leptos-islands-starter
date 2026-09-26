@@ -60,11 +60,19 @@ async fn request_past_the_burst_is_rejected_with_a_page() {
         );
         assert!(body.contains("Too many requests"));
         assert!(
-            !body.contains("{wait}"),
+            !body.contains("{wait}") && !body.contains("{stylesheet}"),
             "placeholder not replaced:\n{body}"
         );
+        // The stylesheet resolved at boot (plain here, hashed in a release
+        // deploy), and the wait in words.
+        assert!(
+            body.contains(r#"href="/pkg/app.css""#),
+            "stylesheet link:\n{body}"
+        );
+        assert!(body.contains("in 1 second."), "the wait:\n{body}");
 
-        // Unmatched paths never reach the limiter (`route_layer`): still 404.
+        // Unmatched paths have a bucket of their own
+        // (controllers/not_found.rs), untouched by the routes: still 404.
         let res = request.get("/nope").await;
         assert_eq!(res.status_code(), 404);
     })

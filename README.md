@@ -99,7 +99,6 @@ Staging and production restart themselves once a day, at 03:00 UTC as shipped, s
 
 ## Known gaps
 
-- The "page not found" page is served with status 200, not 404, until a proper not-found handler exists.
 - There is no island yet. The wiring is done; the first component is up to you.
 - Behind a proxy, a request that reaches the server directly could fake its IP address for the rate limiter. `DEPLOYMENT.md` explains the fix.
 

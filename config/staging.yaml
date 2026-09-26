@@ -47,14 +47,23 @@ server:
     timeout_request:
       enable: true
       timeout: 15000
+    # The largest request body a handler reads. The JSON API's calls are a
+    # few hundred bytes; Loco's default is 2 MB.
+    limit_payload:
+      body_limit: 64kb
     # Loco's github preset (HSTS, nosniff, X-Frame-Options, ...) plus what it
     # lacks. Only added to responses that do not already carry the header:
     # pages set their own nonce-based CSP (settings.security below), so the
-    # preset CSP is the fallback for assets, robots.txt and the 404/429 pages.
+    # CSP override is the one for everything else: the files, robots.txt,
+    # the JSON API, the not-found line and the 429 page.
     secure_headers:
       enable: true
       preset: github
       overrides:
+        # Replaces the preset's, which allows scripts from any https: origin
+        # and inline styles. Nothing that gets it runs a script, so it allows
+        # only the app's own stylesheet, images and fonts.
+        Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
         # Matches frame-ancestors 'none' in the CSP; preset says sameorigin.
         X-Frame-Options: DENY
         Referrer-Policy: strict-origin-when-cross-origin
@@ -75,10 +84,13 @@ server:
         # Staging must never appear in search results. robots.txt keeps
         # crawlers out; this drops any URL they reach through a link.
         X-Robots-Tag: noindex, nofollow
-    # Loco's welcome page for unmatched routes: off, plain 404 instead.
+    # Loco's welcome page for unmatched routes: off. The app's own fallback
+    # (src/controllers/not_found.rs) answers them with a real 404.
     fallback:
       enable: false
-    # Serves the cargo-leptos output deployed as `site/` next to the binary.
+    # The cargo-leptos output deployed as `site/` next to the binary, served
+    # by the app's own fallback (src/controllers/not_found.rs), which reads
+    # this block in place of Loco's static middleware.
     static:
       enable: true
       # A staging build without its bundle is as broken as a production one.
@@ -86,6 +98,8 @@ server:
       folder:
         uri: "/"
         path: "site"
+      # Never served: a miss gets the rendered not-found page with status
+      # 404. Checked at boot with the folder (`must_exist`).
       fallback: "site/404.html"
       # One minute: testers should see a fresh deploy on the next reload.
       cache_control: "public, max-age=60"

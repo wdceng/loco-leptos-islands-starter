@@ -1,8 +1,10 @@
 //! `rate_limit`: a token bucket per visitor IP on every route.
 //!
 //! Applied with `route_layer`, so only matched routes count (pages, the
-//! JSON API, `/robots.txt`, the health endpoints); the static assets served
-//! by the fallback (bundle, stylesheet, fonts, `404.html`) are never limited.
+//! JSON API, `/robots.txt`, the health endpoints). The router's fallback
+//! (`controllers::not_found`) serves the static files, which are never
+//! limited because a page loads several of them, and answers a miss, which
+//! has a bucket of its own with the same numbers ([`site_bucket`]).
 //!
 //! The visitor address comes from the same place Loco's `remote_ip`
 //! middleware is configured to read it, so the limiter and the `RemoteIP`
@@ -13,10 +15,11 @@
 //! every request.
 //!
 //! Numbers live under `settings.rate_limit` in `config/<env>.yaml`
-//! (see `crate::settings`). `bucket` builds the same kind of limiter for a
-//! group of routes: the auth API has its own, stricter one
-//! (`settings.rate_limit.auth`), built in `after_context` and attached to
-//! `/api/auth` alone with Loco's `Routes::layer` in `controllers::auth`.
+//! (see `crate::settings`). Every bucket is built here, the same way:
+//! [`site_bucket`] for the routes and the misses, and [`auth_bucket`] for
+//! the auth API's stricter one (`settings.rate_limit.auth`), built in
+//! `after_context` and attached to `/api/auth` alone with Loco's
+//! `Routes::layer` in `controllers::auth`.
 
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -46,11 +49,18 @@ use tower_governor::{
     GovernorError, GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor,
 };
 
-use crate::settings::{RateLimitSettings, Settings};
+use crate::{
+    app::stored,
+    assets::Assets,
+    settings::{RateLimitSettings, Settings},
+};
 
 /// The 429 page. Kept next to this file, not under `public/`, because
-/// cargo-leptos would otherwise ship it as a static `/429.html` with a
-/// literal `{wait}` in it.
+/// cargo-leptos would otherwise ship it as a static `/429.html` with its
+/// placeholders in it: `{stylesheet}`, filled once per limiter with the
+/// path `Assets` resolved at boot ([`page_for`]; a fixed plain name would
+/// be a miss in production, where the names are hashed), and `{wait}`,
+/// filled per refusal ([`fill_wait`]).
 const PAGE: &str = include_str!("rate_limit.html");
 
 /// How often idle buckets are dropped from the limiter's map.
@@ -150,25 +160,47 @@ impl KeyExtractor for VisitorIp {
     }
 }
 
-/// The 429 page with the wait filled in, in whole seconds; never below 1.
+/// The 429 page for one stylesheet path, the URL path `Assets` resolved at
+/// boot. `{wait}` stays in it for [`fill_wait`].
 #[must_use]
-pub fn render_page(wait_secs: u64) -> String {
-    PAGE.replace("{wait}", &wait_secs.max(1).to_string())
+pub fn page_for(stylesheet: &str) -> String {
+    PAGE.replace("{stylesheet}", stylesheet)
 }
 
-/// Turns the limiter's rejection into the HTML 429, keeping the
-/// `x-ratelimit-*` headers tower_governor computed. The wait is rounded up:
-/// tower_governor rounds it down to whole seconds, so a bucket that refills
-/// once a second would always say 0, and `Retry-After: 0` sends a client
-/// straight back into another refusal. One second more is never too early.
+/// A number of seconds in words: "1 second", "2 seconds".
 #[must_use]
-pub fn too_many_requests(err: GovernorError) -> Response<Body> {
+pub fn seconds(n: u64) -> String {
+    if n == 1 {
+        "1 second".into()
+    } else {
+        format!("{n} seconds")
+    }
+}
+
+/// `page` (from [`page_for`]) with the wait filled in, in words. The page
+/// says at least 1 second.
+#[must_use]
+pub fn fill_wait(page: &str, wait_secs: u64) -> String {
+    page.replace("{wait}", &seconds(wait_secs.max(1)))
+}
+
+/// Turns the limiter's rejection into the HTML 429 built from `page`,
+/// keeping the `x-ratelimit-*` headers tower_governor computed. The wait is
+/// rounded up: tower_governor rounds it down to whole seconds, so a bucket
+/// that refills once a second would always say 0, and `Retry-After: 0`
+/// sends a client straight back into another refusal. One second more is
+/// never too early.
+#[must_use]
+pub fn too_many_requests(page: &str, err: GovernorError) -> Response<Body> {
     match err {
         GovernorError::TooManyRequests { wait_time, headers } => {
             let wait_secs = wait_time.saturating_add(1);
             tracing::info!(wait_secs, "rate limit exceeded");
-            let mut res =
-                (StatusCode::TOO_MANY_REQUESTS, Html(render_page(wait_secs))).into_response();
+            let mut res = (
+                StatusCode::TOO_MANY_REQUESTS,
+                Html(fill_wait(page, wait_secs)),
+            )
+                .into_response();
             if let Some(headers) = headers {
                 res.headers_mut().extend(headers);
             }
@@ -193,38 +225,18 @@ struct Configured {
     key_source: KeySource,
 }
 
-/// The `rate_limit` entry for `Hooks::middlewares`. Carries the outcome of
-/// the boot-time validation so a bad config fails loudly in `apply` instead
-/// of silently disabling the limiter.
-#[derive(Debug, Clone)]
+/// The `rate_limit` entry for `Hooks::middlewares`: a [`site_bucket`] on
+/// every route. It reads the settings as the stack is built, so a bad
+/// config fails the boot in `apply` instead of silently disabling the
+/// limiter.
 pub struct RateLimit {
-    inner: std::result::Result<Configured, String>,
+    ctx: AppContext,
 }
 
 impl RateLimit {
     #[must_use]
     pub fn from_context(ctx: &AppContext) -> Self {
-        Self {
-            inner: Self::configure(ctx),
-        }
-    }
-
-    fn configure(ctx: &AppContext) -> std::result::Result<Configured, String> {
-        let settings = ctx
-            .shared_store
-            .get::<Settings>()
-            .ok_or(
-                "rate_limit: settings missing from the shared store (after_context did not run)",
-            )?
-            .rate_limit;
-        let key_source = key_source(
-            ctx.config.server.middlewares.remote_ip.as_ref(),
-            &ctx.environment,
-        )?;
-        Ok(Configured {
-            settings,
-            key_source,
-        })
+        Self { ctx: ctx.clone() }
     }
 }
 
@@ -234,50 +246,100 @@ impl MiddlewareLayer for RateLimit {
     }
 
     fn is_enabled(&self) -> bool {
-        // A broken config must reach `apply` and fail the boot.
-        self.inner.as_ref().map_or(true, |c| c.settings.enable)
+        // Settings that cannot be read must reach `apply` and fail the boot.
+        stored::<Settings>(&self.ctx).map_or(true, |settings| settings.rate_limit.enable)
     }
 
     fn config(&self) -> serde_json::Result<serde_json::Value> {
-        match &self.inner {
-            Ok(c) => serde_json::to_value(c),
-            Err(e) => Ok(serde_json::json!({ "error": e })),
+        let key_source = key_source(
+            self.ctx.config.server.middlewares.remote_ip.as_ref(),
+            &self.ctx.environment,
+        );
+        match (stored::<Settings>(&self.ctx), key_source) {
+            (Ok(settings), Ok(key_source)) => serde_json::to_value(Configured {
+                settings: settings.rate_limit,
+                key_source,
+            }),
+            (Err(e), _) => Ok(serde_json::json!({ "error": e.to_string() })),
+            (_, Err(e)) => Ok(serde_json::json!({ "error": e })),
         }
     }
 
     fn apply(&self, app: Router<AppContext>) -> Result<Router<AppContext>> {
-        let c = self.inner.as_ref().map_err(|e| Error::Message(e.clone()))?;
-        let layer = bucket(
-            c.settings.per_second,
-            c.settings.burst,
-            c.key_source.clone(),
-        )?;
-        Ok(app.route_layer(layer))
+        Ok(match site_bucket(&self.ctx)? {
+            Some(bucket) => app.route_layer(bucket),
+            None => app,
+        })
     }
 }
 
-/// One token bucket per visitor IP, as a tower layer: `burst` requests at
-/// once, then one every `per_second` seconds, the HTML 429 on refusal.
-/// `apply` puts one on every route; `controllers::auth` puts a stricter one
-/// on `/api/auth` alone. A request under both spends a token from each, and
-/// the outer, site-wide layer writes `x-ratelimit-limit` and
-/// `x-ratelimit-remaining` last, so a response from `/api/auth` reports the
-/// site-wide numbers; `retry-after` on a 429 is from the bucket that refused.
+/// A limiter as a tower layer: one token bucket per visitor
+/// ([`VisitorIp`]), the HTML 429 on refusal.
+pub type Bucket = GovernorLayer<VisitorIp, StateInformationMiddleware, Body>;
+
+/// A new bucket with the site-wide numbers of `settings.rate_limit`, `None`
+/// when that block is off: [`RateLimit`] puts one on every route,
+/// `controllers::not_found` one of its own on the misses.
 ///
 /// # Errors
-/// `per_second` or `burst` is 0: no such limiter can be built.
-pub fn bucket(
-    per_second: u64,
-    burst: u32,
-    source: KeySource,
-) -> Result<GovernorLayer<VisitorIp, StateInformationMiddleware, Body>> {
+/// The settings or the assets are missing from the shared store, the key
+/// source cannot be derived (see [`key_source`]), or no such limiter can
+/// be built.
+pub fn site_bucket(ctx: &AppContext) -> Result<Option<Bucket>> {
+    let site = stored::<Settings>(ctx)?.rate_limit;
+    if !site.enable {
+        return Ok(None);
+    }
+    bucket(ctx, Duration::from_secs(site.per_second), site.burst).map(Some)
+}
+
+/// The auth API's stricter bucket (`settings.rate_limit.auth`), `None` when
+/// the limiter is off: built in `after_context`, attached to `/api/auth`
+/// alone in `controllers::auth`. A request there spends a token from both
+/// buckets, and the outer, site-wide layer writes `x-ratelimit-limit` and
+/// `x-ratelimit-remaining` last, so a response from `/api/auth` reports the
+/// site-wide numbers; `retry-after` on a 429 is from the bucket that
+/// refused.
+///
+/// # Errors
+/// As [`site_bucket`].
+pub fn auth_bucket(ctx: &AppContext) -> Result<Option<Bucket>> {
+    let limits = stored::<Settings>(ctx)?.rate_limit;
+    if !limits.enable {
+        return Ok(None);
+    }
+    bucket(
+        ctx,
+        Duration::from_secs(limits.auth.per_second),
+        limits.auth.burst,
+    )
+    .map(Some)
+}
+
+/// One token bucket per visitor, as a tower layer: `burst` requests at
+/// once, then one every `period`. The visitor address is read where the
+/// config says ([`key_source`]), and the HTML 429 on refusal links the
+/// stylesheet `Assets` resolved at boot.
+///
+/// # Errors
+/// The assets are missing from the shared store, the key source cannot be
+/// derived, or `period` or `burst` is 0.
+fn bucket(ctx: &AppContext, period: Duration, burst: u32) -> Result<Bucket> {
+    let source = key_source(
+        ctx.config.server.middlewares.remote_ip.as_ref(),
+        &ctx.environment,
+    )
+    .map_err(Error::Message)?;
+    let stylesheet = stored::<Assets>(ctx)?.stylesheet;
     let config = GovernorConfigBuilder::default()
-        .per_second(per_second)
+        .period(period)
         .burst_size(burst)
         .key_extractor(VisitorIp { source })
         .use_headers()
         .finish()
-        .ok_or_else(|| Error::Message("rate_limit: per_second and burst must be > 0".into()))?;
+        .ok_or_else(|| {
+            Error::Message("rate_limit: the interval and the burst must be above 0".into())
+        })?;
     let config = Arc::new(config);
 
     // Housekeeping: drop buckets nobody has touched for a while, so the
@@ -297,7 +359,10 @@ pub fn bucket(
         }
     });
 
-    Ok(GovernorLayer::new(config).error_handler(too_many_requests))
+    // The page with its stylesheet, built once; each refusal fills in only
+    // the wait.
+    let page: Arc<str> = page_for(&stylesheet).into();
+    Ok(GovernorLayer::new(config).error_handler(move |err| too_many_requests(&page, err)))
 }
 
 #[cfg(test)]
@@ -397,15 +462,37 @@ mod tests {
         );
     }
 
+    /// The 429 page as the test environment builds it: plain names.
+    fn page() -> String {
+        page_for("/pkg/app.css")
+    }
+
     #[test]
     fn page_fills_in_the_wait() {
-        let page = render_page(7);
-        assert!(page.contains("in 7 seconds"), "{page}");
-        assert!(!page.contains("{wait}"));
+        let filled = fill_wait(&page(), 7);
+        assert!(filled.contains("in 7 seconds."), "{filled}");
+        assert!(!filled.contains("{wait}"));
         assert!(
-            render_page(0).contains("in 1 seconds"),
-            "0 must round up to 1"
+            fill_wait(&page(), 0).contains("in 1 second."),
+            "0 must round up to 1, in the singular"
         );
+    }
+
+    #[test]
+    fn page_links_the_resolved_stylesheet() {
+        let page = page_for("/pkg/app.ab12cd.css");
+        assert!(
+            page.contains(r#"href="/pkg/app.ab12cd.css""#),
+            "the hashed name, as resolved at boot:\n{page}"
+        );
+        assert!(!page.contains("{stylesheet}"));
+    }
+
+    #[test]
+    fn seconds_take_the_right_number() {
+        assert_eq!(seconds(1), "1 second");
+        assert_eq!(seconds(2), "2 seconds");
+        assert_eq!(seconds(21), "21 seconds");
     }
 
     #[tokio::test]
@@ -415,10 +502,13 @@ mod tests {
         given.insert("x-ratelimit-limit", HeaderValue::from_static("3"));
         given.insert("x-ratelimit-after", HeaderValue::from_static("5"));
         given.insert(header::RETRY_AFTER, HeaderValue::from_static("5"));
-        let res = too_many_requests(GovernorError::TooManyRequests {
-            wait_time: 5,
-            headers: Some(given),
-        });
+        let res = too_many_requests(
+            &page(),
+            GovernorError::TooManyRequests {
+                wait_time: 5,
+                headers: Some(given),
+            },
+        );
 
         assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
         assert_eq!(res.headers()[header::RETRY_AFTER], "6", "rounded up");
@@ -444,10 +534,13 @@ mod tests {
 
     #[test]
     fn retry_after_is_added_when_governor_gave_no_headers() {
-        let res = too_many_requests(GovernorError::TooManyRequests {
-            wait_time: 2,
-            headers: None,
-        });
+        let res = too_many_requests(
+            &page(),
+            GovernorError::TooManyRequests {
+                wait_time: 2,
+                headers: None,
+            },
+        );
         assert_eq!(res.headers()[header::RETRY_AFTER], "3");
     }
 
@@ -458,10 +551,13 @@ mod tests {
         let mut given = HeaderMap::new();
         given.insert("x-ratelimit-after", HeaderValue::from_static("0"));
         given.insert(header::RETRY_AFTER, HeaderValue::from_static("0"));
-        let res = too_many_requests(GovernorError::TooManyRequests {
-            wait_time: 0,
-            headers: Some(given),
-        });
+        let res = too_many_requests(
+            &page(),
+            GovernorError::TooManyRequests {
+                wait_time: 0,
+                headers: Some(given),
+            },
+        );
         assert_eq!(res.headers()[header::RETRY_AFTER], "1");
         assert_eq!(res.headers()["x-ratelimit-after"], "1");
     }

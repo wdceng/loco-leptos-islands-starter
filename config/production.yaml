@@ -62,14 +62,23 @@ server:
     timeout_request:
       enable: true
       timeout: 15000
+    # The largest request body a handler reads. The JSON API's calls are a
+    # few hundred bytes; Loco's default is 2 MB.
+    limit_payload:
+      body_limit: 64kb
     # Loco's github preset (HSTS, nosniff, X-Frame-Options, ...) plus what it
     # lacks. Only added to responses that do not already carry the header:
     # pages set their own nonce-based CSP (settings.security below), so the
-    # preset CSP is the fallback for assets, robots.txt and the 404/429 pages.
+    # CSP override is the one for everything else: the files, robots.txt,
+    # the JSON API, the not-found line and the 429 page.
     secure_headers:
       enable: true
       preset: github
       overrides:
+        # Replaces the preset's, which allows scripts from any https: origin
+        # and inline styles. Nothing that gets it runs a script, so it allows
+        # only the app's own stylesheet, images and fonts.
+        Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
         # Matches frame-ancestors 'none' in the CSP; preset says sameorigin.
         X-Frame-Options: DENY
         Referrer-Policy: strict-origin-when-cross-origin
@@ -87,13 +96,16 @@ server:
         # hstspreload.org is done once for the apex domain, after go-live.
         # Every subdomain must be https from then on.
         Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-    # Loco's built-in welcome page for unmatched routes. Off: unmatched routes
-    # get a plain 404 until we render our own not-found page.
+    # Loco's built-in welcome page for unmatched routes. Off: the app's own
+    # fallback (src/controllers/not_found.rs) answers them with a real 404,
+    # and src/app.rs takes this middleware out of the stack anyway.
     fallback:
       enable: false
-    # Serves the cargo-leptos output (islands bundle, stylesheet, copies of
-    # public/) for any URL no controller claims. `uri: "/"` makes it the
-    # router's fallback, so controller routes always win.
+    # The cargo-leptos output (islands bundle, stylesheet, copies of public/)
+    # for any URL no controller claims. Served by the app's own fallback
+    # (src/controllers/not_found.rs), which reads this block in place of
+    # Loco's static middleware. `uri: "/"` makes it the router's fallback,
+    # so controller routes always win.
     static:
       enable: true
       # A production build without its bundle is a broken deploy: refuse to boot.
@@ -103,13 +115,14 @@ server:
       folder:
         uri: "/"
         path: "site"
+      # Never served: a miss gets the rendered not-found page with status
+      # 404. Checked at boot with the folder (`must_exist`).
       fallback: "site/404.html"
       # One year, never revalidated. Safe because release builds hash the
       # bundle and stylesheet names (src/assets.rs): every deploy is a new
-      # URL, old copies stay cached harmlessly. Applies to everything the
+      # URL, old copies stay cached harmlessly. Applies to every file the
       # static folder serves, so a font file must change its name when its
-      # content changes, and the 404 fallback page is cached for the URL
-      # that missed until the real not-found handler replaces it.
+      # content changes. A miss is answered with `no-store`, never cached.
       cache_control: "public, max-age=31536000, immutable"
 
 # App settings, typed in src/settings.rs and parsed at boot: a missing or

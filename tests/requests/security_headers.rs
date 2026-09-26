@@ -63,23 +63,29 @@ async fn page_has_nonce_csp_and_preset_headers() {
     .await;
 }
 
-/// A response that sets no CSP of its own gets the preset one: Loco only
-/// adds headers that are not already present.
+/// A response that sets no CSP of its own gets the config's strict one, the
+/// `Content-Security-Policy` override under `secure_headers`: Loco only adds
+/// headers that are not already present. It replaces the github preset's,
+/// which allowed scripts from any https origin.
 #[tokio::test]
 #[serial]
-async fn other_responses_get_the_preset_csp() {
+async fn other_responses_get_the_strict_fallback_csp() {
     request::<App, _, _>(|request, _ctx| async move {
-        let res = request.get("/robots.txt").await;
-        assert_eq!(res.status_code(), 200);
-
-        let csp = res.header("content-security-policy");
-        let csp = csp.to_str().expect("ascii header");
-        assert!(csp.starts_with("default-src 'self' https:"), "{csp}");
-        assert!(!csp.contains("nonce"), "{csp}");
-        assert_eq!(
-            res.header("referrer-policy"),
-            "strict-origin-when-cross-origin"
-        );
+        for path in ["/robots.txt", "/wp-login.php"] {
+            let res = request.get(path).await;
+            let csp = res.header("content-security-policy");
+            let csp = csp.to_str().expect("ascii header");
+            assert!(csp.starts_with("default-src 'none';"), "{path}: {csp}");
+            assert!(!csp.contains("script-src"), "{path}: no scripts: {csp}");
+            assert!(!csp.contains("https:"), "{path}: {csp}");
+            assert!(!csp.contains("unsafe-inline"), "{path}: {csp}");
+            assert!(!csp.contains("nonce"), "{path}: {csp}");
+            assert_eq!(
+                res.header("referrer-policy"),
+                "strict-origin-when-cross-origin",
+                "{path}"
+            );
+        }
     })
     .await;
 }

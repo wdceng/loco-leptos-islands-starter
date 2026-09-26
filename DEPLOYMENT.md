@@ -30,7 +30,7 @@ loads:
 ├── app          <- Linux x86_64 build of the server binary
 ├── hash.txt     <- hashes of the bundle and stylesheet names; the app reads it next to the binary
 ├── config/      <- <env>.yaml only; Loco reads the one file named by LOCO_ENV
-├── site/        <- the cargo-leptos output (target/site locally): hashed bundle and stylesheet, fonts, 404 page
+├── site/        <- the cargo-leptos output (target/site locally): hashed bundle and stylesheet, fonts, the 404.html the boot checks for
 └── secrets.env  <- JWT_SECRET and MAILER_*, readable by <user> only, loaded by the unit
 ```
 
@@ -184,7 +184,8 @@ umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-
 
 `MAILER_FROM` is the sender as SMTP sees it, `Name <address>`; keep the
 double quotes around it, both systemd and the shell in "Manual Run" below
-read them. With Gmail, `MAILER_USER` is the address, `MAILER_PASSWORD` an
+read them. The boot parses it the way the mailer does and refuses one it
+would reject, such as a name with a bare comma. With Gmail, `MAILER_USER` is the address, `MAILER_PASSWORD` an
 app password (Google account, Security, 2-Step Verification, App
 passwords), never the account password, and `MAILER_FROM` must carry that
 same address: Gmail rewrites any other. A transactional service (Postmark,
@@ -264,6 +265,7 @@ Boot refusals and what they mean:
 | `the hash file is stale` | `hash.txt` and `site/` come from different builds |
 | `invalid settings: block: failed to parse timezone` | `nightly_restart.zone` is not an IANA zone name (`UTC`, `Europe/Zagreb`) |
 | `settings.nightly_restart.hour must be 0 to 23` | the restart hour is out of range |
+| `settings.mail.from is not a sender` | `MAILER_FROM` is not `Name <address>` or an address the mailer accepts, for example a name with a bare comma |
 | a `get_env` error naming `JWT_SECRET` or `MAILER_*` | production only: `secrets.env` missing, incomplete, or not readable by `<user>` |
 
 ### Step 5: Add the Caddy Block (on the server)

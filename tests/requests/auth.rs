@@ -522,3 +522,125 @@ async fn cannot_resend_email_if_already_verified() {
     })
     .await;
 }
+
+/// The `text/html` part of a raw multipart message from the stub mailer,
+/// with its transfer encoding undone, so the test reads what a mail client
+/// renders.
+fn html_part(mail: &str) -> String {
+    let start = mail
+        .find("Content-Type: text/html")
+        .unwrap_or_else(|| panic!("no HTML part:\n{mail}"));
+    let (head, rest) = mail[start..]
+        .split_once("\r\n\r\n")
+        .unwrap_or_else(|| panic!("an HTML part without a body:\n{mail}"));
+    let body = rest.split("\r\n--").next().unwrap_or(rest);
+    if head.contains("quoted-printable") {
+        decode_quoted_printable(body)
+    } else {
+        assert!(
+            !head.contains("base64"),
+            "the HTML part is base64 now, decode it here:\n{head}"
+        );
+        body.to_owned()
+    }
+}
+
+/// Quoted-printable (RFC 2045): soft line breaks removed, `=XX` turned back
+/// into its byte.
+fn decode_quoted_printable(body: &str) -> String {
+    let unfolded = body.replace("=\r\n", "");
+    let bytes = unfolded.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'='
+            && let Some(byte) = bytes
+                .get(i + 1..i + 3)
+                .and_then(|hex| std::str::from_utf8(hex).ok())
+                .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+        {
+            decoded.push(byte);
+            i += 3;
+        } else {
+            decoded.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(decoded).expect("the HTML part is UTF-8")
+}
+
+/// The name is typed by whoever registers, and the welcome mail goes to any
+/// address they give. Loco's Tera does not escape `html.t`, so the template
+/// does (`{{ name | escape }}`): markup in the name arrives as text.
+#[tokio::test]
+#[serial]
+async fn markup_in_the_name_arrives_escaped_in_the_html_mail() {
+    request::<App, _, _>(|request, ctx| async move {
+        let payload = serde_json::json!({
+            "name": "<b>Ana</b> <a href=\"https://evil.example\">click</a>",
+            "email": "ana@example.com",
+            "password": "12341234"
+        });
+        let response = request.post("/api/auth/register").json(&payload).await;
+        assert_eq!(response.status_code(), 200);
+
+        let mails = ctx.mailer.expect("stub mailer").deliveries().messages;
+        assert_eq!(mails.len(), 1, "the welcome mail");
+        let html = html_part(&mails[0]);
+        assert!(
+            html.contains("&lt;b&gt;Ana&lt;&#x2F;b&gt;") || html.contains("&lt;b&gt;Ana&lt;/b&gt;"),
+            "the markup is shown as text:\n{html}"
+        );
+        for raw in ["<b>Ana", "<a href=\"https://evil.example\""] {
+            assert!(!html.contains(raw), "raw `{raw}` in the HTML part:\n{html}");
+        }
+    })
+    .await;
+}
+
+/// The name is capped at 100 characters (`users::Validator`): a longer one
+/// registers nobody and sends nothing.
+#[tokio::test]
+#[serial]
+async fn a_name_longer_than_100_characters_is_refused() {
+    request::<App, _, _>(|request, ctx| async move {
+        let email = "long@example.com";
+        let payload = serde_json::json!({
+            "name": "a".repeat(101),
+            "email": email,
+            "password": "12341234"
+        });
+        let response = request.post("/api/auth/register").json(&payload).await;
+        assert_eq!(
+            response.status_code(),
+            200,
+            "register answers the same either way, so it does not reveal who exists"
+        );
+        assert!(
+            users::Model::find_by_email(&ctx.db, email).await.is_err(),
+            "no user was created"
+        );
+        assert_eq!(
+            ctx.mailer.expect("stub mailer").deliveries().count,
+            0,
+            "no mail was sent"
+        );
+    })
+    .await;
+}
+
+/// The body limit (`limit_payload`, 64 KB in every config): a larger body is
+/// refused before any handler parses it.
+#[tokio::test]
+#[serial]
+async fn a_body_past_the_limit_is_refused() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let payload = serde_json::json!({
+            "email": "nobody@example.com",
+            "password": "a".repeat(70_000)
+        });
+        let response = request.post("/api/auth/login").json(&payload).await;
+        assert_eq!(response.status_code(), 413, "a body past 64 KB");
+    })
+    .await;
+}

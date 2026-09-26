@@ -35,12 +35,17 @@ server:
     timeout_request:
       enable: true
       timeout: 15000
+    # Same limit as everywhere; tests/requests/auth.rs proves a larger body
+    # is refused.
+    limit_payload:
+      body_limit: 64kb
     # Same headers as the deployed environments so the request tests assert
     # the real values. See development.yaml for the reasoning.
     secure_headers:
       enable: true
       preset: github
       overrides:
+        Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
         X-Frame-Options: DENY
         Referrer-Policy: strict-origin-when-cross-origin
         Permissions-Policy: camera=(), microphone=(), geolocation=()
@@ -48,6 +53,11 @@ server:
         Cross-Origin-Resource-Policy: same-origin
         Cross-Origin-Embedder-Policy: require-corp
         Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+    # Loco's built-in welcome page for unmatched routes. Off, explicitly: a
+    # missing block means on everywhere but production. The app's own
+    # fallback (src/controllers/not_found.rs) answers misses.
+    fallback:
+      enable: false
 
 # App settings, typed in src/settings.rs and parsed at boot. Small burst so
 # a request test can exhaust the bucket, but larger than the longest auth

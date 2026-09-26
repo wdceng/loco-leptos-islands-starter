@@ -83,22 +83,11 @@ impl Hooks for App {
         let assets = assets::detect(&mut options, &ctx.environment)?;
         ctx.shared_store.insert(options);
         ctx.shared_store.insert(assets);
+        ctx.shared_store.insert(Settings::from_config(&ctx.config)?);
 
-        let settings = Settings::from_config(&ctx.config)?;
-        let auth_limit = if settings.rate_limit.enable {
-            let source = rate_limit::key_source(
-                ctx.config.server.middlewares.remote_ip.as_ref(),
-                &ctx.environment,
-            )
-            .map_err(Error::Message)?;
-            let auth = &settings.rate_limit.auth;
-            Some(rate_limit::bucket(auth.per_second, auth.burst, source)?)
-        } else {
-            None
-        };
-        ctx.shared_store
-            .insert(controllers::auth::AuthLimit(auth_limit));
-        ctx.shared_store.insert(settings);
+        // From the settings and the stylesheet now in the store.
+        let limit = rate_limit::auth_bucket(&ctx)?;
+        ctx.shared_store.insert(controllers::auth::AuthLimit(limit));
         Ok(ctx)
     }
 
@@ -110,22 +99,32 @@ impl Hooks for App {
     /// the restart off in `config/test.yaml` and refused in the test
     /// environment anyway.
     async fn after_routes(router: Router, ctx: &AppContext) -> Result<Router> {
-        let settings: Settings = ctx
-            .shared_store
-            .get()
-            .ok_or_else(|| Error::Message("settings missing from shared store".into()))?;
+        let settings: Settings = stored(ctx)?;
         maintenance::spawn(&settings.nightly_restart, &ctx.environment)?;
         Ok(router)
     }
 
-    /// Loco's default, config-driven stack plus the project's own
-    /// `rate_limit`, inserted just outside `remote_ip`. Later in the list is
-    /// further out on the request path, so the limiter runs inside `logger`,
-    /// `request_id` and `secure_headers` (a 429 is logged with its request id
-    /// and carries the security headers) and outside `etag`, `catch_panic`
-    /// and `limit_payload` (no ETag on a 429, nothing of ours to panic).
+    /// Loco's default, config-driven stack with two changes. The router's
+    /// fallback (the static files and the not-found page) is the project's
+    /// own `site` in place of Loco's `static`, and first in the list: the
+    /// stack is applied in order and each middleware wraps what the router
+    /// holds by then, fallback included, so files and misses get the
+    /// security headers, request id, request log, timeout and panic
+    /// catching like routes. And `rate_limit`, inserted just outside
+    /// `remote_ip`. Later in the list is further out on the request path,
+    /// so the limiter runs inside `logger`, `request_id` and
+    /// `secure_headers` (a 429 is logged with its request id and carries
+    /// the security headers) and outside `etag`, `catch_panic` and
+    /// `limit_payload` (no ETag on a 429, nothing of ours to panic).
     fn middlewares(ctx: &AppContext) -> Vec<Box<dyn MiddlewareLayer>> {
         let mut stack = default_middleware_stack(ctx);
+        // Loco's `static` is replaced (its `static:` block in the config
+        // stays the source of the folder and the cache header), and its
+        // welcome-page `fallback` must never run: it would set a fallback of
+        // its own over ours. The configs switch that one off too.
+        stack.delete("static");
+        stack.delete("fallback");
+        stack.insert(0, Box::new(controllers::not_found::Site::from_context(ctx)));
         stack.insert_after("remote_ip", Box::new(RateLimit::from_context(ctx)));
         stack
     }
@@ -158,4 +157,18 @@ impl Hooks for App {
             .await?;
         Ok(())
     }
+}
+
+/// A value `after_context` parked in the shared store (the Leptos options,
+/// `Assets`, `Settings`), cloned out.
+///
+/// # Errors
+/// It is not there: the app did not boot through `after_context`.
+pub fn stored<T: Clone + Send + Sync + 'static>(ctx: &AppContext) -> Result<T> {
+    ctx.shared_store.get().ok_or_else(|| {
+        Error::Message(format!(
+            "{} missing from the shared store (after_context did not run)",
+            std::any::type_name::<T>()
+        ))
+    })
 }

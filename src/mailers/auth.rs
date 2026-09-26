@@ -6,6 +6,10 @@ use serde_json::json;
 
 use crate::{models::users, settings::Settings};
 
+// Each folder holds `subject.t`, `text.t` and `html.t`. Loco's Tera escapes
+// only templates named `.html`, `.htm` or `.xml`, so `html.t` escapes every
+// value a visitor chose itself (`{{ name | escape }}`): the name is typed at
+// registration, and the welcome mail goes to any address given there.
 static welcome: Dir<'_> = include_dir!("src/mailers/auth/welcome");
 static forgot: Dir<'_> = include_dir!("src/mailers/auth/forgot");
 static magic_link: Dir<'_> = include_dir!("src/mailers/auth/magic_link");

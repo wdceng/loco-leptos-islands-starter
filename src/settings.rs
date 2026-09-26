@@ -9,9 +9,9 @@
 use axum::http::HeaderValue;
 use chrono::NaiveTime;
 use chrono_tz::Tz;
+use lettre::message::Mailbox;
 use loco_rs::{Error, Result, config::Config};
 use serde::{Deserialize, Serialize};
-use validator::ValidateEmail;
 
 use crate::render::NONCE_PLACEHOLDER;
 
@@ -188,24 +188,17 @@ impl RateLimitSettings {
 }
 
 impl MailSettings {
+    /// Parsed the way Loco's mailer parses it when it sends (lettre's
+    /// `Mailbox`): a sender it would refuse fails the boot here, instead of
+    /// every mail later.
     fn validate(&self) -> Result<()> {
-        if !self.address().validate_email() {
+        if let Err(e) = self.from.parse::<Mailbox>() {
             return Err(Error::Message(format!(
-                "config: settings.mail.from must be `Name <address>` or a bare address, got {:?}",
+                "config: settings.mail.from is not a sender like `Name <address>` ({e}): {:?}",
                 self.from
             )));
         }
         Ok(())
-    }
-
-    /// The address part of `from`: what stands between `<` and `>` in the
-    /// display form, the whole value otherwise.
-    fn address(&self) -> &str {
-        let from = self.from.trim();
-        match (from.rfind('<'), from.ends_with('>')) {
-            (Some(start), true) => &from[start + 1..from.len() - 1],
-            _ => from,
-        }
     }
 }
 
@@ -351,7 +344,11 @@ mod tests {
 
     #[test]
     fn mail_sender_is_a_display_form_or_a_bare_address() {
-        for from in [FROM, "noreply@example.com", " Ops <ops@example.com> "] {
+        for from in [
+            FROM,
+            "noreply@example.com",
+            "\"Doe, John\" <john@example.com>",
+        ] {
             Settings::from_value(Some(&json!({
                 "rate_limit": rate_limit(),
                 "security": security(),
@@ -363,8 +360,12 @@ mod tests {
             "",
             "SaaS Starter",
             "SaaS Starter <not an address>",
+            "SaaS Starter <noreply@example.com",
             "<>",
             "noreply@",
+            // The address alone is fine, but a display name with a bare
+            // comma is not a mailbox: the mailer would refuse every send.
+            "Doe, John <john@example.com>",
         ] {
             let Err(err) = Settings::from_value(Some(&json!({
                 "rate_limit": rate_limit(),

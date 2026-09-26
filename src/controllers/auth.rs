@@ -1,19 +1,16 @@
 use crate::{
     mailers::auth::AuthMailer,
-    middleware::rate_limit::VisitorIp,
+    middleware::rate_limit::Bucket,
     models::{
         _entities::users,
         users::{LoginParams, RegisterParams},
     },
     views::auth::{CurrentResponse, LoginResponse},
 };
-use axum::body::Body;
-use governor::middleware::StateInformationMiddleware;
 use loco_rs::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
-use tower_governor::GovernorLayer;
 
 pub static EMAIL_DOMAIN_RE: OnceLock<Regex> = OnceLock::new();
 
@@ -22,7 +19,7 @@ pub static EMAIL_DOMAIN_RE: OnceLock<Regex> = OnceLock::new();
 /// the shared store, because `Hooks::routes` cannot fail. `None` when the
 /// limiter is off in the config.
 #[derive(Clone)]
-pub struct AuthLimit(pub Option<GovernorLayer<VisitorIp, StateInformationMiddleware, Body>>);
+pub struct AuthLimit(pub Option<Bucket>);
 
 fn get_allow_email_domain_re() -> &'static Regex {
     EMAIL_DOMAIN_RE.get_or_init(|| {

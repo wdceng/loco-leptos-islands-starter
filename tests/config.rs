@@ -19,7 +19,9 @@ use std::path::Path;
 use app::settings::Settings;
 use axum::http::HeaderValue;
 use loco_rs::{
-    config::Config, controller::middleware::remote_ip::ClientIpSource, environment::Environment,
+    config::Config,
+    controller::middleware::{limit_payload::DefaultBodyLimitKind, remote_ip::ClientIpSource},
+    environment::Environment,
 };
 use rstest::rstest;
 use tera::{Context, Kwargs, State, Tera, TeraResult, Value};
@@ -36,6 +38,10 @@ const PLACEHOLDERS: &[(&str, &str)] = &[
     // A sender: `settings.mail.from` is validated as one at boot.
     ("MAILER_FROM", "SaaS Starter <canary@example.test>"),
 ];
+
+/// The CSP of everything that is not a page (pages send their own): the
+/// files, robots.txt, the JSON API, the not-found line and the 429 page.
+const FALLBACK_CSP: &str = "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
 
 /// `get_env(name="VAR", default="fallback")` with the placeholder table in
 /// front of the process environment. Same semantics as Loco's otherwise.
@@ -117,6 +123,7 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
         .as_ref()
         .unwrap_or_else(|| panic!("{env}: secure_headers.overrides missing"));
     for (name, value) in [
+        ("Content-Security-Policy", FALLBACK_CSP),
         ("X-Frame-Options", "DENY"),
         ("Referrer-Policy", "strict-origin-when-cross-origin"),
         (
@@ -148,6 +155,18 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
         .unwrap_or_else(|| panic!("{env}: timeout_request block missing"));
     assert!(timeout.enable, "{env}: timeout_request disabled");
     assert_eq!(timeout.timeout, 15_000, "{env}: timeout_request.timeout ms");
+
+    // Without the block Loco allows 2 MB; the JSON API needs a few hundred
+    // bytes.
+    let payload = mw
+        .limit_payload
+        .as_ref()
+        .unwrap_or_else(|| panic!("{env}: limit_payload block missing"));
+    assert!(
+        matches!(payload.body_limit, DefaultBodyLimitKind::Limit(64_000)),
+        "{env}: limit_payload.body_limit is {:?}, agreed 64kb",
+        payload.body_limit
+    );
 
     let remote_ip = mw
         .remote_ip

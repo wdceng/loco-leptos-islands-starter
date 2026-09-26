@@ -26,7 +26,9 @@ pub struct RegisterParams {
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct Validator {
-    #[validate(length(min = 2, message = "Name must be at least 2 characters long."))]
+    // Capped: the name is chosen by whoever registers and goes into the
+    // welcome mail, which is sent to any address they give.
+    #[validate(length(min = 2, max = 100, message = "Name must be 2 to 100 characters long."))]
     pub name: String,
     #[validate(email(message = "invalid email"))]
     pub email: String,

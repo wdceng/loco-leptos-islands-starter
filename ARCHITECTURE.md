@@ -10,8 +10,8 @@ The same crate compiles twice. Natively with the `ssr` feature it becomes the Lo
 
 ## How a Page Is Served
 
-1. The request hits Loco's router. A controller route wins; anything else falls through to the `static` middleware, which serves the cargo-leptos output (`target/site` locally, `site/` on a server).
-2. On routes only, Loco's middleware stack runs together with the project's `rate_limit` layer, one token bucket per visitor IP, and a second, stricter bucket on `/api/auth` alone. Static files are never rate limited.
+1. The request hits Loco's router. A controller route wins; anything else falls through to the app's own fallback (`src/controllers/not_found.rs`), which serves the cargo-leptos output (`target/site` locally, `site/` on a server) and answers anything that is not a file with a real 404: the rendered not-found page for a browser, one line of text for anything else.
+2. Loco's middleware stack runs on everything, the fallback included. On routes it runs together with the project's `rate_limit` layer, one token bucket per visitor IP, and a second, stricter bucket on `/api/auth` alone. A miss spends a token from a bucket of its own with the same numbers. Static files are never rate limited.
 3. The page controller (`src/controllers/home.rs`) builds a `PageMeta` and calls `render_page` in `src/render.rs`.
 4. `render_page` generates a nonce, streams the document shell (`src/views/layout.rs`) around the page component, and sets the page's Content-Security-Policy with that nonce.
 5. The browser loads `/pkg/app.js` and the wasm bundle; `hydrate_islands()` in `src/lib.rs` wakes only the `#[island]` components. There is no client-side router: every navigation is a full request.
@@ -37,7 +37,8 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 | Pages | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/views/` | `/` renders `views/home.rs` inside the shell (`views/layout.rs`) through `render.rs`, which adds the per-request CSP nonce. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` everywhere else |
 | Health | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health`, `/_readiness` (the last two check the database and queue). Rate-limited like every other route |
 | Users and auth | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry. Under their own rate-limit bucket (`settings.rate_limit.auth`), inside the site-wide one |
-| Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml`, from the sender in `settings.mail.from`; the links start with `server.host` as configured (locally the port is part of it) |
+| Not found | `src/controllers/not_found.rs`, `src/views/not_found.rs` | The router's fallback, in place of Loco's `static` middleware and first in its stack: serves the files from the `static` block's folder with its cache header, and answers anything else with status 404 and `no-store`, the rendered not-found page for a request that asks for HTML and one line of text otherwise. Misses have a bucket of their own with the site-wide numbers |
+| Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml`, from the sender in `settings.mail.from`, parsed at boot the way the mailer parses it; the links start with `server.host` as configured (locally the port is part of it). Loco's Tera does not escape `html.t`, so the templates escape the registrant's name themselves |
 | Background | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
 | Nightly restart | `src/maintenance.rs` | Staging and production stop themselves once a day (`settings.nightly_restart`: hour and zone in `config/<env>.yaml`) and systemd starts them again; development and test never do |
 | Migrations | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
@@ -56,16 +57,16 @@ Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which
 | Layer | Implementation | Provided by | Status |
 |-------|----------------|-------------|--------|
 | Security headers | `secure_headers` middleware, `github` preset plus overrides, and a per-page nonce CSP (see below) | Loco + this project | on |
-| Request body limit | `limit_payload` middleware | Loco | on (Loco default) |
+| Request body limit | `limit_payload` middleware, 64 KB in every environment: the JSON API's calls are a few hundred bytes, Loco's default is 2 MB. A larger body is a 413 before any handler parses it | Loco | on |
 | Request timeout | `timeout_request` middleware, 15 s in every environment: a hung handler is cancelled with 408 instead of holding a connection; well under a CDN's origin limit (the reference CDN allows 100 s) | Loco | on |
 | Panic isolation | `catch_panic` middleware | Loco | on (Loco default) |
-| Static files, ETag | `static` and `etag` middlewares. `compression` stays off on purpose: the reverse proxy compresses | Loco | on |
+| Static files, ETag | The app's own fallback (`src/controllers/not_found.rs`) serves the `static` block's folder, inside the whole middleware stack, and answers a miss with a real 404; Loco's `etag` middleware on top. `compression` stays off on purpose: the reverse proxy compresses | Loco + this project | on |
 | Authentication | JWT (`auth.jwt` in config), passwords hashed by Loco, e-mail verification, magic links, reset tokens | Loco | on |
 | Secrets | `JWT_SECRET` and `MAILER_*` (host, user, password, sender) are read from the environment. Production has no defaults and refuses to boot without them; staging has placeholder defaults so it boots with `LOCO_ENV` alone | this project | on |
 | Outbound TLS (mailer) | Loco's mailer is `lettre` with RusTLS | Loco | on |
-| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`): a `tower_governor` token bucket per visitor IP (per /64 network for IPv6, so one machine cannot rotate addresses), keyed by the same source as Loco's `remote_ip` (`CF-Connecting-IP` behind the reference CDN, the TCP peer locally), tuned per environment under `settings.rate_limit` in `config/*.yaml`; only routes count, static assets are exempt; 429 is an HTML page with `Retry-After`, the wait rounded up so it is never 0. A second bucket from the same code (`rate_limit::bucket`) sits on `/api/auth` alone (`settings.rate_limit.auth`): those routes send mail to any address (`register`) or take a password, so when deployed they get ten calls at once, then one per 30 s, inside the site-wide limit. Loco has no built-in limiter | this project | on |
+| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`): a `tower_governor` token bucket per visitor IP (per /64 network for IPv6, so one machine cannot rotate addresses), keyed by the same source as Loco's `remote_ip` (`CF-Connecting-IP` behind the reference CDN, the TCP peer locally), tuned per environment under `settings.rate_limit` in `config/*.yaml`; routes count, misses count in a bucket of their own with the same numbers, static files are exempt; 429 is an HTML page with `Retry-After`, the wait rounded up so it is never 0, linking the stylesheet resolved at boot. A second bucket from the same code (`rate_limit::auth_bucket`) sits on `/api/auth` alone (`settings.rate_limit.auth`): those routes send mail to any address (`register`) or take a password, so when deployed they get ten calls at once, then one per 30 s, inside the site-wide limit. Loco has no built-in limiter | this project | on |
 
-Not used: `cors` (no cross-origin callers), `fallback` (Loco's welcome page; the static `404.html` serves instead) and `powered_by` (Loco's `X-Powered-By` middleware disables itself when `server.ident` is `""`, as it is in all four configs).
+Not used: `cors` (no cross-origin callers), `static` and `fallback` (Loco's file serving and welcome page; `src/app.rs` takes both out of the stack and puts the app's own fallback first, `src/controllers/not_found.rs`) and `powered_by` (Loco's `X-Powered-By` middleware disables itself when `server.ident` is `""`, as it is in all four configs).
 
 ### HTTP Security Headers
 
@@ -84,11 +85,11 @@ Two sources, both in `config/*.yaml`:
 | Cross-Origin-Embedder-Policy | Not in the preset: `require-corp`, pages load nothing cross-origin. Together with COOP this makes pages cross-origin isolated (the Spectre-class defence). An embed from another domain (map, video, payment widget) would need that resource to opt in via CORP or CORS, or this header dropped |
 | X-Robots-Tag | Staging only: `noindex, nofollow`, so a test copy never appears in search results even through an inbound link (`robots.txt` already disallows crawling outside production). Absent in development, test and production; `tests/config.rs` pins both sides |
 
-**The page CSP** is a template under `settings.security.content_security_policy`, filled per request by `render_page` in `src/render.rs`. Leptos stamps a nonce on every inline script it emits (the islands loader, the dev live-reload hook); the same nonce goes into `script-src 'self' 'nonce-…' 'wasm-unsafe-eval'`, so no `'unsafe-inline'` is needed. The policy starts with `default-src 'none'` and lists every resource kind the page uses (scripts, styles, images, fonts, the manifest, fetches); a new kind of resource is blocked until its directive is added on purpose. Loco's middleware only adds a header the response does not already carry, which is why the page CSP wins on pages while the preset CSP remains the fallback for the JSON API, assets, `robots.txt` and the static 404 and 429 pages. Development and test add the `cargo leptos watch` websocket to `connect-src`; staging and production are identical.
+**The page CSP** is a template under `settings.security.content_security_policy`, filled per request by `render_page` in `src/render.rs`. Leptos stamps a nonce on every inline script it emits (the islands loader, the dev live-reload hook); the same nonce goes into `script-src 'self' 'nonce-…' 'wasm-unsafe-eval'`, so no `'unsafe-inline'` is needed. The policy starts with `default-src 'none'` and lists every resource kind the page uses (scripts, styles, images, fonts, the manifest, fetches); a new kind of resource is blocked until its directive is added on purpose. Loco's middleware only adds a header the response does not already carry, which is why the page CSP wins on pages, the not-found page included. Everything else gets the `Content-Security-Policy` override under `secure_headers`: `default-src 'none'` with only the app's own stylesheet, images and fonts, no scripts, no framing. It replaces the `github` preset's CSP, which allows scripts from any https origin and inline styles; it covers the JSON API, the files, `robots.txt`, the not-found line and the 429 page. Development and test add the `cargo leptos watch` websocket to the page CSP's `connect-src`; staging and production are identical.
 
 A CDN in front of the app may inject its own HSTS, so a header scan of a proxied host shows the zone setting, not the origin's value.
 
-**The config canary**: `tests/config.rs` loads all four config files and pins the headers, timeout, rate limit, cache policy and CSP shape per environment, so a config change that alters policy must update that test too.
+**The config canary**: `tests/config.rs` loads all four config files and pins the headers, the fallback CSP, timeout, body limit, rate limit, cache policy and page CSP shape per environment, so a config change that alters policy must update that test too.
 
 ## Environments
 
@@ -126,14 +127,14 @@ The last one lints the browser half alone: it fails if a server-only crate leake
 - Styling is Tailwind utility classes inside `view!` macros; the Tailwind input file is `style/tailwind.css`. Colours: views use the role tokens only (`primary`, `surface`, `ink`, `ink-muted`, `line`, `card`), never a scale step such as `slate-200`; the surface colour is repeated as hex in the `theme-color` tag and the web manifest. Never a `style=` attribute: the CSP is `style-src 'self'` and the request test fails on one. `default-src 'none'` means a new resource kind (video, iframe, worker) needs its own directive in all four configs before it loads.
 - The document shell is `shell` in `src/views/layout.rs`; pages supply only what goes inside `<main>`. Per-page values travel in `PageMeta`. `APP_NAME` there is the one place the app's display name lives. The head already has favicons, the manifest, `theme-color`, the iOS install tags and the safe-area viewport; Open Graph tags wait for a 1200×630 image.
 - Everything under `public/` is copied into `site/` and served, in production with a year-long cache: a file whose content changes must change its name, and no `.DS_Store` or scratch files.
-- Static pages outside Leptos (`public/404.html`, `src/middleware/rate_limit.html`) use the same Tailwind classes as the shell so the scanner keeps them in the stylesheet.
+- The 429 page (`src/middleware/rate_limit.html`) is static HTML outside Leptos and uses the same Tailwind classes as the shell so the scanner keeps them in the stylesheet. `public/404.html` is never served (the not-found page is rendered), but the boot checks it exists where `static.must_exist` is on, so it stays.
+- A value a visitor chose goes into a mail template escaped (`{{ name | escape }}` in `html.t`): Loco's Tera escapes only templates named `.html`, `.htm` or `.xml`.
 - Generated Sea-ORM entities in `src/models/_entities/` are not hand-edited; model logic goes in `src/models/*.rs`.
 - A config change that alters policy (headers, timeout, rate limit, cache, CSP) must update `tests/config.rs` with it.
 - Secrets: production reads `JWT_SECRET` and `MAILER_*` from the environment with no defaults and refuses to boot without them; staging has public placeholder defaults; development and test have values in the file.
 
 ## Known Gaps
 
-- The static `404.html` is served with status 200, and in production is cached for the URL that missed, until a real not-found handler replaces Loco's static fallback.
 - A request that reaches the origin directly, bypassing the CDN, could forge `CF-Connecting-IP` until Caddy's `trusted_proxies` or a firewall rule is configured (`DEPLOYMENT.md`).
 - The 429 on `/api/auth` is the same HTML page as everywhere else, not JSON; an API client should read `Retry-After`.
 - Magic-link login is limited to two e-mail domains (`EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`).
@@ -171,7 +172,9 @@ Loco already ships the HTTP middleware (tower-http), the mailer (lettre + RusTLS
 | `any_spawner` | The task executor Leptos renders on, started once at boot (`ssr` only) |
 | `wasm-bindgen` / `console_error_panic_hook` | Browser bindings and panic reporting (`hydrate` only) |
 | `tower_governor` | Token-bucket rate limiting behind the `rate_limit` middleware |
-| `governor` | Names the limiter's config types in `rate_limit::bucket`, the helper behind both buckets; already in the graph through `tower_governor` (`ssr` only) |
+| `governor` | Names the limiter's config types in `rate_limit`, where every bucket is built; already in the graph through `tower_governor` (`ssr` only) |
+| `tower-http` | File serving and the cache header in the app's own fallback (`src/controllers/not_found.rs`), the same pieces Loco's `static` middleware uses; already in the graph through Loco (`ssr` only) |
+| `lettre` | Only its address parser: `settings.mail.from` is parsed at boot the way Loco's mailer parses it when it sends; already in the graph through Loco (`ssr` only) |
 | `chrono-tz` | The nightly restart's hour is read in a fixed IANA zone; the `serde` feature turns the zone name in the config into a `Tz` at boot (`ssr` only) |
 | `nix` | Sends SIGTERM to the process itself at the restart hour so Loco's graceful shutdown runs (unix only, `ssr` only) |
 

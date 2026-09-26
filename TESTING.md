@@ -28,7 +28,8 @@ Without it the boots race on `app_test.sqlite` and fail with
 - `tests/config.rs`: the config canary. Loads each `config/<env>.yaml`
   through Loco's own loader and asserts the security baseline every
   environment must keep (empty `ident`, `secure_headers` with the seven
-  overrides, 15 s `timeout_request`, `remote_ip` on, compression and
+  overrides plus the strict CSP for everything that is not a page, 15 s
+  `timeout_request`, a 64 KB `limit_payload`, `remote_ip` on, compression and
   fallback off, a `settings` block that parses, a CSP with
   `'wasm-unsafe-eval'` and no `unsafe-inline`) plus the deliberate
   differences: the three `cache_control` values and that they are valid
@@ -48,7 +49,9 @@ Without it the boots race on `app_test.sqlite` and fail with
   verify, login (valid and invalid password, unverified user), current user,
   forgot and reset, magic link, resend verification. Register also reads the
   recorded mail back: the sender from `settings.mail.from` and a
-  verification link that starts with `server.host`. `rstest` cases for the
+  verification link that starts with `server.host`. Markup in the name
+  arrives escaped in the HTML part, a name over 100 characters registers
+  nobody and sends nothing, and a body over 64 KB is a 413. `rstest` cases for the
   login variants, `insta` snapshots in `tests/requests/snapshots/`;
   `tests/requests/prepare_data.rs` holds the shared setup.
 - `tests/requests/home.rs`: the home page. Asserts a 200 with an HTML content
@@ -56,6 +59,12 @@ Without it the boots race on `app_test.sqlite` and fail with
   exactly one `<h1>`, the skip link and its target, the islands loader script, the wasm file name it loads (`app.wasm`,
   guarding the compile-time `LEPTOS_OUTPUT_NAME` gotcha), and the footer
   year computed at render time.
+- `tests/requests/not_found.rs`: an unknown path asked for as HTML is a 404
+  with the rendered not-found page inside the shell and `cache-control:
+  no-store`; without an HTML `Accept` it is a 404 with one line of text and
+  no page; both carry the security headers and a request id; twenty misses
+  in a row are answered and the twenty-first is a 429, while the routes
+  still answer (misses have their own bucket with the site-wide numbers).
 - `tests/requests/robots.rs`: `/robots.txt` over HTTP in the test environment
   (200, `text/plain`, `Disallow: /`). The production branch (`Allow: /`) and
   the staging one are unit-tested inside `src/controllers/robots.rs`, since
@@ -70,14 +79,16 @@ Without it the boots race on `app_test.sqlite` and fail with
   and `/robots.txt` still answers because the site-wide bucket has tokens
   left. The key extractor (an IPv6 address keyed by its /64 network, an
   IPv4 address written as IPv6 keyed as IPv4), the 429 page with its
-  rounded-up wait, and the config-to-key-source mapping have unit tests in
+  rounded-up wait in words ("1 second", "6 seconds") and the stylesheet
+  resolved at boot, and the config-to-key-source mapping have unit tests in
   `src/middleware/rate_limit.rs`; the `settings:` parsing in `src/settings.rs`.
 - `tests/requests/security_headers.rs`: the home page carries a CSP whose
   nonce matches the one on every inline script, with `'wasm-unsafe-eval'`,
   `frame-ancestors 'none'` and no `unsafe-inline`, plus the preset headers and
   overrides (`x-frame-options: DENY`, referrer, permissions, COOP, CORP,
   COEP, nosniff, HSTS) and no `x-powered-by`; it also fails if any `style=` attribute
-  appears, since `style-src` is `'self'`. `/robots.txt` gets the preset CSP,
+  appears, since `style-src` is `'self'`. `/robots.txt` and a miss get the
+  strict CSP from the config instead (`default-src 'none'`, no scripts),
   proving the fallback. The CSP template validation is unit-tested in
   `src/settings.rs`, the nonce substitution in `src/render.rs`.
 - `src/assets.rs` (unit tests): parsing the `css:` line of cargo-leptos's
@@ -97,8 +108,10 @@ Without it the boots race on `app_test.sqlite` and fail with
 - `src/settings.rs` (unit tests): the `settings:` block parses; unknown
   keys, a CSP without `{nonce}` and a zero rate-limit burst are refused; the
   auth bucket is required and refuses zeros while the limiter is on;
-  `mail.from` takes `Name <address>` or a bare address and refuses anything
-  else; `nightly_restart` parses a zone name, refuses an unknown one and an
+  `mail.from` is parsed the way the mailer parses it, so `Name <address>`,
+  a bare address and a quoted name pass, and a bare comma in the name
+  (`Doe, John <…>`) is refused like any other malformed sender;
+  `nightly_restart` parses a zone name, refuses an unknown one and an
   hour above 23, and defaults to off when the block is missing.
 - `tests/tasks/user_create.rs`: the `user_create` CLI task. `tests/workers/`
   is an empty Loco starter module.
@@ -142,10 +155,10 @@ for p in / /pkg/app.css /pkg/app.js /pkg/app.wasm /fonts/Inter-Regular.woff2 /ro
 done
 ```
 
-Expected: 200 for everything, with `/nope` returning the static not-found
-page from `public/404.html`. Known gap: that page is served with status 200,
-because Loco's static fallback is tower-http's `ServeFile`; a real 404 status
-needs a dedicated handler. Response headers must not contain `x-powered-by`.
+Expected: 200 for everything except `/nope`, which is a 404 with one line of
+text (curl does not ask for HTML). With `-H 'Accept: text/html'` it is the
+rendered not-found page, still a 404, with `cache-control: no-store`.
+Response headers must not contain `x-powered-by`.
 
 ### Islands in the browser
 
@@ -246,7 +259,8 @@ curl -sI http://localhost:5150/ | grep -iE '^(content-security|x-frame|referrer|
 
 Expected: all seven present; the CSP contains `'nonce-…'` and a second
 request shows a different nonce. `/robots.txt`, `/pkg/app.css` and `/nope`
-show the preset CSP (`default-src 'self' https: …`) instead. On a deployed
+show the strict CSP from the config (`default-src 'none'; style-src 'self'; …`)
+instead. On a deployed
 copy the same against `http://127.0.0.1:<port>/`. Under `cargo leptos watch -- start`
 open the page with the console visible: no CSP violation, and live reload
 still works (its websocket is allowed by the development `connect-src`).
@@ -297,8 +311,6 @@ milliseconds. Remove the handler afterwards.
 ## Tests to Add With the Features They Cover
 
 - One request test per new page: status, `lang`, one distinctive string.
-- Not-found: status 404 and the rendered not-found page, once a real handler
-  replaces the static fallback.
 - The first island (a login or registration form): validation rejects bad
   input, a valid submission reaches the JSON API (whose own rate-limit
   bucket `tests/requests/rate_limit.rs` already covers). The natural home
