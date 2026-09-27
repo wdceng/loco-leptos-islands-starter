@@ -115,8 +115,11 @@ impl Hooks for App {
     /// `remote_ip`. Later in the list is further out on the request path,
     /// so the limiter runs inside `logger`, `request_id` and
     /// `secure_headers` (a 429 is logged with its request id and carries
-    /// the security headers) and outside `etag`, `catch_panic` and
-    /// `limit_payload` (no ETag on a 429, nothing of ours to panic).
+    /// the security headers, which `tests/requests/rate_limit.rs` checks)
+    /// and outside `etag`, `catch_panic` and `limit_payload` (a refused
+    /// request never has its body read; nothing of ours there can panic).
+    /// Loco's `etag` only answers `If-None-Match` for a response that
+    /// already carries an ETag, and nothing in this app sets one.
     fn middlewares(ctx: &AppContext) -> Vec<Box<dyn MiddlewareLayer>> {
         let mut stack = default_middleware_stack(ctx);
         // Loco's `static` is replaced (its `static:` block in the config

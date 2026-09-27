@@ -53,6 +53,27 @@ async fn request_past_the_burst_is_rejected_with_a_page() {
                 .starts_with("text/html"),
             "429 must be an HTML page"
         );
+        // Where the limiter sits in the stack (`Hooks::middlewares` in
+        // src/app.rs): inside `secure_headers` and `request_id`. So a 429
+        // carries the security headers, the strict CSP for non-page
+        // responses and a request id.
+        assert_eq!(res.header("x-frame-options"), "DENY");
+        assert_eq!(res.header("x-content-type-options"), "nosniff");
+        assert!(
+            res.maybe_header("strict-transport-security").is_some(),
+            "HSTS on the 429"
+        );
+        assert!(
+            res.header("content-security-policy")
+                .to_str()
+                .unwrap_or("")
+                .starts_with("default-src 'none';"),
+            "the strict CSP on the 429"
+        );
+        assert!(
+            res.maybe_header("x-request-id").is_some(),
+            "request id on the 429"
+        );
         let body = res.text();
         assert!(
             body.starts_with("<!doctype html>"),

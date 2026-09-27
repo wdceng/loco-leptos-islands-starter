@@ -47,9 +47,11 @@ Without it the boots race on `app_test.sqlite` and fail with
   snapshots in `tests/models/snapshots/`.
 - `tests/requests/auth.rs`: the `/api/auth` endpoints end to end: register,
   verify, login (valid and invalid password, unverified user), current user,
-  forgot and reset, magic link, resend verification. Register also reads the
-  recorded mail back: the sender from `settings.mail.from` and a
-  verification link that starts with `server.host`. Markup in the name
+  forgot and reset, magic link, resend verification. Register, forgot and
+  magic link each read their mail back: the `From:` header is
+  `settings.mail.from`, and the link starts with `server.host` and carries
+  the user's token. The reset link points at `/reset`, a page the template
+  does not have yet (Known Gaps in `ARCHITECTURE.md`). Markup in the name
   arrives escaped in the HTML part, a name over 100 characters registers
   nobody and sends nothing, and a body over 64 KB is a 413. `rstest` cases for the
   login variants, `insta` snapshots in `tests/requests/snapshots/`;
@@ -72,7 +74,9 @@ Without it the boots race on `app_test.sqlite` and fail with
 - `tests/requests/rate_limit.rs`: with `burst: 20` from `config/test.yaml`,
   twenty requests pass with `x-ratelimit-remaining` counting down, the next
   is a 429 HTML page with `retry-after: 1` (a wait under a second, rounded
-  up, never 0) and `cache-control: no-store`, and an unmatched path is still
+  up, never 0), `cache-control: no-store`, the security headers, the strict
+  CSP for non-page responses and a request id (proof that the limiter sits
+  inside `secure_headers` and `request_id`), and an unmatched path is still
   a 404 (the limiter only covers routes). A second test covers the auth
   API's own bucket (`auth.burst: 10`): ten logins are 401s, the eleventh is
   the 429 page with that bucket's own wait of about 30 s in `retry-after`,

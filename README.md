@@ -100,6 +100,7 @@ Staging and production restart themselves once a day, at 03:00 UTC as shipped, s
 ## Known gaps
 
 - There is no island yet. The wiring is done; the first component is up to you.
+- The password-reset e-mail links to a `/reset` page that does not exist yet. Loco's starter leaves that page to the front end you build; the reset itself works through the JSON API (`POST /api/auth/reset`).
 - Behind a proxy, a request that reaches the server directly could fake its IP address for the rate limiter. `DEPLOYMENT.md` explains the fix.
 
 ## License

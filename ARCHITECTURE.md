@@ -138,6 +138,7 @@ The last one lints the browser half alone: it fails if a server-only crate leake
 - A request that reaches the origin directly, bypassing the CDN, could forge `CF-Connecting-IP` until Caddy's `trusted_proxies` or a firewall rule is configured (`DEPLOYMENT.md`).
 - The 429 on `/api/auth` is the same HTML page as everywhere else, not JSON; an API client should read `Retry-After`.
 - Magic-link login is limited to two e-mail domains (`EMAIL_DOMAIN_RE` in `src/controllers/auth.rs`).
+- The password-reset mail links to `/reset#<token>`, a page the template does not have: Loco's starter leaves it to the front end, and only `POST /api/auth/reset` exists, so the link gets the not-found page. The token sits after the `#`, which browsers never send to the server, so that page is an island that reads it and posts the new password to the API. The verify and magic-link mails link straight to JSON API routes, so a person clicking them sees JSON.
 - The `ts-rs` TypeScript export in `src/dtos/` is commented out until a TypeScript consumer exists.
 - No island ships; the first one is yours.
 

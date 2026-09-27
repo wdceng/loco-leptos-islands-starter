@@ -17,6 +17,19 @@ macro_rules! configure_insta {
     };
 }
 
+/// Every auth mail is sent from `settings.mail.from` (`config/test.yaml`),
+/// never Loco's default `System <system@example.com>`.
+fn assert_from_the_configured_sender(mail: &str) {
+    let from = mail
+        .lines()
+        .find(|line| line.starts_with("From: "))
+        .unwrap_or_else(|| panic!("no From header:\n{mail}"));
+    assert!(
+        from.contains("SaaS Starter") && from.contains("<noreply@example.com>"),
+        "sender is not settings.mail.from: {from}"
+    );
+}
+
 #[tokio::test]
 #[serial]
 async fn can_register() {
@@ -55,14 +68,10 @@ async fn can_register() {
 
         let deliveries = ctx.mailer.unwrap().deliveries();
         assert_eq!(deliveries.count, 1, "Exactly one email should be sent");
-        // The sender is `settings.mail.from`, not Loco's default `System
-        // <system@example.com>`, and the link starts with `server.host` as
-        // configured, port included, never `host:port` (src/mailers/auth.rs).
+        // The link starts with `server.host` as configured, port included,
+        // never `host:port` (src/mailers/auth.rs).
         let mail = &deliveries.messages[0];
-        assert!(
-            mail.contains("SaaS Starter") && mail.contains("noreply@example.com"),
-            "sender is not settings.mail.from:\n{mail}"
-        );
+        assert_from_the_configured_sender(mail);
         assert!(
             mail.contains("http://localhost:5150/api/auth/verify/"),
             "verification link does not start with server.host:\n{mail}"
@@ -252,6 +261,8 @@ async fn can_reset_password() {
             user.reset_token.is_some(),
             "Expected reset_token to be set, but it was None. User: {user:?}"
         );
+        // The reset clears it; the mail is checked against it at the end.
+        let reset_token = user.reset_token.clone().expect("a reset token");
         assert!(
             user.reset_sent_at.is_some(),
             "Expected reset_sent_at to be set, but it was None. User: {user:?}"
@@ -295,6 +306,15 @@ async fn can_reset_password() {
 
         let deliveries = ctx.mailer.unwrap().deliveries();
         assert_eq!(deliveries.count, 2, "Exactly one email should be sent");
+        // The second mail is the reset link (the first is the welcome mail
+        // from registering). `/reset` is a page the project's front end
+        // provides; the template has none yet (Known Gaps in ARCHITECTURE.md).
+        let mail = &deliveries.messages[1];
+        assert_from_the_configured_sender(mail);
+        assert!(
+            mail.contains(&format!("http://localhost:5150/reset#{reset_token}")),
+            "reset link does not start with server.host:\n{mail}"
+        );
         // with_settings!({
         //     filters => cleanup_email()
         // }, {
@@ -371,6 +391,14 @@ async fn can_auth_with_magic_link() {
         let magic_link_token = user
             .magic_link_token
             .expect("Magic link token should be generated");
+        let mail = &deliveries.messages[0];
+        assert_from_the_configured_sender(mail);
+        assert!(
+            mail.contains(&format!(
+                "http://localhost:5150/api/auth/magic-link/{magic_link_token}"
+            )),
+            "magic link does not start with server.host:\n{mail}"
+        );
         let magic_link_response = request
             .get(&format!("/api/auth/magic-link/{magic_link_token}"))
             .await;
