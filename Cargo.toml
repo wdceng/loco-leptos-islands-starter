@@ -20,7 +20,7 @@ crate-type = ["cdylib", "rlib"]
 # "this or any compatible newer release", so the number is the lowest one
 # the project accepts, and Cargo.lock holds the one actually built.
 [workspace.dependencies]
-loco-rs = { version = "1.1.0" }
+loco-rs = { version = "1.2.0" }
 
 [dependencies]
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ serde_json = { version = "1.0.151" }
 # server; `sqlx-postgres` was dropped on purpose, so a `postgres://` URL
 # refuses to boot rather than silently working on one machine only.
 migration = { path = "migration", optional = true }
-sea-orm = { version = "2.0.3", features = [
+sea-orm = { version = "2.0.4", features = [
   "sqlx-sqlite",
   "runtime-tokio-rustls",
   "macros",
@@ -67,7 +67,7 @@ chrono = { version = "0.4.45", optional = true }
 # Must track the version loco-rs depends on: the `Validate` derive comes
 # through Loco's prelude and its output names this crate. A different
 # version here is a second `validator` in the graph and the trait no longer
-# matches (E0277). Loco 1.1 pins 0.20.
+# matches (E0277). Loco 1.2 pins 0.20.
 validator = { version = "0.20.0", optional = true }
 uuid = { version = "1.26.1", features = ["v4"], optional = true }
 # ts-rs derives the TypeScript bindings for the `dtos` (the typed JSON API

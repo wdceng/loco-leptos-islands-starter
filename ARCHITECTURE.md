@@ -2,7 +2,7 @@
 
 The reference companion to `README.md`: how a request is served, why each part of the stack was chosen, what the security setup does, and what every crate is for. Nothing here is needed to get started; it is here for when you want to know why.
 
-Versions: Rust stable 1.85 or newer (edition 2024), Loco 1.1, Leptos 0.8, Sea-ORM 2.0, Tailwind v4.
+Versions: Rust stable 1.94 or newer (edition 2024; Loco 1.2 and Sea-ORM 2.0.4 require it), Loco 1.2, Leptos 0.8, Sea-ORM 2.0, Tailwind v4.
 
 ## One Crate, Two Builds
 
@@ -50,7 +50,7 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 
 ### Reverse Proxy and the Visitor IP
 
-Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which is why the `compression` middleware is off. `config/staging.yaml` and `config/production.yaml` set `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same header, because the reference deployment in `DEPLOYMENT.md` is Cloudflare in front of Caddy. Loco 1.1 trusts exactly one source; there is no list of trusted proxies. That is a property of the config, not the code, but it is enforced: the limiter refuses to boot a deployed environment keyed on the TCP peer, which behind any proxy is the proxy itself. With a different proxy, change `remote_ip.source` and extend `KeySource` in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in `DEPLOYMENT.md`); `tests/config.rs` and the limiter's tests pin the current mapping.
+Loco listens on plain HTTP; TLS and compression belong to a reverse proxy, which is why the `compression` middleware is off. `config/staging.yaml` and `config/production.yaml` set `remote_ip.source: CfConnectingIp`, and the rate limiter keys on the same header, because the reference deployment in `DEPLOYMENT.md` is Cloudflare in front of Caddy. Loco 1.2 trusts exactly one source; there is no list of trusted proxies. That is a property of the config, not the code, but it is enforced: the limiter refuses to boot a deployed environment keyed on the TCP peer, which behind any proxy is the proxy itself. With a different proxy, change `remote_ip.source` and extend `KeySource` in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in `DEPLOYMENT.md`); `tests/config.rs` and the limiter's tests pin the current mapping.
 
 ### Layers
 
