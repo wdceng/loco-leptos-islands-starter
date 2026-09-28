@@ -1,6 +1,7 @@
-//! SaaS starter. This crate is compiled twice: with `ssr` into the Loco
-//! server, and with `hydrate` into the browser bundle that wakes up the
-//! Leptos islands. Everything below the first gate is server only.
+//! Loco's Rest API starter with Leptos pages. This crate is compiled
+//! twice: with `ssr` into the Loco server, and with `hydrate` into the
+//! browser bundle that wakes up the Leptos islands. Everything below the
+//! first gate is server only.
 
 // Compiled in both halves: the server renders an island, the browser
 // hydrates it. The only module without a gate.

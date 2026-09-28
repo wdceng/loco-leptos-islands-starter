@@ -24,15 +24,16 @@ loco-rs = { version = "1.2.0" }
 
 [dependencies]
 # ---------------------------------------------------------------------------
-# Loco: everything the SaaS starter declared. The server crates are
-# `optional`, pulled in by the `ssr` feature only, so they stay out of the
-# browser bundle. serde and serde_json are the exception: island props
-# derive Serialize/Deserialize in both halves.
+# Loco: everything the Rest API starter declared (`loco new`, "Rest API
+# (with DB and user auth)"). The server crates are `optional`, pulled in by
+# the `ssr` feature only, so they stay out of the browser bundle. serde and
+# serde_json are the exception: island props derive Serialize/Deserialize
+# in both halves.
 #
 # Unlike the lightweight-service starter, this app keeps Loco's default
-# features: `with-db` (Sea-ORM, migrations), `auth` (JWT), `worker`,
-# `cache_inmem` and `cli`. The users model and the auth controller depend
-# on them.
+# features: `with-db` (Sea-ORM, migrations), `db-sqlite` (its SQLite
+# driver), `auth` (JWT), `worker`, `cache_inmem` and `cli`. The users model
+# and the auth controller depend on them.
 # ---------------------------------------------------------------------------
 loco-rs = { workspace = true, optional = true }
 axum = { version = "0.8.9", optional = true }

@@ -20,7 +20,7 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 
 ## The Stack
 
-**Rust + Loco** - Rails-style framework on top of Axum and tower, generated from the `SaaS` starter. Loco supplies the app skeleton: per-environment YAML config, the middleware stack, Sea-ORM with migrations, JWT auth, the mailer, background workers, the CLI (`start`, `routes`, `middleware`, `doctor`, `db`, `task`) and tracing setup. Loco controllers own every URL: page controllers render one Leptos page each, the auth controller answers JSON under `/api/auth`.
+**Rust + Loco** - Rails-style framework on top of Axum and tower, generated from the Rest API starter (`loco new`: "Rest API (with DB and user auth)", SQLite, async jobs, no assets). That is the same code as Loco's SaaS starters without their Tera page layer, which Leptos replaces here. Loco supplies the app skeleton: per-environment YAML config, the middleware stack, Sea-ORM with migrations, JWT auth, the mailer, background workers, the CLI (`start`, `routes`, `middleware`, `doctor`, `db`, `task`) and tracing setup. Loco controllers own every URL: page controllers render one Leptos page each, the auth controller answers JSON under `/api/auth`.
 
 **Leptos (islands mode)** - Views are type-checked Rust components rendered to HTML on the server. Pages are plain static HTML by default. Only components marked `#[island]` are hydrated in the browser, so the WebAssembly bundle contains just those components, not the whole site. The template ships no island: the wiring is complete (`islands` feature, `hydrate_islands()` in `src/lib.rs`, `<HydrationScripts options islands=true/>` in the shell), so the first `#[island]` you add hydrates without further setup, provided it lives in `src/islands.rs`, the one module compiled in both halves; everything under `views/` is server only. Until then the bundle is only the loader.
 
@@ -32,17 +32,19 @@ Where Leptos meets Loco is `src/app.rs` and `src/render.rs`. In `app.rs`, `after
 
 ## What Is in the App
 
-| Area | Where | Notes |
-|------|-------|-------|
-| Pages | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/views/` | `/` renders `views/home.rs` inside the shell (`views/layout.rs`) through `render.rs`, which adds the per-request CSP nonce. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` everywhere else |
-| Health | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health`, `/_readiness` (the last two check the database and queue). Rate-limited like every other route |
-| Users and auth | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry. Under their own rate-limit bucket (`settings.rate_limit.auth`), inside the site-wide one |
-| Not found | `src/controllers/not_found.rs`, `src/views/not_found.rs` | The router's fallback, in place of Loco's `static` middleware and first in its stack: serves the files from the `static` block's folder with its cache header, and answers anything else with status 404 and `no-store`, the rendered not-found page for a request that asks for HTML and one line of text otherwise. Misses have a bucket of their own with the site-wide numbers |
-| Mail | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml`, from the sender in `settings.mail.from`, parsed at boot the way the mailer parses it; the links start with `server.host` as configured (locally the port is part of it). Loco's Tera does not escape `html.t`, so the templates escape the registrant's name themselves |
-| Background | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
-| Nightly restart | `src/maintenance.rs` | Staging and production stop themselves once a day (`settings.nightly_restart`: hour and zone in `config/<env>.yaml`) and systemd starts them again; development and test never do |
-| Migrations | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
-| Config | `config/<env>.yaml` | development, test, staging, production. Typed app settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
+"From" says where an area comes from: Loco's Rest API starter as generated, or this template. Nothing the starter generated was removed; where the template changed a starter file, the column names the change.
+
+| Area | From | Where | Notes |
+|------|------|-------|-------|
+| Pages | This template | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/views/` | `/` renders `views/home.rs` inside the shell (`views/layout.rs`) through `render.rs`, which adds the per-request CSP nonce. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` everywhere else |
+| Health | Loco | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health`, `/_readiness` (the last two check the database and queue). Rate-limited like every other route |
+| Users and auth | Loco starter; the `/api/auth` rate limit is this template's | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry. Under their own rate-limit bucket (`settings.rate_limit.auth`), inside the site-wide one |
+| Not found | This template | `src/controllers/not_found.rs`, `src/views/not_found.rs` | The router's fallback, in place of Loco's `static` middleware and first in its stack: serves the files from the `static` block's folder with its cache header, and answers anything else with status 404 and `no-store`, the rendered not-found page for a request that asks for HTML and one line of text otherwise. Misses have a bucket of their own with the site-wide numbers |
+| Mail | Loco starter; the sender setting, the link origin and the name escaping are this template's | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates (text and HTML). Sent through SMTP from `config/<env>.yaml`, from the sender in `settings.mail.from`, parsed at boot the way the mailer parses it; the links start with `server.host` as configured (locally the port is part of it). Loco's Tera does not escape `html.t`, so the templates escape the registrant's name themselves |
+| Background | Loco starter | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
+| Nightly restart | This template | `src/maintenance.rs` | Staging and production stop themselves once a day (`settings.nightly_restart`: hour and zone in `config/<env>.yaml`) and systemd starts them again; development and test never do |
+| Migrations | Loco starter | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
+| Config | Loco starter (development, test, production); `staging.yaml` and the typed settings are this template's | `config/<env>.yaml` | development, test, staging, production. Typed app settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
 
 ## Security
 
@@ -146,11 +148,11 @@ The last one lints the browser half alone: it fails if a server-only crate leake
 
 Loco already ships the HTTP middleware (tower-http), the mailer (lettre + RusTLS), tracing initialisation and config loading, so none of those are declared here. Every server-only crate is `optional` and pulled in by the `ssr` feature, so the browser build never sees it.
 
-**Declared by the Loco SaaS starter**
+**Declared by Loco's Rest API starter**
 
 | Crate | Purpose |
 |-------|---------|
-| `loco-rs` | Application framework, default features (`auth`, `cli`, `with-db`, `worker`, `cache_inmem`) |
+| `loco-rs` | Application framework, default features (`auth`, `cli`, `with-db`, `db-sqlite`, `worker`, `cache_inmem`) |
 | `axum` | Handler and router types used in controllers |
 | `serde` / `serde_json` | Serialization; the only two crates shared with the browser half |
 | `tokio` | Async runtime; `time` for the rate limiter's housekeeping |

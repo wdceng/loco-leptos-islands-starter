@@ -6,6 +6,25 @@ A whole web app in one Rust project: the server, the pages, the database, user a
 
 This is a GitHub template. Press **Use this template** at the top of the page and you get your own copy to start from.
 
+## What it is built from
+
+| Part | Comes from |
+|---|---|
+| Server, database, user accounts, e-mail, background jobs | Loco's **Rest API** starter: `loco new` with "Rest API (with DB and user auth)", SQLite, async jobs |
+| Pages and interactivity | **Leptos in islands mode**, added on top: pages are rendered on the server, and only `#[island]` components run in the browser |
+| **Security**: HTTP headers, a Content Security Policy with a new nonce on every page, rate limits (per visitor, stricter on sign-up and login, 404s counted separately), a 64 KB body limit, a 15 s timeout | This template |
+| **Page basics**: the page shell (favicons, web manifest, theme colour), the home page, a rendered 404 page, `robots.txt`, Tailwind v4 with the self-hosted Inter font | This template |
+| **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names so production can cache files for a year, a nightly restart, SQLite only | This template |
+| **Mail fixes**: the sender set in config, links that point at the public address without the server's port, names escaped in HTML mail | This template |
+| **Checks**: tests that pin the headers, the CSP, the rate limits, the 404 page and all four config files; CI with fmt, clippy on both halves, the tests, a full build and `cargo audit` | This template |
+| **Docs**: `DEVELOPMENT.md`, `TESTING.md`, `DEPLOYMENT.md` (systemd, Caddy, Cloudflare), `ARCHITECTURE.md` | This template |
+
+Nothing Loco generated was removed: every starter file is still there, some of them extended, so Loco's own docs apply. `ARCHITECTURE.md` has the details of every part.
+
+Why not Loco's "SaaS App with server side rendering"? It has the same accounts, e-mail and database code. It only adds its own way of making pages: Tera templates, translation files and a `/static` folder. Here Leptos makes the pages, so starting from the Rest API starter meant there was nothing to remove.
+
+To see what Loco generated, install the Loco CLI (`PREREQUISITES.md`) and run `loco new -n app --db sqlite --bg async --assets none` in an empty folder.
+
 ## What you get
 
 - **A web server** built on Loco (which sits on Axum, the most used Rust web framework). It serves your pages and a small JSON API.
@@ -13,7 +32,7 @@ This is a GitHub template. Press **Use this template** at the top of the page an
 - **Interactive parts when you want them.** Mark a component with `#[island]` and it runs in the browser as WebAssembly. Only those components are sent to the browser, nothing else. Everything without the mark stays plain HTML.
 - **Tailwind CSS** for styling. You write class names, the build tool produces the stylesheet.
 - **A SQLite database** with migrations, through Sea-ORM. It is a single file next to your code. Nothing to install, nothing to run.
-- **User accounts**: registration, e-mail verification, login, password reset and magic links, all from Loco's SaaS starter.
+- **User accounts**: registration, e-mail verification, login, password reset and magic links, all from Loco's Rest API starter.
 - **E-mail sending** with text and HTML templates.
 - **Security already set up**: safe HTTP headers, a Content Security Policy, a rate limit per visitor (a stricter one on the sign-up and login API), and secrets kept out of the code. Tests check that none of it quietly disappears.
 
