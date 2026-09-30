@@ -1,202 +1,168 @@
-# Development Guide
+# Development
 
-The commands you will use day to day, and the things that trip people up.
-If you have not run the project yet, start with "Run it in five minutes" in
-`README.md`; this file assumes that worked. Tools are listed in
-`PREREQUISITES.md`, the reasoning behind the stack in `ARCHITECTURE.md`.
+Day-to-day commands and a few traps. First time here? Start with "Run it in
+five minutes" in `README.md`.
 
 ## Run
 
-### Full dev loop (recommended)
 ```bash
-cargo leptos watch -- start
+cargo leptos watch -- start                  # this Mac only
+BINDING=0.0.0.0 cargo leptos watch -- start  # every device on the network
 ```
-Rebuilds the server, the wasm bundle and the Tailwind stylesheet on every
-change, restarts Loco, and reloads the browser tab. Serves on
-http://localhost:5150. The `-- start` is Loco's subcommand; without it the
-binary prints its help and exits.
 
-### Server only
+Open http://localhost:5150. Save a file and the page updates by itself, like
+hot reload. Strictly it's live reload: a Rust change reloads the whole page,
+a change to `style/tailwind.css` swaps in without one. Real hot reload needs
+nightly Rust, so we don't use it.
+
+Keep the `-- start`. Without it the app only prints its help.
+
+**On your phone:** use the second line, get your Mac's address with
+`ipconfig getifaddr en0` and open `http://<address>:5150`. Allow `app` if
+the firewall asks. The phone doesn't reload by itself, so refresh by hand.
+Only do this on a network you trust.
+
+**Server only**, without rebuilding the wasm or the CSS:
+
 ```bash
-cargo loco start          # one run
-cargo loco watch          # rebuild + restart on change (needs cargo-watch)
+cargo loco start    # run once
+cargo loco watch    # restart on every change (needs cargo-watch)
 ```
-Picks up Rust changes, including page markup, but does not rebuild the wasm
-bundle or the stylesheet. Fine for content work after one `cargo leptos build`.
 
-Both loops start the same binary on the same port, so run one at a time.
-Another port: `PORT=5151 cargo leptos watch -- start`.
+Run one loop at a time, they share port 5150. Another port:
+`PORT=5151 cargo leptos watch -- start`.
 
-### Find and monitor the process
 ```bash
-ps aux | grep 'app start'
-top -pid <PID>
+ps aux | grep 'app start'   # find the running app
+top -pid <PID>              # watch it
 ```
 
 ## Inspect
 
-Handy when something does not behave as expected: what URLs exist, which
-middlewares are on, whether the config is valid.
-
 ```bash
-cargo loco routes                          # every URL the app answers
-cargo loco middleware                      # middleware on/off per config
-cargo loco middleware -c                   # the same, with each middleware's settings
-cargo loco doctor                          # config and environment check
-LOCO_ENV=staging cargo loco middleware     # same, for another environment
-LOCO_CONFIG_FOLDER=/path/to/copy cargo loco start   # boot against an edited copy of config/, e.g. to see a refusal
+cargo loco routes                                  # every URL
+cargo loco middleware                              # which middleware is on
+cargo loco middleware -c                           # the same, with settings
+cargo loco doctor                                  # check config and environment
+LOCO_ENV=staging cargo loco middleware             # another environment
+LOCO_CONFIG_FOLDER=/path/to/copy cargo loco start  # try an edited copy of config/
 ```
 
 ## Lint and Format
 
-Clippy is Rust's linter and catches real bugs, not just style; `cargo fmt`
-formats the code the standard way. CI runs both, so run them before a push.
+CI runs these, so run them before you push:
 
 ```bash
-cargo clippy --all-targets
 cargo fmt
-```
-
-Lint the browser half on its own. It catches a server-only dependency
-leaking out of the `ssr` gate, and it is the only pass that sees code under
-`hydrate` (the islands); the normal clippy run never compiles it:
-```bash
+cargo clippy --all-targets
 cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
+
+The last one checks the browser half. It's the only one that sees island
+code.
 
 ## Database and Tasks
 
 ```bash
-cargo loco db status              # which migrations have run
-cargo loco db migrate             # apply pending migrations
-cargo loco db reset               # drop every table and reapply all migrations (development only)
-cargo loco db entities            # regenerate src/models/_entities/ from the schema (needs sea-orm-cli)
-cargo loco task user_create       # run a task; `cargo loco task` alone lists them
+cargo loco db status          # which migrations ran
+cargo loco db migrate         # run new ones
+cargo loco db reset           # wipe and rebuild (development only)
+cargo loco db entities        # regenerate src/models/_entities/ (needs sea-orm-cli)
+cargo loco task user_create   # run a task; `cargo loco task` lists them
 ```
-`auto_migrate: true` in every config applies pending migrations at boot, so
-`migrate` by hand is for a stopped server or a fresh database file.
-`entities` is the one command that needs an extra tool, `sea-orm-cli`
-(`PREREQUISITES.md`).
+
+Migrations also run on every start, so you rarely need `migrate`.
 
 ## Tests
 
 ```bash
-cargo test                        # all
-cargo test home_renders_html      # one
+cargo test                     # all
+cargo test home_renders_html   # one
 ```
-Request tests boot the app in-process with `config/test.yaml`; no server or
-browser needed. Details in `TESTING.md`.
+
+No server or browser needed. More in `TESTING.md`.
 
 ## Release Builds
 
-The dev loop builds fast and unoptimised. A release build is the opposite:
-slow to build, small and fast to run, and it is what you put on a server.
-The only extra thing to remember is the `LEPTOS_HASH_FILES=true` prefix,
-explained below; forget it and production will cache stale files.
-
-### Local
 ```bash
 LEPTOS_HASH_FILES=true cargo leptos build --release
 ```
-Produces `target/release/app`, `target/release/hash.txt` and `target/site/`
-with hashed names (`pkg/app.<hash>.css` and so on). The wasm uses the
-`wasm-release` profile plus wasm-opt. For reference: with no island the
-bundle is the hydration loader alone, about 66 KB raw, 28 KB gzipped. The
-first island brings in the Leptos reactive runtime, about 125 KB raw, 52 KB
-gzipped, 44 KB Brotli, plus 14 KB of JS glue (4.5 KB gzipped). Later islands
-share that runtime, so they cost far less than the first.
 
-`LEPTOS_HASH_FILES=true` is what every release build uses: cargo-leptos
-renames its outputs after their content hash and writes the hashes to
-`hash.txt` next to the binary. At boot `src/assets.rs` looks for that file
-beside the executable; if present, the page links the hashed names, if
-absent, the plain ones. Hashing is never used in the watch loop, which only
-hashes on its first build and would go stale afterwards.
+Always keep `LEPTOS_HASH_FILES=true`. It puts a hash in the file names
+(`app.<hash>.css`) and writes `hash.txt` next to the binary, so production
+can cache files for a year. Without it, visitors get stale files.
 
-### Linux server
-A binary built on your Mac or Windows machine will not run on a Linux server,
-so the server binary is built for Linux with `cross`, which does the build
-inside a Linux container. The `site/` folder and `hash.txt` are just files
-and work anywhere, so they are built natively. The full walkthrough is in
-`DEPLOYMENT.md`; the two build steps are:
+You get `target/release/app`, `target/release/hash.txt` and `target/site/`.
+
+Size, for reference: with no island the wasm is about 28 KB gzipped. The
+first island brings in the Leptos runtime, about 52 KB gzipped. More islands
+cost much less.
+
+### For a Linux server
+
+Your Mac can't build a Linux binary directly, so the server part is built
+with `cross`, inside a Linux container:
 
 ```bash
-LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only   # target/site + target/release/hash.txt, native
+LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only   # site files and hash.txt
 cross build --release --target x86_64-unknown-linux-gnu               # target/x86_64-unknown-linux-gnu/release/app
 ```
 
-For staging, swap `--release` on the second line for `--profile staging`
-and the binary lands in `target/x86_64-unknown-linux-gnu/staging/app`. The
-`staging` profile in `Cargo.toml` links faster, rebuilds incrementally and
-keeps line tables for readable backtraces; `release` is the fully optimised
-production build. The frontend half always uses `--release`.
-
-The cross-built binary names the wasm file correctly because `cross` reads
-`.cargo/config.toml` (and `Cross.toml`, which pins its build image) inside
-its container. On a host that has to emulate x86_64 (Apple Silicon, for
-one), allow a few minutes for a cold build.
+For staging, use `--profile staging` instead of `--release` on the second
+line: it builds faster and keeps readable backtraces. The first `cross`
+build on Apple Silicon takes a few minutes. Full steps in `DEPLOYMENT.md`.
 
 ## Environments
 
-`LOCO_ENV` selects `config/<env>.yaml`. No `.env` file is read; secrets come
-from environment variables through `get_env` inside the YAML.
+`LOCO_ENV` picks the file in `config/`. There's no `.env` file, secrets come
+from environment variables.
 
-| Environment | Used by | Static folder | Static cache | Host |
+| Environment | For | Files from | Browser cache | Host |
 |---|---|---|---|---|
-| `development` | local runs (default) | `target/site` | `no-cache`: every refresh revalidates | `http://localhost:5150` |
+| `development` | your machine (default) | `target/site` | rechecks every time | `http://localhost:5150` |
 | `test` | `cargo test` | none | none | `http://localhost:5150` |
-| `staging` | online test copy | `site/` | 60 s | `https://staging.example.com` (default, set `HOST`) |
-| `production` | live site | `site/` | one year, immutable (names are hashed) | `https://example.com` (default, set `HOST`) |
+| `staging` | test copy online | `site/` | 60 s | `HOST` |
+| `production` | live site | `site/` | one year | `HOST` |
 
-The cache value is `static.cache_control` in each `config/<env>.yaml`.
-Production's year is safe only because release builds hash the asset names;
-it also covers the fonts, so a changed font file needs a new file name.
+The host is where links in e-mails point. It's used exactly as written, no
+port added, so if you run locally on another port, change it in
+`config/development.yaml` too.
 
-The host is `server.host`, the origin every link in outgoing mail starts
-with. It is used as written, the bind port is never appended, which is why
-the local value carries `:5150` itself and why the deployed unit sets
-`HOST`. Running locally on another port? Change it there too.
+With a one-year cache, a changed file needs a new name. Release builds do
+that for the CSS and wasm. For fonts and images in `public/`, rename them
+yourself.
 
-### Deploy layout
+### On the server
+
 ```
 app                 <- target/release/app, Linux build
-hash.txt            <- target/release/hash.txt, must sit next to the binary
+hash.txt            <- must sit next to app
 config/<env>.yaml
 site/               <- target/site, renamed
-secrets.env         <- JWT_SECRET and MAILER_*, loaded by the systemd unit (DEPLOYMENT.md)
+secrets.env         <- JWT_SECRET and MAILER_* (DEPLOYMENT.md)
 ```
-Start from that folder:
+
+Start it from that folder:
+
 ```bash
 LOCO_ENV=staging LEPTOS_OUTPUT_NAME=app LEPTOS_SITE_ROOT=site LEPTOS_SITE_PKG_DIR=pkg ./app start
 ```
-Loco serves plain HTTP on 5150; TLS is the reverse proxy's job.
+
+It serves plain HTTP on 5150. HTTPS is the proxy's job.
 
 ## Gotchas
 
-Things that cost us time once, so they do not cost you time twice.
-
-- After a hashed release build, `target/site` holds `app.<hash>.css` and
-  friends, which the debug binary (no `hash.txt` beside it) cannot name:
-  `cargo loco start` refuses to boot and says so. Run `cargo leptos build`
-  or the watch loop first; both rewrite `target/site` with plain names.
-- `.cargo/config.toml` sets `LEPTOS_OUTPUT_NAME` for every cargo command in
-  this project. Leptos bakes the wasm file name in at compile time from it;
-  without it a plain `cargo` build names the file `app_bg.wasm` while
-  cargo-leptos writes `app.wasm`. Do not remove it.
-- Switching between a cargo-leptos build and a plain cargo build recompiles a
-  handful of crates because cargo-leptos sets a few more compile-time
-  variables. Costs seconds, not correctness.
-- `target/site` is wiped on every cargo-leptos build. Static files belong in
-  `public/`, which is copied in.
-- Two preludes export a type called `Error`. In files that use both Loco and
-  Leptos, import Leptos items by name instead of `leptos::prelude::*`.
-- `as` and `type` are Rust keywords: inside `view!` write `r#as` and `r#type`.
-- An island only hydrates if it lives in `src/islands.rs`, the one module
-  compiled for the browser. An `#[island]` in `src/views/` renders on the
-  server, then the browser warns about a missing island function and
-  nothing happens.
-- Staging and production stop themselves once a day (`settings.nightly_restart`
-  in the config, `src/maintenance.rs`) and rely on the unit's
-  `Restart=always` to come back. Development and test never do, even with
-  `enable: true`, so a `cargo leptos watch` left running overnight is still
-  there in the morning.
+- **Won't start after a release build?** `target/site` now has hashed names
+  the debug build can't find. Run `cargo leptos build` or the watch loop.
+- **Keep `LEPTOS_OUTPUT_NAME` in `.cargo/config.toml`.** Leptos needs it to
+  name the wasm file the same way cargo-leptos does.
+- **Some crates recompile** when you switch between `cargo leptos` and plain
+  `cargo`. It only costs a few seconds.
+- **`target/site` is wiped on every build.** Put static files in `public/`.
+- **Two `Error` types.** Loco and Leptos both export one. In files that use
+  both, import Leptos items by name, not `leptos::prelude::*`.
+- **`as` and `type` are keywords.** In `view!`, write `r#as` and `r#type`.
+- **Islands go in `src/islands.rs`.** One in `src/views/` renders, but never
+  runs in the browser.
+- **Staging and production restart every night.** Development never does,
+  so a watch loop left on overnight is still running in the morning.

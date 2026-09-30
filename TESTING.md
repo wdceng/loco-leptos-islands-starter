@@ -1,5 +1,8 @@
 # Testing
 
+What the tests cover, and how to check things by hand. The why is in
+`ARCHITECTURE.md`.
+
 ## Automated Tests
 
 ```bash
@@ -9,139 +12,158 @@ cargo test -- --nocapture                    # show println! output
 cargo nextest run                            # the same suite under nextest
 ```
 
-Request tests use Loco's harness: `request::<App, _, _>(|request, ctx| ...)`
-boots the whole app in-process with `config/test.yaml` and sends HTTP
-requests to it. No server, port or browser is involved. The database is
-`app_test.sqlite`, recreated on every boot (`dangerously_truncate` and
-`dangerously_recreate` in `config/test.yaml`), so the suite runs in about a
-second.
+Request tests use Loco's harness, `request::<App, _, _>(|request, ctx| ...)`.
+It boots the app in-process with `config/test.yaml`. No server, port or
+browser. The database is `app_test.sqlite`, rebuilt on every boot
+(`dangerously_truncate` and `dangerously_recreate` in `config/test.yaml`),
+so the suite runs in about a second.
 
-`#[serial]` on every request test is required: each one boots the app, and
-two boots at once would fight over the shared context. Under cargo-nextest
-every test is its own process and that lock reaches nothing, so
-`.config/nextest.toml` pins the binary built from `tests/mod.rs` to one
-thread instead; the unit tests and the config canary still run in parallel.
-Without it the boots race on `app_test.sqlite` and fail with
-`UNIQUE constraint failed: seaql_migrations.version` or `no such table`.
+- **Every request test needs `#[serial]`.** Two app boots at once fight over
+  the shared context.
+- **`#[serial]` does nothing under nextest.** Each test is its own process,
+  so `.config/nextest.toml` runs the binary built from `tests/mod.rs` on one
+  thread. Unit tests and the config canary stay parallel. Without it you get
+  `UNIQUE constraint failed: seaql_migrations.version` or `no such table`.
 
 **Test files:**
-- `tests/config.rs`: the config canary. Loads each `config/<env>.yaml`
-  through Loco's own loader and asserts the security baseline every
-  environment must keep (empty `ident`, `secure_headers` with the seven
-  overrides plus the strict CSP for everything that is not a page, 15 s
-  `timeout_request`, a 64 KB `limit_payload`, `remote_ip` on, compression and
-  fallback off, a `settings` block that parses, a CSP with
-  `'wasm-unsafe-eval'` and no `unsafe-inline`) plus the deliberate
-  differences: the three `cache_control` values and that they are valid
-  headers (Loco would silently fall back to a year), `CfConnectingIp` and
-  burst 120 for staging and production, `ConnectInfo` and the live-reload
-  socket locally, `X-Robots-Tag` on staging only, burst 20 in test, the
-  auth API's own bucket (ten at once, then one per 30 s, in test and when
-  deployed), a sender for outgoing mail in every environment (production's
-  from `MAILER_FROM`), the nightly restart off locally and on (hour 3) when
-  deployed. Edit a config file, run this first.
-- `tests/mod.rs`: module root, wires the folders below.
-- `tests/models/users.rs`: the users model against the test database:
-  create with password, find by e-mail and pid, validation, duplicate
-  e-mail, the verification, reset and magic-link token flows. `insta`
-  snapshots in `tests/models/snapshots/`.
-- `tests/requests/auth.rs`: the `/api/auth` endpoints end to end: register,
-  verify, login (valid and invalid password, unverified user), current user,
-  forgot and reset, magic link, resend verification. Register, forgot and
-  magic link each read their mail back: the `From:` header is
-  `settings.mail.from`, and the link starts with `server.host` and carries
-  the user's token. The reset link points at `/reset`, a page the template
-  does not have yet (Known Gaps in `ARCHITECTURE.md`). Markup in the name
-  arrives escaped in the HTML part, a name over 100 characters registers
-  nobody and sends nothing, and a body over 64 KB is a 413. `rstest` cases for the
-  login variants, `insta` snapshots in `tests/requests/snapshots/`;
-  `tests/requests/prepare_data.rs` holds the shared setup.
-- `tests/requests/home.rs`: the home page. Asserts a 200 with an HTML content
-  type, a real document (doctype, `lang="en"`), the app name (`APP_NAME`),
-  exactly one `<h1>`, the skip link and its target, the islands loader script, the wasm file name it loads (`app.wasm`,
-  guarding the compile-time `LEPTOS_OUTPUT_NAME` gotcha), and the footer
-  year computed at render time.
-- `tests/requests/not_found.rs`: an unknown path asked for as HTML is a 404
-  with the rendered not-found page inside the shell and `cache-control:
-  no-store`; without an HTML `Accept` it is a 404 with one line of text and
-  no page; both carry the security headers and a request id; twenty misses
-  in a row are answered and the twenty-first is a 429, while the routes
-  still answer (misses have their own bucket with the site-wide numbers).
-- `tests/requests/robots.rs`: `/robots.txt` over HTTP in the test environment
-  (200, `text/plain`, `Disallow: /`). The production branch (`Allow: /`) and
-  the staging one are unit-tested inside `src/controllers/robots.rs`, since
-  the harness only boots the `test` environment.
-- `tests/requests/rate_limit.rs`: with `burst: 20` from `config/test.yaml`,
-  twenty requests pass with `x-ratelimit-remaining` counting down, the next
-  is a 429 HTML page with `retry-after: 1` (a wait under a second, rounded
-  up, never 0), `cache-control: no-store`, the security headers, the strict
-  CSP for non-page responses and a request id (proof that the limiter sits
-  inside `secure_headers` and `request_id`), and an unmatched path is still
-  a 404 (the limiter only covers routes). A second test covers the auth
-  API's own bucket (`auth.burst: 10`): ten logins are 401s, the eleventh is
-  the 429 page with that bucket's own wait of about 30 s in `retry-after`,
-  and `/robots.txt` still answers because the site-wide bucket has tokens
-  left. The key extractor (an IPv6 address keyed by its /64 network, an
-  IPv4 address written as IPv6 keyed as IPv4), the 429 page with its
-  rounded-up wait in words ("1 second", "6 seconds") and the stylesheet
-  resolved at boot, and the config-to-key-source mapping have unit tests in
-  `src/middleware/rate_limit.rs`; the `settings:` parsing in `src/settings.rs`.
-- `tests/requests/security_headers.rs`: the home page carries a CSP whose
-  nonce matches the one on every inline script, with `'wasm-unsafe-eval'`,
-  `frame-ancestors 'none'` and no `unsafe-inline`, plus the preset headers and
-  overrides (`x-frame-options: DENY`, referrer, permissions, COOP, CORP,
-  COEP, nosniff, HSTS) and no `x-powered-by`; it also fails if any `style=` attribute
-  appears, since `style-src` is `'self'`. `/robots.txt` and a miss get the
-  strict CSP from the config instead (`default-src 'none'`, no scripts),
-  proving the fallback. The CSP template validation is unit-tested in
-  `src/settings.rs`, the nonce substitution in `src/render.rs`.
-- `src/assets.rs` (unit tests): parsing the `css:` line of cargo-leptos's
-  hash file. The boot-time consistency checks (stale hash file, hashed site
-  without one) are exercised by hand, see "Hashed asset names" below, and
-  are skipped in the test environment so `cargo test` passes whatever the
-  last build left in `target/site`. The request tests run without a hash
-  file, so they assert the plain `/pkg/app.css` name.
-- `src/maintenance.rs` (unit tests): the nightly restart's arithmetic. The
-  next restart is today while the hour is still ahead and tomorrow from
-  the hour on; in Europe/Zagreb a time inside the spring-forward gap
-  (2026-03-29 02:30) is `None`, 03:00 that night exists, and a time the
-  autumn night repeats (2026-10-25 02:30) resolves to the later, CET
-  instance; and the local guard (development and test never restart,
-  production and staging may). The stop itself is Loco's ordinary SIGTERM
-  shutdown, checked by hand below.
-- `src/settings.rs` (unit tests): the `settings:` block parses; unknown
-  keys, a CSP without `{nonce}` and a zero rate-limit burst are refused; the
-  auth bucket is required and refuses zeros while the limiter is on;
-  `mail.from` is parsed the way the mailer parses it, so `Name <address>`,
-  a bare address and a quoted name pass, and a bare comma in the name
-  (`Doe, John <…>`) is refused like any other malformed sender;
-  `nightly_restart` parses a zone name, refuses an unknown one and an
-  hour above 23, and defaults to off when the block is missing.
-- `tests/tasks/user_create.rs`: the `user_create` CLI task. `tests/workers/`
-  is an empty Loco starter module.
 
-`rstest` (one body, many `#[case]` inputs) is used in `tests/config.rs` and
-the auth tests; `insta` snapshots live next to the model and auth tests.
+- `tests/mod.rs`: module root, wires the folders below.
+- `tests/config.rs`: the config canary. Loads each `config/<env>.yaml` with
+  Loco's own loader. Edit a config file, run this first. Every environment
+  must have:
+  - an empty `ident`
+  - `secure_headers` with the seven overrides, plus the strict CSP for
+    anything that isn't a page
+  - a CSP with `'wasm-unsafe-eval'` and no `unsafe-inline`
+  - a 15 s `timeout_request` and a 64 KB `limit_payload`
+  - `remote_ip` on, compression and fallback off
+  - a `settings` block that parses
+  - a mail sender (production's from `MAILER_FROM`)
+
+  Differences on purpose:
+  - three `cache_control` values, all valid headers (else Loco silently
+    falls back to a year)
+  - staging and production: `CfConnectingIp`, burst 120
+  - locally: `ConnectInfo`, the live-reload socket
+  - staging only: `X-Robots-Tag`
+  - test: burst 20
+  - test and deployed: the auth API's own bucket, ten at once, then one per
+    30 s
+  - nightly restart: off locally, on (hour 3) when deployed
+- `tests/models/users.rs`: the users model against the test database.
+  Create with password, find by e-mail and pid, validation, duplicate
+  e-mail, and the verification, reset and magic-link token flows. `insta`
+  snapshots in `tests/models/snapshots/`.
+- `tests/requests/auth.rs`: `/api/auth` end to end. Register, verify, login
+  (valid and invalid password, unverified user), current user, forgot and
+  reset, magic link, resend verification. Login variants are `rstest`
+  cases. `insta` snapshots are in `tests/requests/snapshots/`, shared setup
+  in `tests/requests/prepare_data.rs`. Also:
+  - Register, forgot and magic link read their mail back. `From:` is
+    `settings.mail.from`, and the link starts with `server.host` and carries
+    the user's token.
+  - The reset link points at `/reset`, which doesn't exist yet (Known Gaps
+    in `ARCHITECTURE.md`).
+  - Markup in the name arrives escaped in the HTML part.
+  - A name over 100 characters registers nobody and sends nothing.
+  - A body over 64 KB is a 413.
+- `tests/requests/home.rs`: a 200 with an HTML content type, a real document
+  (doctype, `lang="en"`), the app name (`APP_NAME`), exactly one `<h1>`, the
+  skip link and its target, the islands loader script, the wasm file it
+  loads (`app.wasm`, guarding the compile-time `LEPTOS_OUTPUT_NAME` gotcha),
+  and the footer year computed at render time.
+- `tests/requests/not_found.rs`: unknown paths. As HTML, a 404 with the
+  not-found page inside the shell and `cache-control: no-store`. Without an
+  HTML `Accept`, a 404 with one line of text and no page. Both carry the
+  security headers and a request id. Twenty misses in a row are answered,
+  the twenty-first is a 429, and routes still answer: misses have their own
+  bucket, with the site-wide numbers.
+- `tests/requests/robots.rs`: `/robots.txt` in the test environment (200,
+  `text/plain`, `Disallow: /`).
+- `tests/requests/rate_limit.rs`:
+  - With `burst: 20` from `config/test.yaml`, twenty requests pass with
+    `x-ratelimit-remaining` counting down. The next is a 429 HTML page with
+    `retry-after: 1` (under a second, rounded up, never 0),
+    `cache-control: no-store`, the security headers, the strict CSP for
+    non-page responses and a request id, so the limiter sits inside
+    `secure_headers` and `request_id`. An unmatched path is still a 404:
+    the limiter only covers routes.
+  - The auth bucket (`auth.burst: 10`): ten logins are 401s, the eleventh is
+    the 429 page with about 30 s in `retry-after`. `/robots.txt` still
+    answers, since the site-wide bucket has tokens left.
+- `tests/requests/security_headers.rs`:
+  - On the home page, the CSP nonce matches every inline script. The CSP
+    has `'wasm-unsafe-eval'` and `frame-ancestors 'none'`, no
+    `unsafe-inline`.
+  - The preset headers and overrides are there (`x-frame-options: DENY`,
+    referrer, permissions, COOP, CORP, COEP, nosniff, HSTS). No
+    `x-powered-by`.
+  - Any `style=` attribute fails it, since `style-src` is `'self'`.
+  - `/robots.txt` and a miss get the strict CSP from the config
+    (`default-src 'none'`, no scripts).
+- `tests/tasks/user_create.rs`: the `user_create` CLI task.
+- `tests/workers/`: an empty Loco starter module.
+
+**Unit tests in `src/`:**
+
+- `src/assets.rs`: parsing the `css:` line of cargo-leptos's hash file. The
+  boot-time checks (stale hash file, hashed site without one) are manual,
+  see "Hashed asset names". They're skipped in the test environment, so
+  `cargo test` passes whatever the last build left in `target/site`.
+  Request tests run without a hash file, so they expect the plain
+  `/pkg/app.css`.
+- `src/controllers/robots.rs`: `/robots.txt` on production (`Allow: /`) and
+  on staging. The harness only boots the `test` environment.
+- `src/maintenance.rs`: the nightly restart's arithmetic. The next restart
+  is today while the hour is ahead, tomorrow from the hour on. In
+  Europe/Zagreb, 2026-03-29 02:30 (the spring-forward gap) is `None` but
+  03:00 exists, and 2026-10-25 02:30 (repeated in autumn) resolves to the
+  later, CET one. Development and test never restart, production and
+  staging may. The stop itself is Loco's ordinary SIGTERM shutdown, checked
+  by hand below.
+- `src/middleware/rate_limit.rs`: the key extractor (IPv6 keyed by its /64
+  network, IPv4 written as IPv6 keyed as IPv4), the 429 page (the wait
+  rounded up, in words: "1 second", "6 seconds"; the stylesheet resolved at
+  boot), and the config-to-key-source mapping.
+- `src/render.rs`: the nonce substitution.
+- `src/settings.rs`: the `settings:` block parses. Unknown keys, a CSP
+  template without `{nonce}` and a zero rate-limit burst are refused. The
+  auth bucket is required, and refuses zeros while the limiter is on.
+  `mail.from` is parsed the way the mailer parses it: `Name <address>`, a
+  bare address and a quoted name pass, a bare comma in the name
+  (`Doe, John <…>`) fails like any malformed sender. `nightly_restart`
+  parses a zone name, refuses an unknown one and an hour above 23, and is
+  off when the block is missing.
+
+`tests/config.rs` and the auth tests use `rstest`: one body, many `#[case]`
+inputs.
 
 ### CI
 
 `.github/workflows/ci.yaml` runs on every push to `main` and on pull
-requests: `cargo fmt --check`, `cargo clippy --all-targets -D warnings`,
-`cargo test`, the wasm32 build below, a full `cargo leptos build`, and
-`cargo audit`. The same list as the pre-deploy checks in `DEPLOYMENT.md`.
-`cargo audit` fails on vulnerabilities; the advisories deliberately ignored,
-each with its reason, are listed in `.cargo/audit.toml`.
+requests. Same list as the pre-deploy checks in `DEPLOYMENT.md`:
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo test`
+- the wasm32 lint below
+- a full `cargo leptos build`
+- `cargo audit`
+
+`cargo audit` fails on vulnerabilities. Advisories ignored on purpose are
+in `.cargo/audit.toml`, each with its reason.
 
 ### Browser half lint
 
-The normal build and test only compile the server. This lints the library
-for wasm32 with only the `hydrate` feature: it fails if any server-only
-dependency leaked out of the `ssr` gate, and it is the only pass that sees
-the islands:
+The normal build and tests only compile the server. This lints the library
+for wasm32 with just the `hydrate` feature:
 
 ```bash
 cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
+
+It fails if a server-only dependency leaks out of the `ssr` gate, and it's
+the only pass that sees the islands.
 
 ## Manual Testing
 
@@ -159,33 +181,34 @@ for p in / /pkg/app.css /pkg/app.js /pkg/app.wasm /fonts/Inter-Regular.woff2 /ro
 done
 ```
 
-Expected: 200 for everything except `/nope`, which is a 404 with one line of
-text (curl does not ask for HTML). With `-H 'Accept: text/html'` it is the
-rendered not-found page, still a 404, with `cache-control: no-store`.
-Response headers must not contain `x-powered-by`.
+Expected: 200 for all but `/nope`, a 404 with one line of text, since curl
+doesn't ask for HTML. With `-H 'Accept: text/html'` it's the not-found
+page, still a 404, with `cache-control: no-store`. No `x-powered-by`
+anywhere.
 
 ### Islands in the browser
 
 Open http://localhost:5150 with the developer console open. Expected: no
 errors, no warning about a missing island function, and the wasm and JS
-requests visible in the network tab. Once an island exists (a login form,
-say), interact with it: a working island proves the whole chain, server
-markers, bundle load, `hydrate()`, hydration. An island lives in
-`src/islands.rs`; one written in `views/` is exactly what produces that
-missing-function warning.
+requests in the network tab.
+
+Once you have an island (a login form, say), use it. If it works, the whole
+chain works: server markers, bundle load, `hydrate()`, hydration.
+
+**Missing island function?** The island is in `views/`. Move it to
+`src/islands.rs`.
 
 ### Rate limiting
 
 Development allows a burst of 300 route requests per IP, refilling one per
 second (`settings.rate_limit` in `config/development.yaml`). Against
-`cargo loco start`:
+`cargo loco start`, in one go:
 
 ```bash
 seq 1 305 | xargs -I{} curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5150/robots.txt | sort | uniq -c
 ```
 
-Expected: `300 200` and `5 429`, run in one go (the bucket refills at one
-request per second). Then:
+Expected: `300 200` and `5 429`. Then:
 
 ```bash
 curl -i http://localhost:5150/robots.txt          # the 429 page: retry-after: 1, x-ratelimit-*, cache-control: no-store
@@ -194,28 +217,26 @@ cargo loco middleware -c                           # shows rate_limit with its n
 ```
 
 Locally the key is the TCP peer, so a `CF-Connecting-IP` header is ignored.
-On staging and production the key is that header (the CDN sets it, the
-proxy passes it through), so on a deployed copy a burst with
+On staging and production the key is that header, set by the CDN and passed
+on by the proxy. On a deployed copy, a burst with
 `-H 'CF-Connecting-IP: 203.0.113.9'` against `http://127.0.0.1:<port>/`
-exhausts only that fake visitor's bucket. Direct hits without the header all
-share the proxy's address and therefore one bucket.
+empties only that fake visitor's bucket. Hits without the header all share
+the proxy's bucket.
 
-An IPv6 visitor is its /64 network, not its address: one machine is usually
-given a whole /64 and could otherwise send every request from a new
-address. On a deployed copy, a burst that changes the address every time
-but stays inside one /64 still exhausts one bucket:
+An IPv6 visitor is keyed by its /64 network, not its address. On a deployed
+copy, a burst that changes the address inside one /64 still empties one
+bucket:
 
 ```bash
 for i in $(seq 1 125); do curl -s -o /dev/null -w '%{http_code}\n' -H "CF-Connecting-IP: 2001:db8:1:2::$i" http://127.0.0.1:<port>/robots.txt; done | sort | uniq -c
 ```
 
 Expected: `120 200` and `5 429`. With `2001:db8:1:$i::1` instead, every
-request comes from a different /64, a different visitor, and all 125 pass.
+request is a different /64, so all 125 pass.
 
-The auth API has its own, smaller bucket (`settings.rate_limit.auth`, burst
-30 in development). It is a layer on those routes, not a middleware of its
-own; `cargo loco middleware -c` shows its numbers inside the `rate_limit`
-entry, under `auth`. This shows it at work:
+The auth API has its own, smaller bucket: `settings.rate_limit.auth`, burst
+30 in development. `cargo loco middleware -c` shows it under `auth` in the
+`rate_limit` entry, not as a middleware of its own. To see it:
 
 ```bash
 seq 1 35 | xargs -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"x"}' http://localhost:5150/api/auth/login | sort | uniq -c
@@ -223,11 +244,12 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5150/robots.txt
 ```
 
 Expected: `30 401` and `5 429`, then a `200`: the site-wide bucket of 300
-still has tokens, only the auth one is empty.
+still has tokens.
 
 ### Outgoing mail
 
-With a catcher on port 1025 (`PREREQUISITES.md`) and the dev server running:
+With a catcher on port 1025 (`PREREQUISITES.md`) and the dev server
+running:
 
 ```bash
 curl -s -X POST -H 'content-type: application/json' -d '{"name":"Ana","email":"ana@example.com","password":"12341234"}' http://localhost:5150/api/auth/register
@@ -235,8 +257,8 @@ curl -s -X POST -H 'content-type: application/json' -d '{"name":"Ana","email":"a
 
 Expected in the catcher's inbox (http://localhost:8025): one mail from
 `SaaS Starter <noreply@example.com>` (`settings.mail.from` in
-`config/development.yaml`, never Loco's `System <system@example.com>`)
-whose verification link starts with `http://localhost:5150/api/auth/verify/`
+`config/development.yaml`, never Loco's `System <system@example.com>`),
+with a verification link starting `http://localhost:5150/api/auth/verify/`
 (`server.host` as written, not `host:port`).
 
 ### Hashed asset names
@@ -245,15 +267,22 @@ whose verification link starts with `http://localhost:5150/api/auth/verify/`
 LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app start
 ```
 
-Then `curl -s http://localhost:5150/ | grep -o 'href="/pkg/[^"]*"'` shows
-`app.<hash>.css` and `app.<hash>.js`, both present in `target/site/pkg`, and
-`cat target/release/hash.txt` shows the same hashes. Two refusals to check:
-edit a hash in `target/release/hash.txt` and start the
-release binary again, it must refuse with "the hash file is stale"; then run
-`cargo loco start`, the debug binary has no hash file next to it while
-`target/site` is hashed, it must refuse with "a hashed build must be deployed
-together with its hash file". Finish with `cargo leptos build` to restore
-plain names for development.
+Then:
+
+```bash
+curl -s http://localhost:5150/ | grep -o 'href="/pkg/[^"]*"'   # app.<hash>.css and app.<hash>.js
+cat target/release/hash.txt                                    # the same hashes
+```
+
+Both files must be in `target/site/pkg`. Then check the two refusals:
+
+1. Edit a hash in `target/release/hash.txt` and start the release binary
+   again. It must refuse with "the hash file is stale".
+2. Run `cargo loco start`. The debug binary has no hash file next to it but
+   `target/site` is hashed, so it must refuse with "a hashed build must be
+   deployed together with its hash file".
+
+Finish with `cargo leptos build` to get plain names back for development.
 
 ### Security headers
 
@@ -261,40 +290,41 @@ plain names for development.
 curl -sI http://localhost:5150/ | grep -iE '^(content-security|x-frame|referrer|permissions|cross-origin|strict-transport|x-content-type)'
 ```
 
-Expected: all seven present; the CSP contains `'nonce-…'` and a second
-request shows a different nonce. `/robots.txt`, `/pkg/app.css` and `/nope`
-show the strict CSP from the config (`default-src 'none'; style-src 'self'; …`)
-instead. On a deployed
-copy the same against `http://127.0.0.1:<port>/`. Under `cargo leptos watch -- start`
-open the page with the console visible: no CSP violation, and live reload
-still works (its websocket is allowed by the development `connect-src`).
+Expected: all seven. The CSP has `'nonce-…'`, and a second request shows a
+different one. `/robots.txt`, `/pkg/app.css` and `/nope` get the strict CSP
+from the config instead (`default-src 'none'; style-src 'self'; …`). On a
+deployed copy, run it against `http://127.0.0.1:<port>/`.
+
+Under `cargo leptos watch -- start`, with the console open: no CSP
+violation, and live reload still works (the development `connect-src`
+allows its websocket).
+
 After a deploy, scan the public host on https://securityheaders.com and
-https://observatory.mozilla.org: CSP and X-Frame-Options must not fail.
-A CDN such as Cloudflare injects its own HSTS and `nosniff` in front of the
-app, so those two appear on the live site even when the origin is down.
+https://observatory.mozilla.org. CSP and X-Frame-Options must not fail.
+
+**HSTS and `nosniff` may come from the CDN.** A CDN such as Cloudflare adds
+its own in front of the app, so they show up even when the origin is down.
 
 ### Nightly restart
 
-The timing is unit-tested. What the task does at the hour is send SIGTERM
-to its own process, and that can be watched any time on a running server:
+The timing is unit-tested. At the hour, the task sends SIGTERM to its own
+process. You can try that any time:
 
 ```bash
 cargo build
 ./target/debug/app start & sleep 5; kill -TERM $!; wait $!; echo "exit status $?"
 ```
 
-Expected: `shutting down...` in the log and exit status 0, which is what the
+Expected: `shutting down...` in the log and exit status 0, which the
 unit's `Restart=always` turns into a restart. On a deployed copy,
 `journalctl -u <unit>` shows `nightly restart scheduled for 03:00 UTC` at
-boot and, the next morning, `nightly restart: stopping`, `shutting down...`
-and a fresh boot.
+boot, then next morning `nightly restart: stopping`, `shutting down...` and
+a fresh boot.
 
 ### Request timeout
 
-Nothing in the app hangs, so there is no request to time out and no
-automated test. To verify the 15 s `timeout_request`, temporarily add a
-handler that sleeps longer than that to
-`src/controllers/home.rs`, run the server and time a request:
+Nothing in the app hangs, so there's no automated test. To check the 15 s
+`timeout_request`, add this to `src/controllers/home.rs` for a moment:
 
 ```rust
 async fn slow() -> Result<Response> {
@@ -304,21 +334,24 @@ async fn slow() -> Result<Response> {
 // in routes(): .add("/slow", get(slow))
 ```
 
+Run the server and time a request:
+
 ```bash
 curl -s -o /dev/null -w 'status=%{http_code} seconds=%{time_total}\n' http://localhost:5150/slow
 ```
 
-Expected: `status=408 seconds=15.0…`, the server log shows the request
-finishing with `latency=15002 ms status=408`, and `/` still answers in
-milliseconds. Remove the handler afterwards.
+Expected: `status=408 seconds=15.0…`, `latency=15002 ms status=408` in the
+server log, and `/` still answering in milliseconds. Remove the handler
+afterwards.
 
 ## Tests to Add With the Features They Cover
 
-- One request test per new page: status, `lang`, one distinctive string.
-- The first island (a login or registration form): validation rejects bad
-  input, a valid submission reaches the JSON API (whose own rate-limit
-  bucket `tests/requests/rate_limit.rs` already covers). The natural home
-  for `rstest`. Its request test
-  asserts the server render: `<leptos-island data-component="Name_` (the
-  prefix only, the name carries a hash) and `<leptos-children>`, which
-  proves the content was passed as children and stayed out of the wasm.
+- **Each new page:** a request test for status, `lang` and one distinctive
+  string.
+- **The first island** (a login or registration form): validation rejects
+  bad input, a valid submission reaches the JSON API (its rate-limit bucket
+  is already covered in `tests/requests/rate_limit.rs`). A natural home for
+  `rstest`. Its request test checks the server render:
+  `<leptos-island data-component="Name_` (prefix only, the name carries a
+  hash) and `<leptos-children>`, which proves the content went in as
+  children and stayed out of the wasm.
