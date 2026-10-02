@@ -146,7 +146,6 @@ dependencies = [
  "chrono-tz 0.10.4",
  "console_error_panic_hook",
  "governor",
- "include_dir",
  "insta",
  "leptos",
  "leptos_axum",

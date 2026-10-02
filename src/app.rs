@@ -21,7 +21,10 @@ use migration::Migrator;
 
 use crate::{
     assets, controllers, maintenance,
-    middleware::rate_limit::{self, RateLimit},
+    middleware::{
+        error_page::ErrorPages,
+        rate_limit::{self, RateLimit},
+    },
     models::_entities::users,
     settings::Settings,
     tasks,
@@ -130,6 +133,10 @@ impl Hooks for App {
         stack.delete("fallback");
         stack.insert(0, Box::new(controllers::not_found::Site::from_context(ctx)));
         stack.insert_after("remote_ip", Box::new(RateLimit::from_context(ctx)));
+        // After the timeout, so a 408 gets the page too; before
+        // secure_headers and the logger, so the page gets their headers and
+        // its own log line (middleware/error_page.rs).
+        stack.insert_after("timeout_request", Box::new(ErrorPages::from_context(ctx)));
         stack
     }
 

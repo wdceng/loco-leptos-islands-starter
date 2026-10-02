@@ -14,8 +14,12 @@ pub const APP_NAME: &str = "SaaS Starter";
 
 /// The centred prose column shared by the landmarks: capped width, centred
 /// by auto margins, side padding for narrow screens. Defined once here;
-/// Tailwind's scanner picks the class names up from this string.
-const COLUMN: &str = "mx-auto max-w-3xl px-6";
+/// Tailwind's scanner picks the class names up from this string. The 429
+/// page (views/too_many_requests.rs) uses it too.
+pub const COLUMN: &str = "mx-auto max-w-3xl px-6";
+
+/// The <body> classes, shared with the 429 page.
+pub const BODY: &str = "min-h-dvh text-ink";
 
 /// Per-page values that go straight into `<head>`. The controller knows
 /// the language and title of the page it is serving, so they are passed in
@@ -92,7 +96,7 @@ pub fn shell(
             // No background colour here: the page colour is on <html> and the
             // bottom glow is a fixed box behind the body (style/tailwind.css);
             // a body background would paint over it.
-            <body class="min-h-dvh text-ink">
+            <body class=BODY>
                 // First focusable element: keyboard and screen-reader users
                 // jump past the navigation. Invisible until it has focus.
                 <a

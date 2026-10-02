@@ -135,7 +135,9 @@ Rules:
 ## What Is in the App
 
 "From" says where an area comes from: Loco's Rest API starter as generated,
-or this template. Nothing the starter generated was removed. Where the
+or this template. Nothing the starter generated was removed except the
+nine Tera mail templates (`src/mailers/auth/*/*.t`), replaced by Leptos and
+`format!` with the same content. Where the
 template changed a starter file, the column names the change.
 
 | Area | From | Where | Notes |
@@ -144,7 +146,8 @@ template changed a starter file, the column names the change.
 | Health | Loco | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health` and `/_readiness`, the last two checking the database and queue. Rate limited like any route |
 | Users and auth | Loco starter; the `/api/auth` rate limit is this template's | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry |
 | Not found | This template | `src/controllers/not_found.rs`, `src/views/not_found.rs` | The router's fallback. Serves the `static` block's folder with its cache header, and anything else as a 404 with `no-store`: the not-found page for an HTML request, one line of text otherwise |
-| Mail | Loco starter; the sender setting, link origin and name escaping are this template's | `src/mailers/auth/` | Welcome, forgot-password and magic-link templates, text and HTML, sent over the SMTP in `config/<env>.yaml`. The sender, `settings.mail.from`, is parsed at boot the way the mailer parses it. Links start with `server.host`. The templates escape the registrant's name themselves |
+| Error pages | This template | `src/middleware/error_page.rs`, `src/views/error.rs` | A layer right after `timeout_request`. When a request accepts HTML and isn't under `/api/`, an error answer without an HTML body (Loco's JSON 500, the empty 405 and 408, the JSON 400, 413 and 415) becomes the Leptos error page: same status, original headers kept (`Allow`), page CSP, `no-store`. Everything else keeps Loco's answer |
+| Mail | Loco starter's mailer and wording; the rendering, sender setting and link origin are this template's | `src/mailers/auth.rs`, `src/views/mail.rs` | Welcome, forgot-password and magic-link mails, sent over the SMTP in `config/<env>.yaml` with Loco's `Mailer::mail`. The HTML part is a Leptos component: checked at compile time, every value escaped. Subject and text are `format!`. The sender, `settings.mail.from`, is parsed at boot the way the mailer parses it. Links start with `server.host` |
 | Background | Loco starter | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
 | Nightly restart | This template | `src/maintenance.rs` | Staging and production stop once a day (`settings.nightly_restart`), systemd starts them again. Never in development or test |
 | Migrations | Loco starter | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
@@ -225,7 +228,7 @@ resource kind the page uses: scripts, styles, images, fonts, the manifest,
 fetches. Anything new stays blocked until its directive is added on purpose.
 
 Loco's middleware only adds a header the response lacks, so the page CSP
-wins on pages, the not-found page included. Everything else (the JSON API,
+wins on pages, the not-found and error pages included. Everything else (the JSON API,
 files, `robots.txt`, the not-found line, the 429 page) gets the
 `Content-Security-Policy` override under `secure_headers`:
 `default-src 'none'`, only the app's own stylesheet, images and fonts, no
@@ -339,14 +342,22 @@ the CLI for `loco new`, which is done.
 - Everything in `public/` is copied into `site/` and served, in production
   with a one-year cache. Rename a file when its content changes. No
   `.DS_Store` or scratch files.
-- The 429 page (`src/middleware/rate_limit.html`) is static HTML outside
-  Leptos, reusing the shell's Tailwind classes so the scanner keeps them.
-  `public/404.html` is never served, since the not-found page is rendered,
+- Every page a browser can get is Leptos: the pages, the 404, the error
+  page and the 429. No HTML is written by hand or built in Rust strings.
+  The error page and the 429 share `ErrorPage` (`src/views/error.rs`); the
+  429 is its own document (`src/views/too_many_requests.rs`), rendered once
+  per limiter at boot, without the shell's scripts, because it goes out
+  under the strict fallback CSP. It uses the shell's `BODY` and `COLUMN`
+  constants, so its classes can't drift.
+- `public/404.html` is never served, since the not-found page is rendered,
   but it stays because the boot checks for it where `static.must_exist` is
   on.
-- Escape visitor input in mail templates (`{{ name | escape }}` in
-  `html.t`). Loco's Tera only escapes templates named `.html`, `.htm` or
-  `.xml`.
+- Mails: the HTML part is a Leptos component in `src/views/mail.rs`,
+  rendered with `mail::document`, and sent with Loco's `Mailer::mail`.
+  Subject and text are `format!`. No Tera mail templates: they fail only at
+  send time, and Loco's Tera escapes only files named `.html`, `.htm` or
+  `.xml`. Keep one text node per paragraph (`format!` inside `{}`), so no
+  `<!>` hydration markers end up in the mail.
 - Don't hand-edit the generated Sea-ORM entities in
   `src/models/_entities/`. Model logic goes in `src/models/*.rs`.
 - A config change to policy (headers, timeout, rate limit, cache, CSP)
@@ -393,7 +404,6 @@ here.
 | `validator` | Model validation. Pinned to 0.20 like `loco-rs`: its prelude supplies the `Validate` derive, and a second version breaks the trait |
 | `uuid` | User `pid` and API key |
 | `ts-rs` | TypeScript bindings for `src/dtos/`, export commented out for now |
-| `include_dir` | Embeds the mail templates |
 
 **Added by this template**
 

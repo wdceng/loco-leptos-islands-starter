@@ -76,7 +76,7 @@ async fn request_past_the_burst_is_rejected_with_a_page() {
         );
         let body = res.text();
         assert!(
-            body.starts_with("<!doctype html>"),
+            body.starts_with("<!DOCTYPE html>"),
             "not a document:\n{body}"
         );
         assert!(body.contains("Too many requests"));

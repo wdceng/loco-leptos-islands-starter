@@ -89,7 +89,6 @@ ts-rs = { version = "12.0.1", features = [
   "chrono-impl",
   "serde-compat",
 ], optional = true }
-include_dir = { version = "0.7.4", optional = true }
 
 # ---------------------------------------------------------------------------
 # Leptos: the views. `leptos` builds in both halves. Server only (`ssr`):
@@ -169,7 +168,6 @@ ssr = [
   "dep:validator",
   "dep:uuid",
   "dep:ts-rs",
-  "dep:include_dir",
   "dep:tower_governor",
   "dep:governor",
   "dep:tower-http",

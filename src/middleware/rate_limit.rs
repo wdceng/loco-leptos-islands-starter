@@ -53,15 +53,8 @@ use crate::{
     app::stored,
     assets::Assets,
     settings::{RateLimitSettings, Settings},
+    views::too_many_requests,
 };
-
-/// The 429 page. Kept next to this file, not under `public/`, because
-/// cargo-leptos would otherwise ship it as a static `/429.html` with its
-/// placeholders in it: `{stylesheet}`, filled once per limiter with the
-/// path `Assets` resolved at boot ([`page_for`]; a fixed plain name would
-/// be a miss in production, where the names are hashed), and `{wait}`,
-/// filled per refusal ([`fill_wait`]).
-const PAGE: &str = include_str!("rate_limit.html");
 
 /// How often idle buckets are dropped from the limiter's map.
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
@@ -161,10 +154,12 @@ impl KeyExtractor for VisitorIp {
 }
 
 /// The 429 page for one stylesheet path, the URL path `Assets` resolved at
-/// boot. `{wait}` stays in it for [`fill_wait`].
+/// boot (a fixed plain name would be a miss in production, where the names
+/// are hashed). Rendered by Leptos once per limiter
+/// (views/too_many_requests.rs); its `{wait}` stays in it for [`fill_wait`].
 #[must_use]
 pub fn page_for(stylesheet: &str) -> String {
-    PAGE.replace("{stylesheet}", stylesheet)
+    too_many_requests::document(stylesheet.to_owned())
 }
 
 /// A number of seconds in words: "1 second", "2 seconds".
@@ -181,7 +176,7 @@ pub fn seconds(n: u64) -> String {
 /// says at least 1 second.
 #[must_use]
 pub fn fill_wait(page: &str, wait_secs: u64) -> String {
-    page.replace("{wait}", &seconds(wait_secs.max(1)))
+    page.replace(too_many_requests::WAIT, &seconds(wait_secs.max(1)))
 }
 
 /// Turns the limiter's rejection into the HTML 429 built from `page`,

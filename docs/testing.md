@@ -70,6 +70,12 @@ so the suite runs in about a second.
   - Markup in the name arrives escaped in the HTML part.
   - A name over 100 characters registers nobody and sends nothing.
   - A body over 64 KB is a 413.
+- `tests/requests/error_page.rs`: a browser's `POST /` is a 405 with the
+  Leptos error page, `Allow` kept, the page CSP with its nonce and
+  `no-store`. Without an HTML `Accept` it stays Loco's empty 405, and the
+  JSON API answers a browser in JSON. A handler that fails gives a browser
+  the page with status 500 and anything else Loco's JSON; no route of the
+  app fails on purpose, so that one mounts the layer on a small router.
 - `tests/requests/home.rs`: a 200 with an HTML content type, a real document
   (doctype, `lang="en"`), the app name (`APP_NAME`), exactly one `<h1>`, the
   skip link and its target, the islands loader script, the wasm file it
@@ -117,6 +123,15 @@ so the suite runs in about a second.
   `/pkg/app.css`.
 - `src/controllers/robots.rs`: `/robots.txt` on production (`Allow: /`) and
   on staging. The harness only boots the `test` environment.
+- `src/views/mail.rs`: a mail is a whole HTML document with its link and no
+  `<!>` hydration markers, and markup in a visitor's name arrives escaped.
+- `src/views/error.rs`: server errors, the 405, the 408 and other client
+  errors each have their own wording.
+- `src/views/too_many_requests.rs`: the 429 page links the stylesheet,
+  keeps the `{wait}` placeholder for each refusal, and carries no script.
+- `src/middleware/error_page.rs`: only a browser asking for a page outside
+  `/api/` gets one, only error answers without HTML are replaced, and the
+  page keeps the status and the original headers.
 - `src/maintenance.rs`: the nightly restart's arithmetic. The next restart
   is today while the hour is ahead, tomorrow from the hour on. In
   Europe/Zagreb, 2026-03-29 02:30 (the spring-forward gap) is `None` but

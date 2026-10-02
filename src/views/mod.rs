@@ -3,6 +3,9 @@
 //! modules hold the Leptos components the page controllers render into HTML.
 
 pub mod auth;
+pub mod error;
 pub mod home;
 pub mod layout;
+pub mod mail;
 pub mod not_found;
+pub mod too_many_requests;

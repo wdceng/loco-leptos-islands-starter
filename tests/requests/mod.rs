@@ -1,4 +1,5 @@
 mod auth;
+mod error_page;
 mod home;
 mod not_found;
 mod prepare_data;

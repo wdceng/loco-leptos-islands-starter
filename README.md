@@ -15,15 +15,16 @@ get your own copy.
 | Server, database, user accounts, e-mail, background jobs | Loco's **Rest API** starter: `loco new` with "Rest API (with DB and user auth)", SQLite, async jobs |
 | Pages and interactivity | **Leptos in islands mode**, added on top: pages render on the server, only `#[island]` components run in the browser |
 | **Security**: HTTP headers, a Content Security Policy with a new nonce on every page, rate limits per visitor (stricter on sign-up and login, 404s counted apart), a 64 KB body limit, a 15 s timeout | This template |
-| **Page basics**: page shell with favicons, web manifest and theme colour, the home page, a rendered 404 page, `robots.txt`, Tailwind v4, the self-hosted Inter font | This template |
+| **Page basics**: page shell with favicons, web manifest and theme colour, the home page, Leptos pages for 404, 429 and errors (a browser never sees Loco's raw JSON or an empty body), `robots.txt`, Tailwind v4, the self-hosted Inter font | This template |
 | **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
 | **Checked SQL**: the app's own queries as SQLx `query!`, on Sea-ORM's pool, checked against the schema at compile time, with an offline cache for CI and `cross` | This template |
-| **Mail fixes**: sender set in config, links to the public address without the server's port, names escaped in HTML mail | This template |
+| **Mail fixes**: sender set in config, links to the public address without the server's port, the HTML part of every mail as a Leptos component (compile-checked, escaped), subject and text as `format!` | This template |
 | **Checks**: tests for the headers, the CSP, the rate limits, the 404 page and all four config files; CI with fmt, clippy on both halves, the tests, a full build and `cargo audit` | This template |
 | **Docs**: `docs/development.md`, `docs/testing.md`, `docs/staging.md` and `docs/production.md` (systemd, Caddy, Cloudflare, one file per environment), `docs/architecture.md` | This template |
 
-Nothing Loco generated was removed. Some files are extended, so Loco's own
-docs still apply. `docs/architecture.md` covers every part in detail.
+Nothing Loco generated was removed except its nine Tera mail templates,
+now Leptos and `format!` (same mails, same links). Some files are extended,
+so Loco's own docs still apply. `docs/architecture.md` covers every part in detail.
 
 Why not Loco's "SaaS App with server side rendering"? It has the same
 accounts, e-mail and database code, plus its own way of making pages: Tera
@@ -99,7 +100,7 @@ file.
 | Change the database or add a table | `migration/`, then refresh the query cache (`docs/development.md`) |
 | Write a query | `sqlx::query!` on `sql::pool(&ctx)` (`src/sql.rs`) |
 | Change Loco's users model | `src/models/` |
-| Change the e-mails or their sender | `src/mailers/auth/`, sender: `settings.mail.from` in `config/` |
+| Change the e-mails or their sender | HTML part: `src/views/mail.rs`. Subject and text: `src/mailers/auth.rs`. Sender: `settings.mail.from` in `config/` |
 | Change styling | Tailwind classes in the views, fonts and colours in `style/tailwind.css` |
 | Add an image, a font, a static file | `public/` |
 | Change settings per environment | `config/development.yaml`, `staging.yaml`, `production.yaml` |
@@ -174,7 +175,6 @@ search for `app` in:
 - `examples/playground.rs`
 - the `tests/` folder
 - `public/404.html`
-- `src/middleware/rate_limit.html`
 - the `app_<env>.sqlite` lines in `config/*.yaml`
 - the commands in `docs/development.md`, `docs/testing.md`,
   `docs/staging.md` and `docs/production.md`: every `app` that names the

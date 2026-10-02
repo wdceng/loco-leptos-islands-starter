@@ -1,18 +1,20 @@
 // auth mailer
-#![allow(non_upper_case_globals)]
+//
+// Loco's starter rendered these mails from Tera templates. Here the HTML part
+// is a Leptos component (views/mail.rs), checked at compile time and escaped
+// by Leptos; the subject and the text part are plain `format!`. Loco's
+// `Mailer::mail` sends the finished parts, the same way `mail_template` does
+// after rendering.
 
+use leptos::{prelude::IntoView, view};
 use loco_rs::prelude::*;
-use serde_json::json;
 
-use crate::{app::stored, models::users, settings::Settings};
-
-// Each folder holds `subject.t`, `text.t` and `html.t`. Loco's Tera escapes
-// only templates named `.html`, `.htm` or `.xml`, so `html.t` escapes every
-// value a visitor chose itself (`{{ name | escape }}`): the name is typed at
-// registration, and the welcome mail goes to any address given there.
-static welcome: Dir<'_> = include_dir!("src/mailers/auth/welcome");
-static forgot: Dir<'_> = include_dir!("src/mailers/auth/forgot");
-static magic_link: Dir<'_> = include_dir!("src/mailers/auth/magic_link");
+use crate::{
+    app::stored,
+    models::users,
+    settings::Settings,
+    views::mail::{self, ForgotPasswordMail, MagicLinkMail, WelcomeMail},
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub struct AuthMailer {}
@@ -32,29 +34,50 @@ impl AuthMailer {
         ctx.config.server.host.trim_end_matches('/').to_string()
     }
 
+    /// One mail to `user`, from `settings.mail.from`.
+    async fn send(
+        ctx: &AppContext,
+        user: &users::Model,
+        subject: String,
+        text: String,
+        body: impl IntoView + 'static,
+    ) -> Result<()> {
+        Self::mail(
+            ctx,
+            &mailer::Email {
+                from: Some(Self::sender(ctx)?),
+                to: user.email.clone(),
+                subject,
+                text,
+                html: mail::document(body),
+                ..Default::default()
+            },
+        )
+        .await
+    }
+
     /// Sending welcome email the the given user
     ///
     /// # Errors
     ///
     /// When email sending is failed
     pub async fn send_welcome(ctx: &AppContext, user: &users::Model) -> Result<()> {
-        Self::mail_template(
+        let link = format!(
+            "{}/api/auth/verify/{}",
+            Self::origin(ctx),
+            user.email_verification_token.as_deref().unwrap_or_default()
+        );
+        Self::send(
             ctx,
-            &welcome,
-            mailer::Args {
-                from: Some(Self::sender(ctx)?),
-                to: user.email.clone(),
-                locals: json!({
-                  "name": user.name,
-                  "verifyToken": user.email_verification_token,
-                  "host": Self::origin(ctx)
-                }),
-                ..Default::default()
-            },
+            user,
+            format!("Welcome {}", user.name),
+            format!(
+                "Welcome {}, you can now log in.\nVerify your account with the link below:\n\n{link}\n",
+                user.name
+            ),
+            view! { <WelcomeMail name=user.name.clone() verify_link=link.clone() /> },
         )
-        .await?;
-
-        Ok(())
+        .await
     }
 
     /// Sending forgot password email
@@ -63,23 +86,19 @@ impl AuthMailer {
     ///
     /// When email sending is failed
     pub async fn forgot_password(ctx: &AppContext, user: &users::Model) -> Result<()> {
-        Self::mail_template(
+        let link = format!(
+            "{}/reset#{}",
+            Self::origin(ctx),
+            user.reset_token.as_deref().unwrap_or_default()
+        );
+        Self::send(
             ctx,
-            &forgot,
-            mailer::Args {
-                from: Some(Self::sender(ctx)?),
-                to: user.email.clone(),
-                locals: json!({
-                  "name": user.name,
-                  "resetToken": user.reset_token,
-                  "host": Self::origin(ctx)
-                }),
-                ..Default::default()
-            },
+            user,
+            "Your reset password link".to_string(),
+            format!("Reset your password with this link:\n\n{link}\n"),
+            view! { <ForgotPasswordMail name=user.name.clone() reset_link=link.clone() /> },
         )
-        .await?;
-
-        Ok(())
+        .await
     }
 
     /// Sends a magic link authentication email to the user.
@@ -88,24 +107,18 @@ impl AuthMailer {
     ///
     /// When email sending is failed
     pub async fn send_magic_link(ctx: &AppContext, user: &users::Model) -> Result<()> {
-        Self::mail_template(
+        let token = user
+            .magic_link_token
+            .as_deref()
+            .ok_or_else(|| Error::string("the user model not contains magic link token"))?;
+        let link = format!("{}/api/auth/magic-link/{token}", Self::origin(ctx));
+        Self::send(
             ctx,
-            &magic_link,
-            mailer::Args {
-                from: Some(Self::sender(ctx)?),
-                to: user.email.clone(),
-                locals: json!({
-                  "name": user.name,
-                  "token": user.magic_link_token.clone().ok_or_else(|| Error::string(
-                            "the user model not contains magic link token",
-                    ))?,
-                  "host": Self::origin(ctx)
-                }),
-                ..Default::default()
-            },
+            user,
+            "Magic link example".to_string(),
+            format!("Magic link with this link:\n{link}\n"),
+            view! { <MagicLinkMail login_link=link.clone() /> },
         )
-        .await?;
-
-        Ok(())
+        .await
     }
 }
