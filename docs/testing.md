@@ -50,6 +50,8 @@ so the suite runs in about a second.
   - test and deployed: the auth API's own bucket, ten at once, then one per
     30 s
   - nightly restart: off locally, on (hour 3) when deployed
+  - static-file limit: off locally, on when deployed (burst 300, one token
+    per 100 ms)
 - `tests/models/users.rs`: the users model against the test database.
   Create with password, find by e-mail and pid, validation, duplicate
   e-mail, and the verification, reset and magic-link token flows. `insta`
@@ -162,7 +164,9 @@ so the suite runs in about a second.
 - `src/render.rs`: the nonce substitution.
 - `src/settings.rs`: the `settings:` block parses. Unknown keys, a CSP
   template without `{nonce}` and a zero rate-limit burst are refused. The
-  auth bucket is required, and refuses zeros while the limiter is on.
+  auth bucket is required, and refuses zeros while the limiter is on. The
+  static-file limit is off without its block, parses when on, and refuses
+  zeros when enabled.
   `mail.from` is parsed the way the mailer parses it: `Name <address>`, a
   bare address and a quoted name pass, a bare comma in the name
   (`Doe, John <…>`) fails like any malformed sender. `nightly_restart`

@@ -24,6 +24,9 @@ pub const NONCE_PLACEHOLDER: &str = "{nonce}";
 #[serde(deny_unknown_fields)]
 pub struct Settings {
     pub rate_limit: RateLimitSettings,
+    /// Optional: a config without the block doesn't limit the static files.
+    #[serde(default)]
+    pub file_rate_limit: FileRateLimitSettings,
     pub security: SecuritySettings,
     pub mail: MailSettings,
     /// Optional: a config without the block has no nightly restart.
@@ -55,6 +58,7 @@ impl Settings {
         let settings: Self = serde_json::from_value(value.clone())
             .map_err(|e| Error::Message(format!("config: invalid `settings:` block: {e}")))?;
         settings.rate_limit.validate()?;
+        settings.file_rate_limit.validate()?;
         settings.security.validate()?;
         settings.mail.validate()?;
         settings.nightly_restart.validate()?;
@@ -91,7 +95,8 @@ impl SecuritySettings {
     }
 }
 
-/// Token bucket per visitor IP on every route (static assets are exempt).
+/// Token bucket per visitor IP on every route (static files have their own,
+/// [`FileRateLimitSettings`]).
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RateLimitSettings {
@@ -136,6 +141,38 @@ impl RateLimitSettings {
 pub struct RouteRateLimit {
     pub per_second: u64,
     pub burst: u32,
+}
+
+/// Token bucket per visitor on the static files the router's fallback
+/// serves (the bundle, the stylesheet, fonts, images;
+/// src/controllers/not_found.rs). Generous, so no person reaches it, only a
+/// script pulling the same files over and over. Off when the block is
+/// missing, and off locally, where the files are rechecked on every view.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileRateLimitSettings {
+    pub enable: bool,
+    /// Milliseconds per replenished token: 100 means a sustained 10 files a
+    /// second. Milliseconds, not seconds: one page load fetches several
+    /// files.
+    #[serde(default)]
+    pub per_millisecond: u64,
+    /// How many files a visitor may fetch at once before the sustained rate
+    /// applies.
+    #[serde(default)]
+    pub burst: u32,
+}
+
+impl FileRateLimitSettings {
+    fn validate(&self) -> Result<()> {
+        if self.enable && (self.per_millisecond == 0 || self.burst == 0) {
+            return Err(Error::Message(
+                "config: settings.file_rate_limit.per_millisecond and .burst must be at least 1 when enabled"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Outgoing mail (src/mailers/): the sender on every message the app sends.
@@ -280,6 +317,33 @@ mod tests {
         block["rate_limit"]["burst"] = json!(0);
         let err = parse(&block).expect_err("zero burst must fail");
         assert!(err.to_string().contains("at least 1"), "{err}");
+    }
+
+    #[test]
+    fn file_rate_limit_is_off_when_the_block_is_missing() {
+        let s = parse(&base()).expect("valid");
+        assert!(!s.file_rate_limit.enable);
+    }
+
+    #[test]
+    fn file_rate_limit_parses_and_may_be_off_without_numbers() {
+        let mut block = base();
+        block["file_rate_limit"] = json!({ "enable": true, "per_millisecond": 100, "burst": 300 });
+        let s = parse(&block).expect("valid");
+        assert!(s.file_rate_limit.enable);
+        assert_eq!(s.file_rate_limit.per_millisecond, 100);
+        assert_eq!(s.file_rate_limit.burst, 300);
+
+        block["file_rate_limit"] = json!({ "enable": false });
+        assert!(!parse(&block).expect("valid").file_rate_limit.enable);
+    }
+
+    #[test]
+    fn file_rate_limit_needs_positive_numbers_when_enabled() {
+        let mut block = base();
+        block["file_rate_limit"] = json!({ "enable": true, "per_millisecond": 0, "burst": 300 });
+        let err = parse(&block).expect_err("zero rate must fail");
+        assert!(err.to_string().contains("file_rate_limit"), "{err}");
     }
 
     #[test]

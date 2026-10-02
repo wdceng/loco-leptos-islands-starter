@@ -311,6 +311,26 @@ pub fn auth_bucket(ctx: &AppContext) -> Result<Option<Bucket>> {
     .map(Some)
 }
 
+/// A bucket for the static files the router's fallback serves
+/// (`controllers::not_found`), with the generous numbers of
+/// `settings.file_rate_limit`: no person reaches it, only a script pulling
+/// the same files over and over. `None` when that block is off.
+///
+/// # Errors
+/// As [`site_bucket`].
+pub fn files_bucket(ctx: &AppContext) -> Result<Option<Bucket>> {
+    let files = stored::<Settings>(ctx)?.file_rate_limit;
+    if !files.enable {
+        return Ok(None);
+    }
+    bucket(
+        ctx,
+        Duration::from_millis(files.per_millisecond),
+        files.burst,
+    )
+    .map(Some)
+}
+
 /// One token bucket per visitor, as a tower layer: `burst` requests at
 /// once, then one every `period`. The visitor address is read where the
 /// config says ([`key_source`]), and the HTML 429 on refusal links the

@@ -74,6 +74,9 @@ settings:
     auth:
       per_second: 30
       burst: 10
+  # The static files: off, the test environment serves none.
+  file_rate_limit:
+    enable: false
   security:
     # Same policy as development, so the tests see what a developer sees.
     content_security_policy: >-

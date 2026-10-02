@@ -20,8 +20,11 @@
 //! visitor IP with the site-wide numbers, in a bucket of their own
 //! (`rate_limit::site_bucket`): the site-wide limiter is a `route_layer`
 //! and never sees a miss, so without this one machine could ask for
-//! made-up addresses as fast as it liked, every one answered. Files are not
-//! limited: one page load fetches several of them.
+//! made-up addresses as fast as it liked, every one answered. The files
+//! have a generous bucket of their own where `settings.file_rate_limit`
+//! switches it on (`rate_limit::files_bucket`): staging and production. One
+//! page load fetches several files, so no person reaches it, only a script
+//! pulling the same files over and over.
 //!
 //! The folder is always served at the root, which is what every config
 //! has (`static.folder.uri: "/"`, pinned by `tests/config.rs`).
@@ -137,6 +140,14 @@ fn site(ctx: &AppContext) -> Result<Router> {
         // `if_not_present`: a file carries no Cache-Control of its own and
         // gets the configured one; the miss handler sets `no-store` itself.
         site = site.layer(SetResponseHeaderLayer::if_not_present(CACHE_CONTROL, value));
+    }
+    // The files behind a generous bucket of their own
+    // (`settings.file_rate_limit`, off where the files are rechecked on
+    // every view), outside the cache header, so its 429 keeps `no-store`.
+    // A miss passes through here on its way to the handler above and
+    // spends a token here as well as one of its own.
+    if let Some(limit) = rate_limit::files_bucket(ctx)? {
+        site = site.layer(limit);
     }
     Ok(site)
 }

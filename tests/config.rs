@@ -355,6 +355,26 @@ fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] ena
     assert_eq!(settings.nightly_restart.hour, 3, "{env}: agreed hour");
 }
 
+/// The static-file limit (src/controllers/not_found.rs): on where the files
+/// are cached and seldom asked for again, off locally, where the dev loop
+/// rechecks every file on every view, and in the test harness, which serves
+/// none. Generous where it is on: a page loads about ten files.
+#[rstest]
+#[case::development(Environment::Development, false)]
+#[case::test_env(Environment::Test, false)]
+#[case::staging(staging(), true)]
+#[case::production(Environment::Production, true)]
+fn static_files_are_limited_only_when_deployed(#[case] env: Environment, #[case] enabled: bool) {
+    let files = Settings::from_config(&load(&env))
+        .expect("settings")
+        .file_rate_limit;
+    assert_eq!(files.enable, enabled, "{env}: file_rate_limit.enable");
+    if enabled {
+        assert_eq!(files.burst, 300, "{env}: agreed burst");
+        assert_eq!(files.per_millisecond, 100, "{env}: agreed refill");
+    }
+}
+
 /// Every mail the app sends names its sender (`settings.mail.from`,
 /// src/mailers/auth.rs): Loco's own default is `System <system@example.com>`,
 /// which most SMTP services refuse. Deployed environments read it from

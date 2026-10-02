@@ -50,8 +50,8 @@ server:
     # own address. The rate limiter keys on the same source, and refuses to
     # boot a deployed environment keyed on the peer. Without any proxy use
     # ConnectInfo. Requests that reach the origin directly, bypassing the
-    # CDN, could forge the header; hardening that is a Caddy trusted_proxies
-    # change.
+    # CDN, could forge the header; the server's firewall admits only
+    # Cloudflare's addresses, so they can't ("Firewall" in docs/production.md).
     remote_ip:
       enable: true
       source: CfConnectingIp
@@ -131,7 +131,7 @@ settings:
   rate_limit:
     enable: true
     # 120 requests at once per visitor IP, then a sustained 60 per minute.
-    # Only routes count, never static assets.
+    # Routes only; the static files have their own bucket below.
     per_second: 1
     burst: 120
     # The auth API's own bucket, inside the one above: ten calls at once per
@@ -141,6 +141,16 @@ settings:
     auth:
       per_second: 30
       burst: 10
+  # The static files the router's fallback serves (bundle, stylesheet,
+  # fonts, images; src/controllers/not_found.rs): a generous bucket per
+  # visitor that no person reaches, only a script pulling the same files
+  # over and over. One token every 100 ms, so a sustained 10 files a
+  # second, and 300 at once. Behind Cloudflare's cache it only sees what
+  # the edge passes on; a browser keeps the files for a year anyway.
+  file_rate_limit:
+    enable: true
+    per_millisecond: 100
+    burst: 300
   security:
     # Per-page CSP; {nonce} is replaced per request with the nonce Leptos
     # stamps on its inline scripts. 'wasm-unsafe-eval' is what the islands

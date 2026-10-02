@@ -111,8 +111,8 @@ settings:
   rate_limit:
     enable: true
     # Tokens replenish one per `per_second` seconds; `burst` is the bucket
-    # size per visitor IP. Only routes count, never static assets. Generous
-    # locally: the dev loop reloads pages constantly.
+    # size per visitor IP. Routes only; the static files have their own
+    # bucket below. Generous locally: the dev loop reloads pages constantly.
     per_second: 1
     burst: 300
     # The auth API's own bucket, inside the one above: a request to
@@ -120,6 +120,11 @@ settings:
     auth:
       per_second: 1
       burst: 30
+  # The static files (src/controllers/not_found.rs): off locally.
+  # `no-cache` makes the browser recheck every file on every page view, and
+  # the live reload reloads constantly.
+  file_rate_limit:
+    enable: false
   security:
     # Per-page CSP; {nonce} is replaced per request with the nonce Leptos
     # stamps on its inline scripts. 'wasm-unsafe-eval' is what the islands

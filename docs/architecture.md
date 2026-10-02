@@ -24,7 +24,8 @@ browser half alone.
    through to the app's own fallback, `src/controllers/not_found.rs`, which
    serves the files or a real 404.
 2. Loco's middleware runs on everything, the fallback too. Routes and misses
-   also pass the `rate_limit` layer. Static files don't.
+   also pass a rate limit; static files pass a generous one of their own
+   when deployed.
 3. `src/controllers/home.rs` builds a `PageMeta` and calls `render_page` in
    `src/render.rs`.
 4. `render_page` makes a nonce, streams the shell (`src/views/layout.rs`)
@@ -189,7 +190,7 @@ mapping.
 | Authentication | JWT (`auth.jwt` in config), passwords hashed by Loco, e-mail verification, magic links, reset tokens | Loco | on |
 | Secrets | `JWT_SECRET` and `MAILER_*` (host, user, password, sender) come from the environment. Production has no defaults and won't boot without them, nor with one that is empty or still `replace-me` (`src/deploy_checks.rs`). Staging has public placeholders, so `LOCO_ENV` alone boots it. Deployed, the app logs in to SMTP once at start, in the background: a wrong account is a warning in the journal, never a refused boot. The production deploy chain stops before building when `secrets.production.env` is missing or has `replace-me` left | this project | on |
 | Outbound TLS (mailer) | Loco's mailer is `lettre` with RusTLS | Loco | on |
-| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`), since Loco has none. A `tower_governor` token bucket per visitor IP, or per /64 network for IPv6 so one machine can't rotate addresses. Keyed like Loco's `remote_ip`: `CF-Connecting-IP` behind the reference CDN, the TCP peer locally. Tuned per environment in `settings.rate_limit`. Misses get their own bucket with the same numbers. Static files are exempt. The 429 is an HTML page with `Retry-After`, rounded up so it's never 0, linking the stylesheet resolved at boot. `/api/auth` gets a second bucket (`rate_limit::auth_bucket`, `settings.rate_limit.auth`) because it mails any address (`register`) or takes a password. Deployed, it allows ten calls at once, then one per 30 s, inside the site-wide limit | this project | on |
+| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`), since Loco has none. A `tower_governor` token bucket per visitor IP, or per /64 network for IPv6 so one machine can't rotate addresses. Keyed like Loco's `remote_ip`: `CF-Connecting-IP` behind the reference CDN, the TCP peer locally. Tuned per environment in `settings.rate_limit`. Misses get their own bucket with the same numbers. Static files get a generous bucket of their own on staging and production (`settings.file_rate_limit`, `rate_limit::files_bucket`): 300 at once, then 10 a second, which no person reaches, only a script pulling the same files over and over. Off in development and test. The 429 is an HTML page with `Retry-After`, rounded up so it's never 0, linking the stylesheet resolved at boot. `/api/auth` gets a second bucket (`rate_limit::auth_bucket`, `settings.rate_limit.auth`) because it mails any address (`register`) or takes a password. Deployed, it allows ten calls at once, then one per 30 s, inside the site-wide limit | this project | on |
 
 Not used:
 
