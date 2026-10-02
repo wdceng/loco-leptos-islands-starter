@@ -10,9 +10,20 @@ use leptos::prelude::*;
 
 use crate::paths;
 
-/// Shown in the header, the footer and the browser tab. One place to
-/// change when the app gets its real name.
+/// Shown in the header, the footer, the browser tab and under the icon on a
+/// phone's home screen (the web manifest). One place to change when the
+/// app gets its real name.
 pub const APP_NAME: &str = "SaaS Starter";
+
+/// The page's surface colour as hex: `--color-surface` in
+/// `style/tailwind.css` (Tailwind's slate-100). Used where CSS can't reach:
+/// the `theme-color` tag and the manifest's `background_color`. Change it
+/// together with the stylesheet.
+pub const SURFACE_HEX: &str = "#f1f5f9";
+
+/// The brand colour as hex: `--color-primary` in `style/tailwind.css`. The
+/// manifest's `theme_color`, the bars of the installed app.
+pub const BRAND_HEX: &str = "#004a96";
 
 /// The centred prose column shared by the landmarks: capped width, centred
 /// by auto margins, side padding for narrow screens. Defined once here;
@@ -89,7 +100,7 @@ pub fn shell(
                 // --color-surface in style/tailwind.css), so the bars blend
                 // with the page instead of framing it in brand blue; the
                 // manifest keeps the blue theme_color for the installed app.
-                <meta name="theme-color" content="#f1f5f9"/>
+                <meta name="theme-color" content=SURFACE_HEX/>
                 // Home-screen install, full-screen launch: the manifest's
                 // `display: standalone` (Android, and iOS since 11.3) and
                 // Chrome's current tag. Apple's `apple-mobile-web-app-capable`

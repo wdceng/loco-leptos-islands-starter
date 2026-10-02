@@ -82,11 +82,12 @@ so the suite runs in about a second.
   somewhere, since the compiler checks none of them.
   - Every `href` and `src` on the home page, the 404 page, the error page
     and the 429 page. An asset path must be a file in `public/`, checked on
-    disk, because the test environment serves no files. Anything else must
-    be a route that answers 200, and a `#id` must exist on the page.
-    `/pkg/…` is cargo-leptos's output, which `home.rs` checks.
-  - The manifest's icons and the stylesheet's font `url()`s exist in
-    `public/`.
+    disk, because the test environment serves no files, and must carry its
+    current `?v=`: a plain or stale string fails with the constant to use.
+    Anything else must be a route that answers 200, and a `#id` must exist
+    on the page. `/pkg/…` is cargo-leptos's output, which `home.rs` checks.
+  - The web manifest (a route) is JSON with `APP_NAME`, `SURFACE_HEX`,
+    `standalone`, and icons that are current versioned files in `public/`.
   - The three auth mails are sent and each link is requested. The verify
     and magic links answer 200. The reset link is pinned as the known gap:
     it's a 404 until a `/reset` page exists, and then the test fails and
@@ -170,11 +171,10 @@ so the suite runs in about a second.
   network, IPv4 written as IPv6 keyed as IPv4), the 429 page (the wait
   rounded up, in words: "1 second", "6 seconds"; the stylesheet resolved at
   boot), and the config-to-key-source mapping.
-- `src/paths.rs`: every file in `public/` has a 16-hex version from
-  `build.rs`. Every font URL in `style/tailwind.css` and every icon in
-  `site.webmanifest` is the current versioned URL; if not, the failure
-  names the value to write. The preloaded font is one of the stylesheet's
-  URLs, `?v=` included. The links test then requests each address.
+- `src/paths.rs`: every generated address is a file in `public/` with a
+  16-hex version from `build.rs`. Every font URL in `style/tailwind.css` is
+  the current versioned URL; if not, the failure names the value to write.
+  The preloaded font is one of the stylesheet's URLs, `?v=` included.
 - `src/render.rs`: the nonce substitution.
 - `src/settings.rs`: the `settings:` block parses. Unknown keys, a CSP
   template without `{nonce}` and a zero rate-limit burst are refused. The

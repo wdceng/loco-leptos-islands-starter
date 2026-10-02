@@ -191,17 +191,16 @@ What people see:
 
 | What | Where |
 |---|---|
-| Title, header and footer | `APP_NAME` in `src/views/layout.rs` |
-| Page description | `src/controllers/home.rs` |
+| Title, header, footer, and the name on phone home screens | `APP_NAME` in `src/views/layout.rs` (the web manifest, `src/controllers/manifest.rs`, takes it from there) |
+| Page description | `DESCRIPTION` in `src/controllers/home.rs` (also in the manifest and `/llms.txt`) |
 | Tagline | `src/views/home.rs` |
-| Icons | `public/favicon/` |
-| App name on phone home screens | `public/favicon/site.webmanifest` |
+| Icons | `public/favicon/`: replace a file and build, its `?v=` updates by itself |
 | Colours | `style/tailwind.css`: one brand colour, `--color-primary`, and a few role tokens on top of Tailwind's default palette |
 | Mail sender, `SaaS Starter <noreply@example.com>` | `config/development.yaml` and `config/test.yaml`, the staging default in `config/staging.yaml`, production reads `MAILER_FROM` |
 
-**Change the page background in all three places.** It's in
-`style/tailwind.css`, and repeated as a hex value in the `theme-color` tag in
-`src/views/layout.rs` and in `background_color` in the manifest.
+**Change the colours in two places.** They're in `style/tailwind.css`, and
+repeated as hex in `SURFACE_HEX` and `BRAND_HEX` in `src/views/layout.rs`,
+which the `theme-color` tag and the web manifest use.
 
 **Magic-link login only accepts `@example.com` and `@gmail.com`.** That's how
 Loco's starter ships, and the list is `EMAIL_DOMAIN_RE` in

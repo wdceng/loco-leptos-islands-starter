@@ -156,6 +156,7 @@ impl Hooks for App {
             .add_route(controllers::home::routes())
             .add_route(controllers::robots::routes())
             .add_route(controllers::llms::routes())
+            .add_route(controllers::manifest::routes())
     }
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {
         queue.register(DownloadWorker::build(ctx)).await?;

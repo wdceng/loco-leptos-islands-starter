@@ -33,7 +33,7 @@ and `secrets.production.env` must exist and hold real values. Both lines
 must print nothing:
 
 ```bash
-grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs public/favicon/site.webmanifest
+grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs
 test -s secrets.production.env && grep -n "replace-me" secrets.production.env
 ```
 
@@ -51,7 +51,7 @@ LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app star
 ### Build and deploy
 
 ```bash
-cargo audit && ! grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs public/favicon/site.webmanifest &&
+cargo audit && ! grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs &&
 test -s secrets.production.env && ! grep -q "replace-me" secrets.production.env &&
 cargo clippy --all-targets && cargo test &&
 LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only &&

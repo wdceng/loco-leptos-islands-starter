@@ -77,14 +77,17 @@ goes stale.
 
 cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
 every file there itself, at compile time: a hash of each file's bytes
-(FNV-1a, no new crate), written as one Rust constant per file
-(`FONTS_INTER_REGULAR_WOFF2 = "/fonts/Inter-Regular.woff2?v=<hash>"`) that
-`src/paths.rs` includes. Rust code links files only through those
-constants, so a renamed or removed file fails the compile. The two static
-files that name `public/` files themselves, `style/tailwind.css` (fonts)
-and `site.webmanifest` (Android icons), carry the `?v=` written out, and a
-test in `src/paths.rs` fails with the value to paste when a file changes.
-Cargo reruns the script when `public/` changes, and
+(FNV-1a, no new crate), written as one Rust constant per file in modules
+that follow the folders (`paths::assets::fonts::INTER_REGULAR_WOFF2 =
+"/fonts/Inter-Regular.woff2?v=<hash>"`). Rust code links files only through
+those constants, so a renamed or removed file fails the compile, and the
+links test fails on a page that links a `public/` file as a plain string.
+The stylesheet names the fonts itself and carries the `?v=` written out; a
+test in `src/paths.rs` fails with the value to paste when a font changes.
+The web manifest is a route (`src/controllers/manifest.rs`), built from
+`APP_NAME`, the home page's description, `SURFACE_HEX` and `BRAND_HEX`, and
+the icon constants. Cargo reruns the script when anything in `public/`
+changes, is added or is removed, new folders included, and
 `watch-additional-files` in `Cargo.toml` makes the watch loop rebuild the
 server too. The binary and `site/` of a deploy come from the same checkout,
 so the hashes always match the files served; no hash file is needed. The
@@ -159,7 +162,7 @@ template changed a starter file, the column names the change.
 
 | Area | From | Where | Notes |
 |------|------|-------|-------|
-| Pages | This template | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/controllers/llms.rs`, `src/views/` | `/` renders `views/home.rs` in the shell (`views/layout.rs`) through `render.rs`, which adds the CSP nonce. `PageMeta.robots` adds `<meta name="robots">` per page: `noindex` on the 404 and error pages, none on the home page. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` elsewhere. `/llms.txt` describes the site for AI assistants in Markdown (llmstxt.org): `APP_NAME`, the home page's description and links built from `server.host`. Add a line there for every public page |
+| Pages | This template | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/controllers/llms.rs`, `src/controllers/manifest.rs`, `src/views/` | `/` renders `views/home.rs` in the shell (`views/layout.rs`) through `render.rs`, which adds the CSP nonce. `PageMeta.robots` adds `<meta name="robots">` per page: `noindex` on the 404 and error pages, none on the home page. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` elsewhere. `/llms.txt` describes the site for AI assistants in Markdown (llmstxt.org): `APP_NAME`, the home page's description and links built from `server.host`. Add a line there for every public page. `/manifest.webmanifest` is the web manifest, a route built from `APP_NAME`, the colours and the versioned icon constants, sent `no-cache` |
 | Health | Loco | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health` and `/_readiness`, the last two checking the database and queue. Rate limited like any route |
 | Users and auth | Loco starter; the `/api/auth` rate limit is this template's | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry |
 | Not found | This template | `src/controllers/not_found.rs`, `src/views/not_found.rs` | The router's fallback. Serves the `static` block's folder with its cache header, and anything else as a 404 with `no-store`: the not-found page for an HTML request, one line of text otherwise |
@@ -347,8 +350,9 @@ the CLI for `loco new`, which is done.
   render on the server only and stay out of the wasm. `style/tailwind.css`
   sets Leptos's `<leptos-island>` / `<leptos-children>` wrappers to
   `display: contents` so they don't disturb grid or flex layouts.
-- The surface colour is repeated as hex in the `theme-color` tag and the
-  web manifest, so change it there too.
+- The surface and brand colours are repeated as hex in `SURFACE_HEX` and
+  `BRAND_HEX` (`src/views/layout.rs`), which the `theme-color` tag and the
+  web manifest use. Change them with `style/tailwind.css`.
 - No `style=` attributes: the CSP is `style-src 'self'`, and the request
   test fails on one. With `default-src 'none'`, a new resource kind (video,
   iframe, worker) needs its own directive in all four configs before it

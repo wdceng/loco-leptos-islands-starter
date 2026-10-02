@@ -1,6 +1,7 @@
-//! Every address the app writes as a string leads somewhere: the links and
-//! asset paths in the pages, the files the manifest and the stylesheet
-//! name, and the links in the mails. The compiler checks none of these.
+//! Every address the app writes leads somewhere: the links and asset paths
+//! in the pages (a `public/` file only with its current `?v=`), the icons in
+//! the web manifest, and the links in the mails. The stylesheet's fonts are
+//! checked in `src/paths.rs`.
 //!
 //! The test environment serves no files (`config/test.yaml` has no `static`
 //! block), so asset paths are checked against `public/` on disk and only
@@ -9,7 +10,12 @@
 
 use std::path::Path;
 
-use app::{app::App, middleware::rate_limit};
+use app::{
+    app::App,
+    middleware::rate_limit,
+    paths,
+    views::layout::{APP_NAME, SURFACE_HEX},
+};
 use loco_rs::testing::prelude::*;
 use regex::Regex;
 use serial_test::serial;
@@ -60,7 +66,18 @@ async fn every_link_in_the_pages_leads_somewhere() {
                     }
                 } else if link.starts_with("/pkg/") || !link.starts_with('/') {
                     // cargo-leptos output (home.rs), or another origin.
-                } else if !in_public(&link) {
+                } else if in_public(&link) {
+                    // A file in public/ is linked only through its generated
+                    // constant (src/paths.rs): the current `?v=`, never a
+                    // plain or stale string.
+                    let plain = link.split('?').next().unwrap_or_default();
+                    let expected = paths::versioned(plain).unwrap_or_default();
+                    if link != expected {
+                        broken.push(format!(
+                            "{name}: {link} is a public/ file linked without its version; use paths::assets ({expected})"
+                        ));
+                    }
+                } else {
                     let status = request
                         .get(&link)
                         .add_header("accept", BROWSER)
@@ -79,30 +96,33 @@ async fn every_link_in_the_pages_leads_somewhere() {
     .await;
 }
 
-/// Files named outside the pages: the manifest's icons and the
-/// stylesheet's fonts.
-#[test]
-fn every_file_the_manifest_and_the_stylesheet_name_exists() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let manifest: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(root.join("public/favicon/site.webmanifest"))
-            .expect("the manifest"),
-    )
-    .expect("the manifest is JSON");
-    let icons = manifest["icons"].as_array().expect("manifest icons");
-    let mut named: Vec<String> = icons
-        .iter()
-        .map(|icon| icon["src"].as_str().expect("icon src").to_string())
-        .collect();
-
-    let css = std::fs::read_to_string(root.join("style/tailwind.css")).expect("the stylesheet");
-    let url = Regex::new(r#"url\("?([^")]+)"?\)"#).expect("regex");
-    let fonts: Vec<String> = url.captures_iter(&css).map(|c| c[1].to_string()).collect();
-    assert!(!fonts.is_empty(), "no url() found in style/tailwind.css");
-    named.extend(fonts);
-
-    let missing: Vec<&String> = named.iter().filter(|path| !in_public(path)).collect();
-    assert!(missing.is_empty(), "missing from public/: {missing:?}");
+/// The web manifest, a route: valid JSON with the app's name and colours,
+/// and icons that are versioned files in `public/`.
+#[tokio::test]
+#[serial]
+async fn the_manifest_names_the_app_and_versioned_icons() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let res = request.get(paths::MANIFEST).await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.header("content-type"), "application/manifest+json");
+        let manifest: serde_json::Value = serde_json::from_str(&res.text()).expect("JSON");
+        assert_eq!(manifest["name"], APP_NAME);
+        assert_eq!(manifest["background_color"], SURFACE_HEX);
+        assert_eq!(manifest["display"], "standalone");
+        let icons = manifest["icons"].as_array().expect("icons");
+        assert!(!icons.is_empty());
+        for icon in icons {
+            let src = icon["src"].as_str().expect("icon src");
+            let plain = src.split('?').next().unwrap_or_default();
+            assert!(in_public(src), "{src} is not a file in public/");
+            assert_eq!(
+                Some(src),
+                paths::versioned(plain),
+                "{src} isn't the current version"
+            );
+        }
+    })
+    .await;
 }
 
 /// The links in the three auth mails, requested the way a person clicking
