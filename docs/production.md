@@ -28,12 +28,18 @@ cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --featu
 cargo audit
 ```
 
-The template's placeholders must be gone ("Make it yours" in `README.md`).
-This must print nothing:
+The template's placeholders must be gone ("Make it yours" in `README.md`),
+and `secrets.production.env` must exist and hold real values. Both lines
+must print nothing:
 
 ```bash
 grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs public/favicon/site.webmanifest
+test -s secrets.production.env && grep -n "replace-me" secrets.production.env
 ```
+
+The second line prints nothing when the file is ready. If the file is
+missing it says nothing either, so check that `ls secrets.production.env`
+finds it. The deploy chain below checks both.
 
 Try the release build locally first (http://localhost:5150), then
 `cargo leptos build` to go back to development:
@@ -46,6 +52,7 @@ LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app star
 
 ```bash
 cargo audit && ! grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs public/favicon/site.webmanifest &&
+test -s secrets.production.env && ! grep -q "replace-me" secrets.production.env &&
 cargo clippy --all-targets && cargo test &&
 LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only &&
 cross build --release --target x86_64-unknown-linux-gnu &&
@@ -66,8 +73,11 @@ ssh <server> "chmod 600 /srv/app/prod/secrets.env && systemctl start app-prod" &
 ssh <server> "journalctl -u app-prod -f"
 ```
 
-- The first line is the two production gates: `cargo audit`, and no
-  placeholders.
+- The first two lines are the production gates: `cargo audit`, no
+  template placeholders, and a `secrets.production.env` that exists and
+  has no `replace-me` left. A placeholder mail account would boot fine and
+  only fail when the first mail is sent. A missing file would fail at the
+  upload, after the service was already stopped.
 - A failing step stops the chain. A failed build never touches the server.
 - `--release` is a full, slow build every time.
 - The previous deploy is kept as `*.prev` for the rollback below.
@@ -216,7 +226,7 @@ strings dist/app | grep -oE 'GLIBC_[0-9.]+' | sort -Vu | tail -1
 ssh <server> "mkdir -p /srv/app/prod/config && useradd --system --user-group --no-create-home --shell /usr/sbin/nologin app-prod"
 ```
 
-Build `dist/` with lines 3 to 8 of the deploy chain, then:
+Build `dist/` with lines 4 to 9 of the deploy chain, then:
 
 ```bash
 scp dist/app <server>:/srv/app/prod/app &&
