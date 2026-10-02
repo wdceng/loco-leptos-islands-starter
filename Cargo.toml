@@ -231,7 +231,7 @@ strip = true
 # to behave like it, but built to be redeployed often. A parallel thin-LTO
 # link replaces the single-threaded fat one, rebuilds are incremental, and
 # line tables are kept so `pretty_backtrace` on staging prints backtraces
-# with function names. The deploy pipeline (DEPLOYMENT.md) builds the server
+# with function names. The deploy pipeline (docs/DEPLOYMENT.md) builds the server
 # binary with `cross build --profile staging`; production keeps `--release`.
 # The WASM half is unaffected: it uses `wasm-release` below.
 [profile.staging]

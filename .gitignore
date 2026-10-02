@@ -7,11 +7,11 @@ debug/
 target/
 
 # Linux deploy artifacts (binary, hash.txt, site/) staged by the pipeline
-# in DEPLOYMENT.md before upload.
+# in docs/DEPLOYMENT.md before upload.
 dist/
 
 # Secrets of a deployed copy (JWT_SECRET, MAILER_*): the unit loads them
-# from secrets.env on the server (DEPLOYMENT.md). A local copy, if you keep
+# from secrets.env on the server (docs/DEPLOYMENT.md). A local copy, if you keep
 # one, must never reach git.
 secrets.env
 *.secrets.env

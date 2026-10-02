@@ -19,17 +19,17 @@ get your own copy.
 | **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
 | **Mail fixes**: sender set in config, links to the public address without the server's port, names escaped in HTML mail | This template |
 | **Checks**: tests for the headers, the CSP, the rate limits, the 404 page and all four config files; CI with fmt, clippy on both halves, the tests, a full build and `cargo audit` | This template |
-| **Docs**: `DEVELOPMENT.md`, `TESTING.md`, `DEPLOYMENT.md` (systemd, Caddy, Cloudflare), `ARCHITECTURE.md` | This template |
+| **Docs**: `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/DEPLOYMENT.md` (systemd, Caddy, Cloudflare), `docs/ARCHITECTURE.md` | This template |
 
 Nothing Loco generated was removed. Some files are extended, so Loco's own
-docs still apply. `ARCHITECTURE.md` covers every part in detail.
+docs still apply. `docs/ARCHITECTURE.md` covers every part in detail.
 
 Why not Loco's "SaaS App with server side rendering"? It has the same
 accounts, e-mail and database code, plus its own way of making pages: Tera
 templates, translation files and a `/static` folder. Here Leptos makes the
 pages, so the Rest API starter left nothing to remove.
 
-To see what Loco generated, install the Loco CLI (see `PREREQUISITES.md`)
+To see what Loco generated, install the Loco CLI (see `docs/PREREQUISITES.md`)
 and run `loco new -n app --db sqlite --bg async --assets none` in an empty
 folder.
 
@@ -156,7 +156,7 @@ there are any.
 Links are normal links. Each click loads a new page from the server, like a
 classic website. There's no client-side router to learn.
 
-The reasons are in `ARCHITECTURE.md`.
+The reasons are in `docs/ARCHITECTURE.md`.
 
 ## Make it yours
 
@@ -171,7 +171,7 @@ search for `app` in:
 - `public/404.html`
 - `src/middleware/rate_limit.html`
 - the `app_<env>.sqlite` lines in `config/*.yaml`
-- the commands in `DEVELOPMENT.md`, `TESTING.md` and `DEPLOYMENT.md`: the
+- the commands in `docs/DEVELOPMENT.md`, `docs/TESTING.md` and `docs/DEPLOYMENT.md`: the
   `target/release/app` and `target/debug/app` paths, `./app start`,
   `LEPTOS_OUTPUT_NAME=app`, and the unit's `ExecStart=<app-dir>/app start`
 
@@ -207,15 +207,15 @@ block of `config/staging.yaml` and `config/production.yaml`.
 
 ## Going further
 
-- `DEVELOPMENT.md`: every command, the environments, release builds and the
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): every command, the environments, release builds and the
   gotchas.
-- `TESTING.md`: what the tests cover and how to check the security by hand.
-- `DEPLOYMENT.md`: a Linux server step by step, with Caddy for HTTPS. Read it
+- [docs/TESTING.md](docs/TESTING.md): what the tests cover and how to check the security by hand.
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): a Linux server step by step, with Caddy for HTTPS. Read it
   before your first deploy. Staging and production assume a reverse proxy in
   front of the app, and it says what to change if yours is different.
-- `ARCHITECTURE.md`: the reasoning. What each security header does, why
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): the reasoning. What each security header does, why
   SQLite, what every crate is for.
-- `PREREQUISITES.md`: every tool, optional ones too.
+- [docs/PREREQUISITES.md](docs/PREREQUISITES.md): every tool, optional ones too.
 
 ## Known gaps
 
@@ -224,7 +224,7 @@ block of `config/staging.yaml` and `config/production.yaml`.
   Loco's starter leaves that page to your front end. The reset itself works
   through the JSON API, `POST /api/auth/reset`.
 - **Behind a proxy, a request that reaches the server directly can fake its IP
-  for the rate limiter.** `DEPLOYMENT.md` explains the fix.
+  for the rate limiter.** `docs/DEPLOYMENT.md` explains the fix.
 
 ## License
 
