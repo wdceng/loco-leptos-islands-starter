@@ -1,6 +1,7 @@
 mod auth;
 mod error_page;
 mod home;
+mod links;
 mod not_found;
 mod prepare_data;
 mod rate_limit;

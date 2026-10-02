@@ -377,7 +377,12 @@ the CLI for `loco new`, which is done.
   Browsers never send what's after the `#`, so that page must be an island
   that reads the token and posts the new password to the API. The verify
   and magic-link mails link straight to JSON API routes, so clicking them
-  shows JSON.
+  shows JSON. `tests/requests/links.rs` pins all three: once a `/reset`
+  page exists, it fails and says to remove this gap.
+- Addresses are strings: links, asset paths and the mail links compile
+  whatever they say. `tests/requests/links.rs` checks every one the pages,
+  the manifest, the stylesheet and the mails use, so a renamed file or a
+  dead link fails a test instead of reaching a visitor.
 - The `ts-rs` TypeScript export in `src/dtos/` is commented out until a
   TypeScript consumer exists.
 - No island ships. The first one is yours.

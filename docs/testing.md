@@ -76,6 +76,19 @@ so the suite runs in about a second.
   JSON API answers a browser in JSON. A handler that fails gives a browser
   the page with status 500 and anything else Loco's JSON; no route of the
   app fails on purpose, so that one mounts the layer on a small router.
+- `tests/requests/links.rs`: every address written as a string leads
+  somewhere, since the compiler checks none of them.
+  - Every `href` and `src` on the home page, the 404 page, the error page
+    and the 429 page. An asset path must be a file in `public/`, checked on
+    disk, because the test environment serves no files. Anything else must
+    be a route that answers 200, and a `#id` must exist on the page.
+    `/pkg/…` is cargo-leptos's output, which `home.rs` checks.
+  - The manifest's icons and the stylesheet's font `url()`s exist in
+    `public/`.
+  - The three auth mails are sent and each link is requested. The verify
+    and magic links answer 200. The reset link is pinned as the known gap:
+    it's a 404 until a `/reset` page exists, and then the test fails and
+    says to remove the gap.
 - `tests/requests/home.rs`: a 200 with an HTML content type, a real document
   (doctype, `lang="en"`), the app name (`APP_NAME`), exactly one `<h1>`, the
   skip link and its target, the islands loader script, the wasm file it
