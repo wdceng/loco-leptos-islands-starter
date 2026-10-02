@@ -97,7 +97,10 @@ ssh <server> 'cd /srv/app/stg && for p in / /robots.txt $(ls site/pkg | grep -v 
 ```
 
 All 200, the linked `href` values among the listed files, `Disallow: /` and
-`X-Robots-Tag: noindex, nofollow`. Then open `https://<domain>` with the
+`X-Robots-Tag: noindex, nofollow`. The app also logs in to SMTP once at
+every start: `ssh <server> "journalctl -u app-stg -b | grep 'smtp login check'"`.
+On placeholder mail settings that's a warning, which is expected until
+staging should send real mail. Then open `https://<domain>` with the
 browser console open: no errors.
 
 ### Config-only change

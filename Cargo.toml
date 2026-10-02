@@ -123,12 +123,17 @@ tower-http = { version = "0.6.11", features = [
   "fs",
   "set-header",
 ], optional = true }
-# Only for its address parser: `settings.mail.from` is parsed at boot
+# Two boot checks on mail. `settings.mail.from` is parsed at boot
 # (src/settings.rs) the way Loco's mailer parses it when it sends, so a
-# sender it would refuse fails the start, not every mail. The version
-# loco-rs uses, already in the graph, so no extra compile. Server only.
+# sender it would refuse fails the start, not every mail. And a deployed
+# server logs in to SMTP once at boot (src/deploy_checks.rs). The version
+# and the features loco-rs uses, already in the graph, so no extra
+# compile. Server only.
 lettre = { version = "0.11.23", default-features = false, features = [
   "builder",
+  "hostname",
+  "smtp-transport",
+  "tokio1-rustls-tls",
 ], optional = true }
 # Nightly restart (src/maintenance.rs): the hour is read in a fixed IANA
 # zone from config, not the server's local time. `serde` lets the zone name

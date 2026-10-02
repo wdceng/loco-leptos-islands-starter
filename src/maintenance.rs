@@ -69,7 +69,7 @@ pub fn spawn(settings: &NightlyRestartSettings, env: &Environment) -> Result<()>
 /// Development and test never restart, whatever the config says. Loco
 /// parses an environment name it does not know into `Any`, which is how
 /// `LOCO_ENV=staging` arrives here, so everything else counts as deployed.
-fn is_local(env: &Environment) -> bool {
+pub(crate) fn is_local(env: &Environment) -> bool {
     matches!(env, Environment::Development | Environment::Test)
 }
 

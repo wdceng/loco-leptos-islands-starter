@@ -105,6 +105,12 @@ ssh <server> 'cd /srv/app/prod && for p in / /robots.txt $(ls site/pkg | grep -v
   says `Allow: /`, no `X-Robots-Tag`.
 - `https://<domain>` in the browser with the console open: no errors.
   `https://www.<domain>` lands on `https://<domain>`.
+- The mail account logs in: right after every start the app logs in to
+  SMTP once, sending nothing, and the journal says how it went.
+  `ssh <server> "journalctl -u app-prod -b | grep 'smtp login check'"`
+  should show `the mail server accepted the login`. A failure is a warning
+  with the reason (wrong host, port or password) and the site keeps
+  running, so look for it.
 - Register a test account: the welcome mail arrives. If not,
   `journalctl -u app-prod` says why.
 
@@ -295,6 +301,7 @@ ssh <server> "systemctl daemon-reload && systemctl enable --now app-prod && syst
 | `the hash file is stale` | `hash.txt` and `site/` from different builds |
 | a `get_env` error naming `JWT_SECRET` or `MAILER_*` | `secrets.env` missing or incomplete |
 | `settings.mail.from is not a sender` | `MAILER_FROM` must read `Name <address>` |
+| `production won't start: MAILER_HOST, … empty or still replace-me` | a secret is set but not filled in (`src/deploy_checks.rs`) |
 | `invalid settings: block: failed to parse timezone` | `nightly_restart.zone` isn't an IANA name (`UTC`, `Europe/Zagreb`) |
 | `settings.nightly_restart.hour must be 0 to 23` | restart hour out of range |
 | `unable to open database file` | `StateDirectory=` or `DATABASE_URL=` missing |

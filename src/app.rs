@@ -20,7 +20,7 @@ use loco_rs::{
 use migration::Migrator;
 
 use crate::{
-    assets, controllers, maintenance,
+    assets, controllers, deploy_checks, maintenance,
     middleware::{
         error_page::ErrorPages,
         rate_limit::{self, RateLimit},
@@ -88,6 +88,9 @@ impl Hooks for App {
         ctx.shared_store.insert(options);
         ctx.shared_store.insert(assets);
         ctx.shared_store.insert(Settings::from_config(&ctx.config)?);
+        // A production secret that is set but empty or still `replace-me`
+        // refuses the boot; a missing one `get_env` refused already.
+        deploy_checks::refuse_placeholders(&ctx)?;
 
         // From the settings and the stylesheet now in the store.
         let limit = rate_limit::auth_bucket(&ctx)?;
@@ -105,6 +108,9 @@ impl Hooks for App {
     async fn after_routes(router: Router, ctx: &AppContext) -> Result<Router> {
         let settings: Settings = stored(ctx)?;
         maintenance::spawn(&settings.nightly_restart, &ctx.environment)?;
+        // One SMTP login in the background when deployed: a wrong mail
+        // account shows in the journal at boot, not at the first mail.
+        deploy_checks::spawn_smtp_login(ctx);
         Ok(router)
     }
 

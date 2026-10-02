@@ -16,6 +16,8 @@ pub mod controllers;
 #[cfg(feature = "ssr")]
 pub mod data;
 #[cfg(feature = "ssr")]
+pub mod deploy_checks;
+#[cfg(feature = "ssr")]
 pub mod dtos;
 #[cfg(feature = "ssr")]
 pub mod initializers;
