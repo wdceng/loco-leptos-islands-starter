@@ -10,10 +10,11 @@ target/
 # chains in docs/staging.md and docs/production.md before upload.
 dist/
 
-# Secrets per environment (JWT_SECRET, MAILER_*): staging.secrets.env and
-# production.secrets.env in the repo root, uploaded by every deploy as
+# Secrets per environment (JWT_SECRET, MAILER_*): secrets.staging.env and
+# secrets.production.env in the repo root, uploaded by every deploy as
 # secrets.env (docs/staging.md, docs/production.md). Never in git.
 secrets.env
+secrets.*.env
 *.secrets.env
 
 # include cargo lock

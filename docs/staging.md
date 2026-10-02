@@ -65,7 +65,7 @@ ssh <server> "rm -rf /srv/app/stg/site" &&
 scp -r dist/site <server>:/srv/app/stg/ &&
 ssh <server> "find /srv/app/stg/site -name '.DS_Store' -delete" &&
 scp config/staging.yaml <server>:/srv/app/stg/config/ &&
-scp staging.secrets.env <server>:/srv/app/stg/secrets.env &&
+scp secrets.staging.env <server>:/srv/app/stg/secrets.env &&
 ssh <server> "chmod 600 /srv/app/stg/secrets.env && systemctl start app-stg" &&
 ssh <server> "journalctl -u app-stg -f"
 ```
@@ -142,7 +142,7 @@ ssh <server> "systemctl daemon-reload && systemctl restart app-stg"
 ```
 
 - Keep `BINDING=127.0.0.1`. `0.0.0.0` would bypass Caddy.
-- Secrets live in `staging.secrets.env` in the repo root on your machine.
+- Secrets live in `secrets.staging.env` in the repo root on your machine.
   It's git-ignored and every deploy uploads it as `secrets.env`. Never use
   production's file here.
 - An empty file boots on the placeholders in `config/staging.yaml`; mail
@@ -152,7 +152,7 @@ Create it once with its own `JWT_SECRET`. Add the `MAILER_*` lines when
 staging should send real mail (details in `docs/production.md`):
 
 ```bash
-umask 077 && printf 'JWT_SECRET=%s\n' "$(openssl rand -base64 48)" > staging.secrets.env
+umask 077 && printf 'JWT_SECRET=%s\n' "$(openssl rand -base64 48)" > secrets.staging.env
 ```
 
 ## One-time setup
@@ -192,7 +192,7 @@ scp dist/app <server>:/srv/app/stg/app &&
 scp dist/hash.txt <server>:/srv/app/stg/hash.txt &&
 scp -r dist/site <server>:/srv/app/stg/ &&
 scp config/staging.yaml <server>:/srv/app/stg/config/ &&
-scp staging.secrets.env <server>:/srv/app/stg/secrets.env &&
+scp secrets.staging.env <server>:/srv/app/stg/secrets.env &&
 ssh <server> "chmod +x /srv/app/stg/app && chmod 600 /srv/app/stg/secrets.env"
 ```
 

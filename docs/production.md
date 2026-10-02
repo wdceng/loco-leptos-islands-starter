@@ -61,7 +61,7 @@ scp dist/hash.txt <server>:/srv/app/prod/hash.txt &&
 scp -r dist/site <server>:/srv/app/prod/ &&
 ssh <server> "find /srv/app/prod/site -name '.DS_Store' -delete" &&
 scp config/production.yaml <server>:/srv/app/prod/config/ &&
-scp production.secrets.env <server>:/srv/app/prod/secrets.env &&
+scp secrets.production.env <server>:/srv/app/prod/secrets.env &&
 ssh <server> "chmod 600 /srv/app/prod/secrets.env && systemctl start app-prod" &&
 ssh <server> "journalctl -u app-prod -f"
 ```
@@ -147,9 +147,9 @@ ssh <server> "systemctl daemon-reload && systemctl restart app-prod"
 ```
 
 - Keep `BINDING=127.0.0.1`. `0.0.0.0` would bypass Caddy.
-- Secrets live in `production.secrets.env` in the repo root on your
+- Secrets live in `secrets.production.env` in the repo root on your
   machine. It's git-ignored and every deploy uploads it as `secrets.env`.
-  Staging has its own, `staging.secrets.env`. Never share one between the
+  Staging has its own, `secrets.staging.env`. Never share one between the
   two.
 - Production has no defaults for `JWT_SECRET`, `MAILER_HOST`,
   `MAILER_USER`, `MAILER_PASSWORD` and `MAILER_FROM`. A missing one stops
@@ -158,7 +158,7 @@ ssh <server> "systemctl daemon-reload && systemctl restart app-prod"
 Create the file once, then put your real mail account in:
 
 ```bash
-umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-me\nMAILER_PASSWORD=replace-me\nMAILER_FROM="App <replace-me>"\n' "$(openssl rand -base64 48)" > production.secrets.env
+umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-me\nMAILER_PASSWORD=replace-me\nMAILER_FROM="App <replace-me>"\n' "$(openssl rand -base64 48)" > secrets.production.env
 ```
 
 - `MAILER_FROM` is the sender, `Name <address>`, in double quotes: the
@@ -173,7 +173,7 @@ umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-
   `MAILER_PORT=465` to the file and set `tls: implicit` under
   `mailer.smtp` in the config.
 - A changed secret goes up with the next deploy, or right away:
-  `scp production.secrets.env <server>:/srv/app/prod/secrets.env && ssh <server> "chmod 600 /srv/app/prod/secrets.env && systemctl restart app-prod"`.
+  `scp secrets.production.env <server>:/srv/app/prod/secrets.env && ssh <server> "chmod 600 /srv/app/prod/secrets.env && systemctl restart app-prod"`.
 
 ## One-time setup
 
@@ -223,7 +223,7 @@ scp dist/app <server>:/srv/app/prod/app &&
 scp dist/hash.txt <server>:/srv/app/prod/hash.txt &&
 scp -r dist/site <server>:/srv/app/prod/ &&
 scp config/production.yaml <server>:/srv/app/prod/config/ &&
-scp production.secrets.env <server>:/srv/app/prod/secrets.env &&
+scp secrets.production.env <server>:/srv/app/prod/secrets.env &&
 ssh <server> "chmod +x /srv/app/prod/app && chmod 600 /srv/app/prod/secrets.env"
 ```
 

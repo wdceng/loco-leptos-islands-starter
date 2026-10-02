@@ -251,7 +251,7 @@ cache policy and page CSP shape.
 Secrets are environment variables, read by the `get_env` helper in the
 YAML. Loco loads no `.env` file. Getting them to the process is the
 deploy's job: each environment has its own
-`staging.secrets.env` or `production.secrets.env` in the repo root,
+`secrets.staging.env` or `secrets.production.env` in the repo root,
 git-ignored, uploaded by every deploy as a root-only `secrets.env` that
 systemd loads before it drops to the service user. Mail links use `server.host`
 as written, with no bind port added (locally the port is part of it), so the
