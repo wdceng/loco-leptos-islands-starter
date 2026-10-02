@@ -6,13 +6,13 @@
 debug/
 target/
 
-# Linux deploy artifacts (binary, hash.txt, site/) staged by the pipeline
-# in docs/DEPLOYMENT.md before upload.
+# Linux deploy artifacts (binary, hash.txt, site/) staged by the deploy
+# chains in docs/staging.md and docs/production.md before upload.
 dist/
 
-# Secrets of a deployed copy (JWT_SECRET, MAILER_*): the unit loads them
-# from secrets.env on the server (docs/DEPLOYMENT.md). A local copy, if you keep
-# one, must never reach git.
+# Secrets per environment (JWT_SECRET, MAILER_*): staging.secrets.env and
+# production.secrets.env in the repo root, uploaded by every deploy as
+# secrets.env (docs/staging.md, docs/production.md). Never in git.
 secrets.env
 *.secrets.env
 

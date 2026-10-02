@@ -110,7 +110,7 @@ template changed a starter file, the column names the change.
 Loco speaks plain HTTP. TLS and compression are the reverse proxy's job, so
 the `compression` middleware is off.
 
-The reference deployment (`DEPLOYMENT.md`) is Cloudflare in front of Caddy,
+The reference deployment (`production.md`) is Cloudflare in front of Caddy,
 so `config/staging.yaml` and `config/production.yaml` set
 `remote_ip.source: CfConnectingIp` and the rate limiter keys on the same
 header. Loco 1.2 trusts exactly one source, with no list of trusted proxies.
@@ -119,7 +119,7 @@ It's set in config, not code, but it's enforced: the limiter won't boot a
 deployed environment keyed on the TCP peer, which behind a proxy is the
 proxy. For another proxy, change `remote_ip.source` and extend `KeySource`
 in `src/middleware/rate_limit.rs` (see "Without Cloudflare" in
-`DEPLOYMENT.md`). `tests/config.rs` and the limiter's tests pin the current
+`production.md`). `tests/config.rs` and the limiter's tests pin the current
 mapping.
 
 ### Layers
@@ -192,15 +192,17 @@ cache policy and page CSP shape.
 
 | `LOCO_ENV` | Database | Secrets | Static files | Detail |
 |------------|----------|---------|--------------|--------|
-| `development` | `app_development.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `DEVELOPMENT.md` |
-| `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `TESTING.md` |
-| `staging` | `app_staging.sqlite` next to the binary | placeholder defaults, the environment may override | `site/`, 60 s, adds `X-Robots-Tag: noindex, nofollow` | `DEPLOYMENT.md` |
-| `production` | `app_production.sqlite` next to the binary | required from the environment | `site/`, one year, immutable (needs the `LEPTOS_HASH_FILES=true` build) | `DEPLOYMENT.md` |
+| `development` | `app_development.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `development.md` |
+| `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `testing.md` |
+| `staging` | `/var/lib/app-stg/app_staging.sqlite` (`StateDirectory`) | placeholder defaults, the environment may override | `site/`, 60 s, adds `X-Robots-Tag: noindex, nofollow` | `staging.md` |
+| `production` | `/var/lib/app-prod/app_production.sqlite` (`StateDirectory`) | required from the environment | `site/`, one year, immutable (needs the `LEPTOS_HASH_FILES=true` build) | `production.md` |
 
 Secrets are environment variables, read by the `get_env` helper in the
 YAML. Loco loads no `.env` file. Getting them to the process is the
-deploy's job: the reference systemd unit in `DEPLOYMENT.md` loads a
-`secrets.env` only the service user can read. Mail links use `server.host`
+deploy's job: each environment has its own
+`staging.secrets.env` or `production.secrets.env` in the repo root,
+git-ignored, uploaded by every deploy as a root-only `secrets.env` that
+systemd loads before it drops to the service user. Mail links use `server.host`
 as written, with no bind port added (locally the port is part of it), so the
 unit also sets `HOST` to the public origin.
 
@@ -224,7 +226,7 @@ hour above 23 fails the boot. It sleeps until the next `hour` o'clock in
 
 That's what `systemctl stop` sends, so Loco shuts down gracefully: no new
 connections, requests in flight finish, `on_shutdown` runs, exit status 0.
-`Restart=always` in the systemd unit (`DEPLOYMENT.md`) starts it again.
+`Restart=always` in the systemd unit (`production.md`) starts it again.
 Without that, the stop is just a stop. Without signals, or if raising one
 fails, the task exits the process directly.
 
@@ -295,8 +297,7 @@ the CLI for `loco new`, which is done.
 ## Known Gaps
 
 - A request that reaches the origin directly, around the CDN, can forge
-  `CF-Connecting-IP` until Caddy's `trusted_proxies` or a firewall rule is
-  set up (`DEPLOYMENT.md`).
+  `CF-Connecting-IP` until the firewall from `production.md` is set up.
 - The 429 on `/api/auth` is the same HTML page as elsewhere, not JSON. API
   clients should read `Retry-After`.
 - Magic-link login is limited to two e-mail domains (`EMAIL_DOMAIN_RE` in

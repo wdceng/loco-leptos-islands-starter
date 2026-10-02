@@ -308,7 +308,7 @@ async fn can_reset_password() {
         assert_eq!(deliveries.count, 2, "Exactly one email should be sent");
         // The second mail is the reset link (the first is the welcome mail
         // from registering). `/reset` is a page the project's front end
-        // provides; the template has none yet (Known Gaps in docs/ARCHITECTURE.md).
+        // provides; the template has none yet (Known Gaps in docs/architecture.md).
         let mail = &deliveries.messages[1];
         assert_from_the_configured_sender(mail);
         assert!(

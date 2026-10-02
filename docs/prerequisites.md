@@ -22,7 +22,7 @@ Install commands are each tool's own. Your package manager works too.
 |-----|------|---------|---------|
 | 2.1 | **cargo-watch** | Only for `cargo loco watch`, which reloads just the server. The usual loop is `cargo leptos watch -- start` | `cargo install --locked cargo-watch` |
 | 2.2 | **cargo-audit** | Scans `Cargo.lock` for known vulnerabilities. CI runs 0.22.2. `.cargo/audit.toml` lists ignored advisories | `cargo install --locked cargo-audit@0.22.2` |
-| 2.3 | **cross** | Builds a Linux x86_64 server binary on another platform (`DEPLOYMENT.md`). Needs Docker. `Cross.toml` pins the image | `cargo install --locked cross` |
+| 2.3 | **cross** | Builds a Linux x86_64 server binary on another platform (`staging.md`, `production.md`). Needs Docker. `Cross.toml` pins the image | `cargo install --locked cross` |
 | 2.4 | **cargo-binstall** | Installs prebuilt cargo tools instead of compiling them. CI uses it for cargo-leptos and cargo-audit | `cargo install --locked cargo-binstall` |
 | 2.5 | **loco** | The Loco CLI, only for `loco new` and generators. Not needed here: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
 | 2.6 | **cargo-nextest** | One process per test (`cargo nextest run`). `.config/nextest.toml` keeps app-booting tests on one thread | `cargo install --locked cargo-nextest` |
@@ -58,7 +58,7 @@ Nothing to install. They land in `~/.cache/cargo-leptos` on the first build.
 | # | Tool | Purpose |
 |-----|------|---------|
 | 5.1 | **Docker** | `cross` (2.3) needs it on the build machine. Nothing else does |
-| 5.2 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`DEPLOYMENT.md`). Not needed locally |
+| 5.2 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`staging.md`, `production.md`). Not needed locally |
 
 ## 6. Editor (VS Code)
 

@@ -1,7 +1,7 @@
 # Testing
 
 What the tests cover, and how to check things by hand. The why is in
-`ARCHITECTURE.md`.
+`architecture.md`.
 
 ## Automated Tests
 
@@ -63,7 +63,7 @@ so the suite runs in about a second.
     `settings.mail.from`, and the link starts with `server.host` and carries
     the user's token.
   - The reset link points at `/reset`, which doesn't exist yet (Known Gaps
-    in `ARCHITECTURE.md`).
+    in `architecture.md`).
   - Markup in the name arrives escaped in the HTML part.
   - A name over 100 characters registers nobody and sends nothing.
   - A body over 64 KB is a 413.
@@ -141,7 +141,7 @@ inputs.
 ### CI
 
 `.github/workflows/ci.yaml` runs on every push to `main` and on pull
-requests. Same list as the pre-deploy checks in `DEPLOYMENT.md`:
+requests. Same list as the pre-deploy checks in `staging.md` and `production.md`:
 
 - `cargo fmt --all -- --check`
 - `cargo clippy --all-targets -- -D warnings`
@@ -248,7 +248,7 @@ still has tokens.
 
 ### Outgoing mail
 
-With a catcher on port 1025 (`PREREQUISITES.md`) and the dev server
+With a catcher on port 1025 (`prerequisites.md`) and the dev server
 running:
 
 ```bash

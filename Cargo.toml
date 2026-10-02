@@ -52,9 +52,10 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.151" }
 
 # Database and the typed API contract. All server only: none of these build
-# for wasm32. SQLite in every environment, a file next to the binary on the
-# server; `sqlx-postgres` was dropped on purpose, so a `postgres://` URL
-# refuses to boot rather than silently working on one machine only.
+# for wasm32. SQLite in every environment, on the server one file in the
+# unit's /var/lib directory; `sqlx-postgres` was dropped on purpose, so a
+# `postgres://` URL refuses to boot rather than silently working on one
+# machine only.
 migration = { path = "migration", optional = true }
 sea-orm = { version = "2.0.4", features = [
   "sqlx-sqlite",
@@ -231,7 +232,7 @@ strip = true
 # to behave like it, but built to be redeployed often. A parallel thin-LTO
 # link replaces the single-threaded fat one, rebuilds are incremental, and
 # line tables are kept so `pretty_backtrace` on staging prints backtraces
-# with function names. The deploy pipeline (docs/DEPLOYMENT.md) builds the server
+# with function names. The staging deploy (docs/staging.md) builds the server
 # binary with `cross build --profile staging`; production keeps `--release`.
 # The WASM half is unaffected: it uses `wasm-release` below.
 [profile.staging]

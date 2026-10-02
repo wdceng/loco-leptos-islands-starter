@@ -7,10 +7,10 @@
 # secret or a localhost database is worse than one that refuses to boot.
 #
 # The variables this file requires (loaded by the systemd unit from
-# secrets.env, see docs/DEPLOYMENT.md): JWT_SECRET, MAILER_HOST, MAILER_USER,
-# MAILER_PASSWORD, MAILER_FROM. Addresses have defaults; the unit sets HOST,
-# and overrides BINDING and PORT so the app listens on loopback behind the
-# reverse proxy.
+# secrets.env, see docs/production.md): JWT_SECRET, MAILER_HOST, MAILER_USER,
+# MAILER_PASSWORD, MAILER_FROM. Addresses have defaults; set your domain in
+# server.host below. The unit overrides BINDING and PORT so the app listens
+# on loopback behind the reverse proxy.
 
 # Application logging configuration
 logger:
@@ -44,7 +44,7 @@ server:
   ident: ""
   # Out of the box middleware configuration. to disable middleware you can changed the `enable` field to `false` of comment the middleware block
   middlewares:
-    # The reference deployment (docs/DEPLOYMENT.md) is Cloudflare in front of
+    # The reference deployment (docs/production.md) is Cloudflare in front of
     # Caddy: Cloudflare overwrites CF-Connecting-IP at the edge and Caddy
     # passes it through unchanged; X-Forwarded-For here would be Cloudflare's
     # own address. The rate limiter keys on the same source, and refuses to
@@ -167,7 +167,7 @@ settings:
   # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
   # `zone` (an IANA name; UTC as shipped, set your own) the server stops
   # itself and the service manager starts it again. `Restart=always` in the
-  # unit (docs/DEPLOYMENT.md) is what makes that a restart. A fresh process every day
+  # unit (docs/production.md) is what makes that a restart. A fresh process every day
   # is cheap insurance against whatever a long-running one accumulates.
   nightly_restart:
     enable: true
@@ -213,9 +213,9 @@ mailer:
 
 # Database Configuration
 database:
-  # Database connection URI. Defaults to a SQLite file in the unit's working
-  # directory (the deploy directory, docs/DEPLOYMENT.md), created on first boot
-  # by auto_migrate.
+  # Database connection URI. Defaults to a SQLite file in the working
+  # directory. The unit sets DATABASE_URL to /var/lib/app-prod/, the only place
+  # it may write (docs/production.md). Created on first boot by auto_migrate.
   uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_production.sqlite?mode=rwc") %>
   # When enabled, the sql query will be logged.
   enable_logging: <%= get_env(name="DB_LOGGING", default="false") %>

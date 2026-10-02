@@ -80,7 +80,7 @@ cargo test                     # all
 cargo test home_renders_html   # one
 ```
 
-No server or browser needed. More in `TESTING.md`.
+No server or browser needed. More in `testing.md`.
 
 ## Release Builds
 
@@ -110,7 +110,7 @@ cross build --release --target x86_64-unknown-linux-gnu               # target/x
 
 For staging, use `--profile staging` instead of `--release` on the second
 line: it builds faster and keeps readable backtraces. The first `cross`
-build on Apple Silicon takes a few minutes. Full steps in `DEPLOYMENT.md`.
+build on Apple Silicon takes a few minutes. Full steps in `staging.md` and `production.md`.
 
 ## Environments
 
@@ -121,8 +121,8 @@ from environment variables.
 |---|---|---|---|---|
 | `development` | your machine (default) | `target/site` | rechecks every time | `http://localhost:5150` |
 | `test` | `cargo test` | none | none | `http://localhost:5150` |
-| `staging` | test copy online | `site/` | 60 s | `HOST` |
-| `production` | live site | `site/` | one year | `HOST` |
+| `staging` | test copy online | `site/` | 60 s | `server.host` in the config |
+| `production` | live site | `site/` | one year | `server.host` in the config |
 
 The host is where links in e-mails point. It's used exactly as written, no
 port added, so if you run locally on another port, change it in
@@ -134,21 +134,8 @@ yourself.
 
 ### On the server
 
-```
-app                 <- target/release/app, Linux build
-hash.txt            <- must sit next to app
-config/<env>.yaml
-site/               <- target/site, renamed
-secrets.env         <- JWT_SECRET and MAILER_* (DEPLOYMENT.md)
-```
-
-Start it from that folder:
-
-```bash
-LOCO_ENV=staging LEPTOS_OUTPUT_NAME=app LEPTOS_SITE_ROOT=site LEPTOS_SITE_PKG_DIR=pkg ./app start
-```
-
-It serves plain HTTP on 5150. HTTPS is the proxy's job.
+Deploying, the server layout and the systemd unit: `staging.md` and
+`production.md`. Each one is a single file you follow top to bottom.
 
 ## Gotchas
 
