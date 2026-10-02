@@ -218,6 +218,9 @@ site-root = "target/site"
 tailwind-input-file = "style/tailwind.css"
 # Static files copied verbatim into site-root (favicon, robots.txt, images).
 assets-dir = "public"
+# A changed icon rebuilds the server during `cargo leptos watch`, so build.rs
+# recomputes the `?v=` hash (src/paths.rs) at once, not at the next Rust edit.
+watch-additional-files = ["public/favicon"]
 # Must match where Loco listens (config/development.yaml).
 site-addr = "127.0.0.1:5150"
 # Server half builds with `ssr`, browser half with `hydrate`, nothing else.

@@ -150,9 +150,13 @@ The host is where links in e-mails point. It's used exactly as written, no
 port added, so if you run locally on another port, change it in
 `config/development.yaml` too.
 
-With a one-year cache, a changed file needs a new name. Release builds do
-that for the CSS and wasm. For fonts and images in `public/`, rename them
-yourself.
+With a one-year cache, a changed file needs a new URL:
+
+- **CSS, JS, wasm:** release builds put a hash in the name.
+- **Icons and the manifest** (`public/favicon/`): `build.rs` hashes the
+  folder and the links get `?v=<hash>` (`src/paths.rs`). Replace a file and
+  build, nothing else.
+- **Fonts and anything else in `public/`:** rename the file when it changes.
 
 ### On the server
 

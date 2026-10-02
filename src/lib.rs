@@ -30,6 +30,8 @@ pub mod middleware;
 #[cfg(feature = "ssr")]
 pub mod models;
 #[cfg(feature = "ssr")]
+pub mod paths;
+#[cfg(feature = "ssr")]
 pub mod render;
 #[cfg(feature = "ssr")]
 pub mod settings;

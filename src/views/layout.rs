@@ -8,6 +8,8 @@
 use chrono::Datelike;
 use leptos::prelude::*;
 
+use crate::paths;
+
 /// Shown in the header, the footer and the browser tab. One place to
 /// change when the app gets its real name.
 pub const APP_NAME: &str = "SaaS Starter";
@@ -64,12 +66,14 @@ pub fn shell(
                 <link rel="preload" href="/fonts/Inter-Regular.woff2" r#as="font" r#type="font/woff2" crossorigin="anonymous"/>
                 // Icons live in public/favicon, which cargo-leptos copies to
                 // target/site/favicon. Browsers also probe /favicon.ico on
-                // their own, so that one is linked explicitly.
-                <link rel="icon" href="/favicon/favicon.ico" sizes="any"/>
-                <link rel="icon" r#type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png"/>
-                <link rel="icon" r#type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png"/>
-                <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png"/>
-                <link rel="manifest" href="/favicon/site.webmanifest"/>
+                // their own, so that one is linked explicitly. Each address
+                // carries `?v=<hash>` of the folder (src/paths.rs, build.rs),
+                // so a changed icon gets past the year-long cache.
+                <link rel="icon" href=paths::FAVICON sizes="any"/>
+                <link rel="icon" r#type="image/png" sizes="32x32" href=paths::FAVICON_32/>
+                <link rel="icon" r#type="image/png" sizes="16x16" href=paths::FAVICON_16/>
+                <link rel="apple-touch-icon" sizes="180x180" href=paths::APPLE_TOUCH_ICON/>
+                <link rel="manifest" href=paths::MANIFEST/>
                 // Tints the browser's own bars (Safari, Chrome on Android).
                 // The page's surface colour (Tailwind slate-100 as hex; see
                 // --color-surface in style/tailwind.css), so the bars blend

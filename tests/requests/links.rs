@@ -16,11 +16,13 @@ use serial_test::serial;
 
 const BROWSER: &str = "text/html,application/xhtml+xml,*/*;q=0.8";
 
-/// A file in `public/`, which cargo-leptos copies to the site root.
+/// A file in `public/`, which cargo-leptos copies to the site root. A
+/// `?v=<hash>` (src/paths.rs) is part of the URL, not of the file name.
 fn in_public(path: &str) -> bool {
+    let file = path.split('?').next().unwrap_or_default();
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("public")
-        .join(path.trim_start_matches('/'))
+        .join(file.trim_start_matches('/'))
         .is_file()
 }
 

@@ -161,6 +161,9 @@ so the suite runs in about a second.
   network, IPv4 written as IPv6 keyed as IPv4), the 429 page (the wait
   rounded up, in words: "1 second", "6 seconds"; the stylesheet resolved at
   boot), and the config-to-key-source mapping.
+- `src/paths.rs`: the asset version from `build.rs` is 16 hex characters,
+  and every icon and manifest address ends with `?v=<version>`. The links
+  test then requests each of them.
 - `src/render.rs`: the nonce substitution.
 - `src/settings.rs`: the `settings:` block parses. Unknown keys, a CSP
   template without `{nonce}` and a zero rate-limit burst are refused. The

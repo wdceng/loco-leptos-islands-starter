@@ -75,6 +75,18 @@ depends on it, so every release is built this way. `Cargo.toml` leaves
 hashing off on purpose: the watch loop only hashes its first build, then
 goes stale.
 
+cargo-leptos doesn't hash anything else, so `build.rs` versions the icons
+and the web manifest in `public/favicon/` the same way, at compile time:
+one hash over the folder's paths and bytes (FNV-1a, no new crate), handed
+to the compiler as `ASSET_VERSION`. `src/paths.rs` appends it to each
+link as `?v=<hash>`. Cargo reruns the script when the folder changes, and
+`watch-additional-files` in `Cargo.toml` makes the watch loop rebuild the
+server too. The binary and `site/` of a deploy come from the same checkout,
+so the hash always matches the files served; no hash file is needed. Not
+covered: the two icons named inside `site.webmanifest` (static JSON), and
+the fonts, whose URLs live in the stylesheet: rename a font when it
+changes.
+
 **SQLite** - Sea-ORM over SQLx, SQLite driver only (`sqlx-postgres` was
 dropped on purpose). Each environment has its own `app_<env>.sqlite`:
 `?mode=rwc` in the URL creates it, `auto_migrate` applies the schema at
@@ -342,8 +354,9 @@ the CLI for `loco new`, which is done.
   manifest, `theme-color`, the home-screen tags and the safe-area viewport.
   Open Graph tags wait for a 1200×630 image.
 - Everything in `public/` is copied into `site/` and served, in production
-  with a one-year cache. Rename a file when its content changes. No
-  `.DS_Store` or scratch files.
+  with a one-year cache. The icons and the manifest in `public/favicon/`
+  are versioned for you (`?v=<hash>`, "Hashed asset names"). Rename any
+  other file when its content changes. No `.DS_Store` or scratch files.
 - Every page a browser can get is Leptos: the pages, the 404, the error
   page and the 429. No HTML is written by hand or built in Rust strings.
   The error page and the 429 share `ErrorPage` (`src/views/error.rs`); the
