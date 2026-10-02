@@ -296,7 +296,7 @@ ssh <server> "systemctl daemon-reload && systemctl enable --now app-prod && syst
 
 | Boot error | Cause |
 |---|---|
-| `one of the static path are not found` | `site/` missing or incomplete |
+| `the site folder ... is missing` | `site/` not uploaded next to the binary |
 | `a hashed build must be deployed together with its hash file` | `hash.txt` missing |
 | `the hash file is stale` | `hash.txt` and `site/` from different builds |
 | a `get_env` error naming `JWT_SECRET` or `MAILER_*` | `secrets.env` missing or incomplete |

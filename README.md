@@ -174,7 +174,6 @@ search for `app` in:
 - `src/bin/main.rs`
 - `examples/playground.rs`
 - the `tests/` folder
-- `public/404.html`
 - the `app_<env>.sqlite` lines in `config/*.yaml`
 - the commands in `docs/development.md`, `docs/testing.md`,
   `docs/staging.md` and `docs/production.md`: every `app` that names the

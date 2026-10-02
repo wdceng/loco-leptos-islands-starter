@@ -250,7 +250,7 @@ ssh <server> "systemctl daemon-reload && systemctl enable --now app-stg && syste
 
 | Boot error | Cause |
 |---|---|
-| `one of the static path are not found` | `site/` missing or incomplete |
+| `the site folder ... is missing` | `site/` not uploaded next to the binary |
 | `a hashed build must be deployed together with its hash file` | `hash.txt` missing |
 | `the hash file is stale` | `hash.txt` and `site/` from different builds |
 | `settings.mail.from is not a sender` | `MAILER_FROM` must read `Name <address>` |

@@ -115,9 +115,6 @@ server:
       folder:
         uri: "/"
         path: "site"
-      # Never served: a miss gets the rendered not-found page with status
-      # 404. Checked at boot with the folder (`must_exist`).
-      fallback: "site/404.html"
       # One year, never revalidated. Safe because release builds hash the
       # bundle and stylesheet names (src/assets.rs): every deploy is a new
       # URL, old copies stay cached harmlessly. Applies to every file the

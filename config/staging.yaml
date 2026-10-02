@@ -98,9 +98,6 @@ server:
       folder:
         uri: "/"
         path: "site"
-      # Never served: a miss gets the rendered not-found page with status
-      # 404. Checked at boot with the folder (`must_exist`).
-      fallback: "site/404.html"
       # One minute: testers should see a fresh deploy on the next reload.
       cache_control: "public, max-age=60"
 

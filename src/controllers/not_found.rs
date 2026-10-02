@@ -2,7 +2,7 @@
 //! everything else.
 //!
 //! Loco's `static` middleware serves the site folder as the router's
-//! fallback and answers a miss with the static `404.html`, status 200,
+//! fallback and answers a miss with a static `404.html`, status 200,
 //! which a search engine reads as a page and production would cache for a
 //! year. [`Site`] takes its place in the middleware stack with the same
 //! file serving and cache header plus a miss that renders `NotFoundPage`
@@ -11,8 +11,8 @@
 //! files and misses get the security headers, a request id, a line in the
 //! request log, the request timeout and panic catching, like routes. The
 //! `static` block in the config stays the source of the folder, the cache
-//! header and the boot-time existence checks, which is why `public/404.html`
-//! still exists: the check wants it there, even though nothing serves it.
+//! header and the boot-time check that the folder exists. No static 404
+//! file: the miss is always rendered.
 //!
 //! A miss renders the page only for a request that asks for HTML. A
 //! scanner probing `/wp-login.php` and friends gets one line of text, so a
@@ -101,11 +101,10 @@ fn limited_miss(ctx: &AppContext) -> Result<Router> {
 /// miss handler.
 ///
 /// # Errors
-/// The site folder or its fallback file is missing where `must_exist` asks
-/// for them (Loco's own check, with Loco's own message, which the deploy
-/// docs quote), `static.cache_control` is not a valid header value, the
-/// settings are missing from the shared store, or the limiter cannot be
-/// built.
+/// The site folder is missing where `must_exist` asks for it (the deploy
+/// docs quote the message), `static.cache_control` is not a valid header
+/// value, the settings are missing from the shared store, or the limiter
+/// cannot be built.
 fn site(ctx: &AppContext) -> Result<Router> {
     let miss = limited_miss(ctx)?;
     let Some(assets) = ctx
@@ -118,11 +117,13 @@ fn site(ctx: &AppContext) -> Result<Router> {
     else {
         return Ok(Router::new().fallback_service(miss));
     };
-    if assets.must_exist && (!assets.folder.path.exists() || !assets.fallback.exists()) {
+    // Only the folder: Loco's own check also wants its `fallback` file, a
+    // static 404 page, but a miss here is answered by `miss` above, so no
+    // such file is needed (or served).
+    if assets.must_exist && !assets.folder.path.is_dir() {
         return Err(Error::Message(format!(
-            "one of the static path are not found, Folder `{}` fallback: `{}`",
+            "the site folder `{}` is missing (static.folder.path): deploy site/ next to the binary, or run `cargo leptos build` locally",
             assets.folder.path.display(),
-            assets.fallback.display(),
         )));
     }
     let files = ServeDir::new(&assets.folder.path).fallback(miss);

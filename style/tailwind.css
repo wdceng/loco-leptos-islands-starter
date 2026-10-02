@@ -3,11 +3,9 @@
 @import "tailwindcss";
 
 /* Tailwind scans these files for class names. Our views are Rust, not HTML,
-   so the .rs sources have to be listed explicitly. The one static page
-   outside Leptos, public/404.html, uses the same classes as the shell and
-   is scanned as well. */
+   so the .rs sources have to be listed explicitly. Every page is Leptos;
+   there is no static HTML to scan. */
 @source "../src/**/*.rs";
-@source "../public/**/*.html";
 
 /* Inter, self-hosted from public/fonts (SIL Open Font License, OFL.txt next
    to the files). Absolute URLs: this stylesheet is served from /pkg/, so a

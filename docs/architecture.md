@@ -369,9 +369,9 @@ the CLI for `loco new`, which is done.
   per limiter at boot, without the shell's scripts, because it goes out
   under the strict fallback CSP. It uses the shell's `BODY` and `COLUMN`
   constants, so its classes can't drift.
-- `public/404.html` is never served, since the not-found page is rendered,
-  but it stays because the boot checks for it where `static.must_exist` is
-  on.
+- No static `404.html`: a miss always gets the rendered not-found page.
+  Loco's own `static` check also wants such a file, but this app replaces
+  that middleware, and its own boot check only requires the site folder.
 - Mails: the HTML part is a Leptos component in `src/views/mail.rs`,
   rendered with `mail::document`, and sent with Loco's `Mailer::mail`.
   Subject and text are `format!`. No Tera mail templates: they fail only at

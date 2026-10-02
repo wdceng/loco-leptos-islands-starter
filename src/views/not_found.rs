@@ -1,7 +1,6 @@
 //! The not-found page, rendered by the router's fallback
-//! (controllers/not_found.rs) with status 404. The same words as the static
-//! `public/404.html`, which the boot still checks for (`static.must_exist`)
-//! but nothing serves any more.
+//! (controllers/not_found.rs) with status 404. The only 404 page there is:
+//! no static `404.html` sits in `public/`.
 
 use leptos::prelude::*;
 

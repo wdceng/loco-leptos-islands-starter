@@ -97,9 +97,6 @@ server:
       folder:
         uri: "/"
         path: "target/site"
-      # Never served: a miss gets the rendered not-found page with status
-      # 404. Only checked at boot where `must_exist` is on.
-      fallback: "target/site/404.html"
       # Revalidate on every request: a plain refresh always shows the latest
       # stylesheet. Without a Cache-Control header the browser would guess a
       # lifetime from the file's age and could keep a stale copy for hours.
