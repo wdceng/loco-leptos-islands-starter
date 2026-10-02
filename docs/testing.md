@@ -104,6 +104,13 @@ so the suite runs in about a second.
   bucket, with the site-wide numbers.
 - `tests/requests/robots.rs`: `/robots.txt` in the test environment (200,
   `text/plain`, `Disallow: /`).
+- `tests/requests/llms.rs`: `/llms.txt` is Markdown starting with
+  `# APP_NAME`, its links start with `server.host`, and each one answers
+  200.
+- Robots tags and the manifest: the home page has no
+  `<meta name="robots">` and its manifest link asks for credentials
+  (`home.rs`); the 404 and error pages say `noindex` (`not_found.rs`,
+  `error_page.rs`).
 - `tests/requests/rate_limit.rs`:
   - With `burst: 20` from `config/test.yaml`, twenty requests pass with
     `x-ratelimit-remaining` counting down. The next is a 429 HTML page with
@@ -136,6 +143,8 @@ so the suite runs in about a second.
   `cargo test` passes whatever the last build left in `target/site`.
   Request tests run without a hash file, so they expect the plain
   `/pkg/app.css`.
+- `src/controllers/llms.rs`: the body starts with the app name and the
+  description, and a host with a trailing `/` gives no `//` in the links.
 - `src/controllers/robots.rs`: `/robots.txt` on production (`Allow: /`) and
   on staging. The harness only boots the `test` environment.
 - `src/views/mail.rs`: a mail is a whole HTML document with its link and no
@@ -161,9 +170,11 @@ so the suite runs in about a second.
   network, IPv4 written as IPv6 keyed as IPv4), the 429 page (the wait
   rounded up, in words: "1 second", "6 seconds"; the stylesheet resolved at
   boot), and the config-to-key-source mapping.
-- `src/paths.rs`: the asset version from `build.rs` is 16 hex characters,
-  and every icon and manifest address ends with `?v=<version>`. The links
-  test then requests each of them.
+- `src/paths.rs`: every file in `public/` has a 16-hex version from
+  `build.rs`. Every font URL in `style/tailwind.css` and every icon in
+  `site.webmanifest` is the current versioned URL; if not, the failure
+  names the value to write. The preloaded font is one of the stylesheet's
+  URLs, `?v=` included. The links test then requests each address.
 - `src/render.rs`: the nonce substitution.
 - `src/settings.rs`: the `settings:` block parses. Unknown keys, a CSP
   template without `{nonce}` and a zero rate-limit burst are refused. The

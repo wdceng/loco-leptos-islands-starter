@@ -32,6 +32,10 @@ pub struct PageMeta {
     pub lang: &'static str,
     pub title: String,
     pub description: String,
+    /// A `<meta name="robots">` value: `Some("noindex")` for pages that have
+    /// no business in search results (the not-found page, the error page).
+    /// `None` renders no tag: index and follow.
+    pub robots: Option<&'static str>,
 }
 
 /// Wraps `page` in the full document. `options` comes from
@@ -60,20 +64,26 @@ pub fn shell(
                 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
                 <title>{meta.title}</title>
                 <meta name="description" content=meta.description/>
+                {meta.robots.map(|content| view! { <meta name="robots" content=content/> })}
                 // Body font fetched alongside the stylesheet, not after it:
                 // no flash of fallback font on first visit. `as` and `type`
                 // are Rust keywords, hence the r# prefix.
-                <link rel="preload" href="/fonts/Inter-Regular.woff2" r#as="font" r#type="font/woff2" crossorigin="anonymous"/>
+                <link rel="preload" href=paths::FONT_INTER_REGULAR r#as="font" r#type="font/woff2" crossorigin="anonymous"/>
                 // Icons live in public/favicon, which cargo-leptos copies to
                 // target/site/favicon. Browsers also probe /favicon.ico on
                 // their own, so that one is linked explicitly. Each address
-                // carries `?v=<hash>` of the folder (src/paths.rs, build.rs),
+                // carries `?v=<hash>` of its file (src/paths.rs, build.rs),
                 // so a changed icon gets past the year-long cache.
                 <link rel="icon" href=paths::FAVICON sizes="any"/>
                 <link rel="icon" r#type="image/png" sizes="32x32" href=paths::FAVICON_32/>
                 <link rel="icon" r#type="image/png" sizes="16x16" href=paths::FAVICON_16/>
                 <link rel="apple-touch-icon" sizes="180x180" href=paths::APPLE_TOUCH_ICON/>
-                <link rel="manifest" href=paths::MANIFEST/>
+                // `use-credentials`: a browser fetches the manifest without
+                // cookies unless its link asks for them. Behind a Cloudflare
+                // challenge (staging) that cookie-less fetch gets the
+                // challenge page instead, which Chrome reports as a manifest
+                // syntax error. Seen on wdc's staging, same setup as ours.
+                <link rel="manifest" href=paths::MANIFEST crossorigin="use-credentials"/>
                 // Tints the browser's own bars (Safari, Chrome on Android).
                 // The page's surface colour (Tailwind slate-100 as hex; see
                 // --color-surface in style/tailwind.css), so the bars blend

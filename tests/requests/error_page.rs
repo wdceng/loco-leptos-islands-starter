@@ -35,6 +35,10 @@ async fn a_browser_gets_a_page_for_a_wrong_method() {
                 || body.contains("This page can't do that"),
             "{body}"
         );
+        assert!(
+            body.contains(r#"<meta name="robots" content="noindex">"#),
+            "the error page says noindex:\n{body}"
+        );
         assert!(res.maybe_header("allow").is_some(), "Allow header lost");
         assert_eq!(res.header("cache-control"), "no-store");
         assert!(

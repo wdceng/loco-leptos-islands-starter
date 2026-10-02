@@ -125,6 +125,7 @@ async fn page(
         lang: "en",
         title: format!("{heading} | {APP_NAME}"),
         description: lead.into(),
+        robots: Some("noindex"),
     };
     render_page(ctx, req, meta, move || view! { <ErrorPage heading lead /> }).await
 }

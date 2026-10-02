@@ -14,13 +14,18 @@ use crate::{
     },
 };
 
+/// The site in one sentence: the home page's meta description, and the
+/// summary line of `/llms.txt` (controllers/llms.rs).
+pub const DESCRIPTION: &str =
+    "A full-stack starter: Loco on the server, Leptos islands in the browser.";
+
 #[debug_handler]
 async fn index(State(ctx): State<AppContext>, req: Request) -> Result<Response> {
     let meta = PageMeta {
         lang: "en",
         title: APP_NAME.into(),
-        description: "A full-stack starter: Loco on the server, Leptos islands in the browser."
-            .into(),
+        description: DESCRIPTION.into(),
+        robots: None,
     };
     render_page(&ctx, req, meta, || view! { <HomePage/> }).await
 }

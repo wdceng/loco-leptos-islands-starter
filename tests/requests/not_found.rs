@@ -26,6 +26,10 @@ async fn unknown_path_is_a_404_page_for_a_browser_and_a_line_for_a_probe() {
             body.contains("id=\"content\"") && body.contains("/pkg/app.css"),
             "the page is inside the shell, with the stylesheet:\n{body}"
         );
+        assert!(
+            body.contains(r#"<meta name="robots" content="noindex">"#),
+            "the not-found page says noindex:\n{body}"
+        );
 
         // A probe that does not ask for HTML costs a string, not a render.
         let probe = request.get("/wp-login.php").await;

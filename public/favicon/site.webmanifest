@@ -8,12 +8,12 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/favicon/android-chrome-192x192.png",
+      "src": "/favicon/android-chrome-192x192.png?v=ac79a1a917f00c33",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/favicon/android-chrome-512x512.png",
+      "src": "/favicon/android-chrome-512x512.png?v=166e08b120b958be",
       "sizes": "512x512",
       "type": "image/png"
     }

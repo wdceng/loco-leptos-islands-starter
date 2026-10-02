@@ -153,10 +153,12 @@ port added, so if you run locally on another port, change it in
 With a one-year cache, a changed file needs a new URL:
 
 - **CSS, JS, wasm:** release builds put a hash in the name.
-- **Icons and the manifest** (`public/favicon/`): `build.rs` hashes the
-  folder and the links get `?v=<hash>` (`src/paths.rs`). Replace a file and
-  build, nothing else.
-- **Fonts and anything else in `public/`:** rename the file when it changes.
+- **Everything in `public/`:** `build.rs` hashes each file and its links get
+  `?v=<hash>` (`src/paths.rs`). Rust code links through those constants,
+  so replace an icon and build, nothing else.
+- **Fonts and the manifest's icons** are named in static files
+  (`style/tailwind.css`, `site.webmanifest`), which carry the `?v=` written
+  out. Replace one and `cargo test` fails with the exact value to paste.
 
 ### On the server
 

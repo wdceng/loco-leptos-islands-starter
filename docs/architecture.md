@@ -75,17 +75,21 @@ depends on it, so every release is built this way. `Cargo.toml` leaves
 hashing off on purpose: the watch loop only hashes its first build, then
 goes stale.
 
-cargo-leptos doesn't hash anything else, so `build.rs` versions the icons
-and the web manifest in `public/favicon/` the same way, at compile time:
-one hash over the folder's paths and bytes (FNV-1a, no new crate), handed
-to the compiler as `ASSET_VERSION`. `src/paths.rs` appends it to each
-link as `?v=<hash>`. Cargo reruns the script when the folder changes, and
+cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
+every file there itself, at compile time: a hash of each file's bytes
+(FNV-1a, no new crate), written as one Rust constant per file
+(`FONTS_INTER_REGULAR_WOFF2 = "/fonts/Inter-Regular.woff2?v=<hash>"`) that
+`src/paths.rs` includes. Rust code links files only through those
+constants, so a renamed or removed file fails the compile. The two static
+files that name `public/` files themselves, `style/tailwind.css` (fonts)
+and `site.webmanifest` (Android icons), carry the `?v=` written out, and a
+test in `src/paths.rs` fails with the value to paste when a file changes.
+Cargo reruns the script when `public/` changes, and
 `watch-additional-files` in `Cargo.toml` makes the watch loop rebuild the
 server too. The binary and `site/` of a deploy come from the same checkout,
-so the hash always matches the files served; no hash file is needed. Not
-covered: the two icons named inside `site.webmanifest` (static JSON), and
-the fonts, whose URLs live in the stylesheet: rename a font when it
-changes.
+so the hashes always match the files served; no hash file is needed. The
+one address without a version is `/favicon.ico` at the root: browsers ask
+for it by that name, and only when a page links no icon, which ours do.
 
 **SQLite** - Sea-ORM over SQLx, SQLite driver only (`sqlx-postgres` was
 dropped on purpose). Each environment has its own `app_<env>.sqlite`:
@@ -155,7 +159,7 @@ template changed a starter file, the column names the change.
 
 | Area | From | Where | Notes |
 |------|------|-------|-------|
-| Pages | This template | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/views/` | `/` renders `views/home.rs` in the shell (`views/layout.rs`) through `render.rs`, which adds the CSP nonce. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` elsewhere |
+| Pages | This template | `src/controllers/home.rs`, `src/controllers/robots.rs`, `src/controllers/llms.rs`, `src/views/` | `/` renders `views/home.rs` in the shell (`views/layout.rs`) through `render.rs`, which adds the CSP nonce. `PageMeta.robots` adds `<meta name="robots">` per page: `noindex` on the 404 and error pages, none on the home page. `/robots.txt` is plain text: `Allow: /` in production, `Disallow: /` elsewhere. `/llms.txt` describes the site for AI assistants in Markdown (llmstxt.org): `APP_NAME`, the home page's description and links built from `server.host`. Add a line there for every public page |
 | Health | Loco | Loco, via `AppRoutes::with_default_routes()` in `src/app.rs` | `/_ping`, `/_health` and `/_readiness`, the last two checking the database and queue. Rate limited like any route |
 | Users and auth | Loco starter; the `/api/auth` rate limit is this template's | `src/models/users.rs`, `src/controllers/auth.rs` | JSON API under `/api/auth`: `register`, `verify/{token}`, `login`, `forgot`, `reset`, `current`, `magic-link`, `magic-link/{token}`, `resend-verification-mail`. JWT bearer tokens, 7-day expiry |
 | Not found | This template | `src/controllers/not_found.rs`, `src/views/not_found.rs` | The router's fallback. Serves the `static` block's folder with its cache header, and anything else as a 404 with `no-store`: the not-found page for an HTML request, one line of text otherwise |
@@ -242,8 +246,9 @@ resource kind the page uses: scripts, styles, images, fonts, the manifest,
 fetches. Anything new stays blocked until its directive is added on purpose.
 
 Loco's middleware only adds a header the response lacks, so the page CSP
-wins on pages, the not-found and error pages included. Everything else (the JSON API,
-files, `robots.txt`, the not-found line, the 429 page) gets the
+wins on pages, the not-found and error pages included. Everything else
+(the JSON API, files, `robots.txt`, `llms.txt`, the not-found line, the
+429 page) gets the
 `Content-Security-Policy` override under `secure_headers`:
 `default-src 'none'`, only the app's own stylesheet, images and fonts, no
 scripts, no framing. It replaces the `github` preset's CSP, which allows
@@ -354,9 +359,9 @@ the CLI for `loco new`, which is done.
   manifest, `theme-color`, the home-screen tags and the safe-area viewport.
   Open Graph tags wait for a 1200×630 image.
 - Everything in `public/` is copied into `site/` and served, in production
-  with a one-year cache. The icons and the manifest in `public/favicon/`
-  are versioned for you (`?v=<hash>`, "Hashed asset names"). Rename any
-  other file when its content changes. No `.DS_Store` or scratch files.
+  with a one-year cache. Every file is versioned for you (`?v=<hash>`,
+  "Hashed asset names"): link it from Rust through `src/paths.rs`, never as
+  a string. No `.DS_Store` or scratch files.
 - Every page a browser can get is Leptos: the pages, the 404, the error
   page and the 429. No HTML is written by hand or built in Rust strings.
   The error page and the 429 share `ErrorPage` (`src/views/error.rs`); the

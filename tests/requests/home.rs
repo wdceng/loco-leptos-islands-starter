@@ -50,6 +50,17 @@ async fn home_renders_html() {
             body.contains(r#"<link rel="stylesheet" href="/pkg/app.css">"#),
             "stylesheet link missing or hashed:\n{body}"
         );
+        // The home page is meant to be found: no robots tag.
+        assert!(
+            !body.contains(r#"name="robots""#),
+            "the home page must stay indexable:\n{body}"
+        );
+        // The manifest is fetched with cookies, or a Cloudflare challenge on
+        // staging answers it with an HTML page.
+        assert!(
+            body.contains(r#"crossorigin="use-credentials""#),
+            "manifest link without use-credentials:\n{body}"
+        );
         // Leptos names the wasm file at compile time from LEPTOS_OUTPUT_NAME
         // (set in .cargo/config.toml). Without it the loader asks for
         // `app_bg.wasm`, which cargo-leptos never writes.

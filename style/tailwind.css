@@ -11,31 +11,34 @@
 
 /* Inter, self-hosted from public/fonts (SIL Open Font License, OFL.txt next
    to the files). Absolute URLs: this stylesheet is served from /pkg/, so a
-   relative "fonts/..." would resolve to /pkg/fonts/ and 404. */
+   relative "fonts/..." would resolve to /pkg/fonts/ and 404. Each URL ends
+   with ?v=<hash> of the file (build.rs), so a changed font gets past the
+   year-long cache. Replace a font and `cargo test` names the new value to
+   write here (src/paths.rs). */
 @font-face {
   font-family: "Inter";
-  src: url("/fonts/Inter-Regular.woff2") format("woff2");
+  src: url("/fonts/Inter-Regular.woff2?v=2739ce28c8307b18") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Inter";
-  src: url("/fonts/Inter-Medium.woff2") format("woff2");
+  src: url("/fonts/Inter-Medium.woff2?v=39c9882f2a84ed2a") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Inter";
-  src: url("/fonts/Inter-SemiBold.woff2") format("woff2");
+  src: url("/fonts/Inter-SemiBold.woff2?v=f4543b8628458ba5") format("woff2");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Inter";
-  src: url("/fonts/Inter-Bold.woff2") format("woff2");
+  src: url("/fonts/Inter-Bold.woff2?v=241495f2f99833b9") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;

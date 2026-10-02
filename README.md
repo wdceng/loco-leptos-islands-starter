@@ -15,7 +15,7 @@ get your own copy.
 | Server, database, user accounts, e-mail, background jobs | Loco's **Rest API** starter: `loco new` with "Rest API (with DB and user auth)", SQLite, async jobs |
 | Pages and interactivity | **Leptos in islands mode**, added on top: pages render on the server, only `#[island]` components run in the browser |
 | **Security**: HTTP headers, a Content Security Policy with a new nonce on every page, rate limits per visitor (stricter on sign-up and login, 404s counted apart, a generous one on static files when deployed), a 64 KB body limit, a 15 s timeout | This template |
-| **Page basics**: page shell with favicons, web manifest and theme colour, the home page, Leptos pages for 404, 429 and errors (a browser never sees Loco's raw JSON or an empty body), `robots.txt`, Tailwind v4, the self-hosted Inter font | This template |
+| **Page basics**: page shell with favicons, web manifest and theme colour, the home page, Leptos pages for 404, 429 and errors (a browser never sees Loco's raw JSON or an empty body), `robots.txt`, `llms.txt` for AI assistants, a per-page robots tag, Tailwind v4, the self-hosted Inter font | This template |
 | **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
 | **Checked SQL**: the app's own queries as SQLx `query!`, on Sea-ORM's pool, checked against the schema at compile time, with an offline cache for CI and `cross` | This template |
 | **Mail fixes**: sender set in config, links to the public address without the server's port, the HTML part of every mail as a Leptos component (compile-checked, escaped), subject and text as `format!` | This template |
