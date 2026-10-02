@@ -82,6 +82,56 @@ boot. Loco sets the PRAGMAs: WAL, `synchronous = NORMAL`, foreign keys on,
 back up with `sqlite3 <file> ".backup <copy>"`, never by copying the file
 alone.
 
+## Sea-ORM and SQLx
+
+Both, each for its own job, on one connection pool.
+
+| | Sea-ORM | SQLx |
+|---|---|---|
+| For | Loco's plumbing | the app's own data |
+| Connection | opens it (`ctx.db`) | borrows its pool: `sql::pool(&ctx)` (`src/sql.rs`) |
+| Schema | the migrations (`migration/`) | none, it reads the migrated schema |
+| Queries | Loco's own: the users/auth model, the test harness's reset | everything the app adds: `query!`, `query_as!`, `query_scalar!` |
+| Checked | Rust types, but the SQL is built at runtime | the SQL itself, at compile time, against the real schema |
+| Tools | `cargo loco db migrate`, `auto_migrate` at boot, `cargo loco generate` | `cargo sqlx prepare -- --all-targets`, the `.sqlx/` cache |
+
+Why both:
+
+- Sea-ORM is how Loco works: `ctx.db`, migrations, generators, auth and the
+  test harness all go through it. Dropping it means fighting the framework,
+  and the users model is starter code that stays as generated.
+- `query!` turns a wrong column, table or type into a `cargo check` error,
+  before any test runs. Raw SQL through Sea-ORM isn't checked at all, and
+  real queries (search, counts per filter, full-text search) are awkward in
+  its query builder.
+- One pool, so both get Loco's PRAGMAs and SQLite's single writer isn't
+  fought over by two pools.
+
+Rules:
+
+- **`sqlx` stays at the version Sea-ORM uses** (0.9.0 with Sea-ORM 2.0.4).
+  A second `sqlx` would be a different `SqlitePool` type, so `src/sql.rs`
+  stops compiling. After a Sea-ORM upgrade, `cargo tree -i sqlx` shows one
+  version.
+- **Only the macros:** `query!`, `query_as!`, `query_scalar!`. Never
+  runtime `sqlx::query("…")` or SQL built with `format!`. Values are bound,
+  never interpolated.
+- **One transaction, one library.** A Sea-ORM transaction and a SQLx
+  transaction are never the same transaction.
+- **A new table or column:** a migration, `cargo loco db migrate`, then
+  `cargo sqlx prepare -- --all-targets` (`development.md`). Only then does
+  `query!` see it. `.sqlx/` is committed, so builds without a database
+  (CI, `cross`) check the queries offline. Always `-- --all-targets`: the
+  plain form drops the tests' queries from the cache.
+- **SQLite reports few types for expressions.** `COUNT(*)`, `MAX(...)`,
+  `CASE` and `json_each` columns come back nullable or loosely typed, so
+  name the type: `AS "total!: i64"` (not null), `AS "name?"` (nullable).
+- **Never export `DATABASE_URL`.** Every config reads it, `test.yaml` too,
+  so an exported one sends `cargo test` to that database, and the test
+  harness wipes it. Set it on the `prepare` command only.
+- `tests/models/sql_pool.rs` pins that SQLx reads what Sea-ORM wrote, with a
+  real `query_scalar!`, so the cache is in use from the start.
+
 ## What Is in the App
 
 "From" says where an area comes from: Loco's Rest API starter as generated,
@@ -98,6 +148,7 @@ template changed a starter file, the column names the change.
 | Background | Loco starter | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
 | Nightly restart | This template | `src/maintenance.rs` | Staging and production stop once a day (`settings.nightly_restart`), systemd starts them again. Never in development or test |
 | Migrations | Loco starter | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
+| Own queries | This template | `src/sql.rs`, `.sqlx/` | SQLx on Sea-ORM's pool, checked at compile time ("Sea-ORM and SQLx") |
 | Config | Loco starter (development, test, production); `staging.yaml` and the typed settings are this template's | `config/<env>.yaml` | Typed settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
 
 ## Security
@@ -251,12 +302,19 @@ leaked past the `ssr` gate, and it's the only pass that sees `hydrate`
 code. `cargo audit` runs too. The advisories ignored on purpose, each with
 its reason, are in `.cargo/audit.toml`.
 
+Every job builds with `SQLX_OFFLINE=true`, from the committed `.sqlx/`
+cache, as `cross` does. A separate job migrates a fresh test database and
+runs `cargo sqlx prepare --check -- --all-targets`, so a stale cache fails
+in CI, not on the next deploy.
+
 `cargo loco` here is a cargo alias (`loco = "run --"` in
 `.cargo/config.toml`) for the app binary, not the `loco` CLI. You only need
 the CLI for `loco new`, which is done.
 
 ## Conventions
 
+- Database queries the app adds use SQLx's `query!` on `sql::pool(&ctx)`.
+  Loco's own models stay on Sea-ORM. The rules are in "Sea-ORM and SQLx".
 - Make a component an `#[island]` only if it really needs the browser.
   Everything else stays a server-rendered `#[component]`.
 - Islands go in `src/islands.rs`, the only module in `lib.rs` without an
@@ -350,6 +408,7 @@ here.
 | `tower-http` | File serving and the cache header in the fallback, the same pieces Loco's `static` middleware uses. Already in via Loco (`ssr` only) |
 | `lettre` | Only its address parser, so `settings.mail.from` is parsed at boot the way the mailer parses it when sending. Already in via Loco (`ssr` only) |
 | `chrono-tz` | Reads the restart hour in a fixed IANA zone. The `serde` feature turns the config's zone name into a `Tz` at boot (`ssr` only) |
+| `sqlx` | The app's own queries, `query!` checked at compile time, on Sea-ORM's pool (`src/sql.rs`). Pinned to the version Sea-ORM uses (`ssr` only) |
 | `nix` | Sends SIGTERM to the app at the restart hour, so Loco's graceful shutdown runs (unix only, `ssr` only) |
 
 **Tests only**

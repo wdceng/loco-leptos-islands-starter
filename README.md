@@ -17,6 +17,7 @@ get your own copy.
 | **Security**: HTTP headers, a Content Security Policy with a new nonce on every page, rate limits per visitor (stricter on sign-up and login, 404s counted apart), a 64 KB body limit, a 15 s timeout | This template |
 | **Page basics**: page shell with favicons, web manifest and theme colour, the home page, a rendered 404 page, `robots.txt`, Tailwind v4, the self-hosted Inter font | This template |
 | **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
+| **Checked SQL**: the app's own queries as SQLx `query!`, on Sea-ORM's pool, checked against the schema at compile time, with an offline cache for CI and `cross` | This template |
 | **Mail fixes**: sender set in config, links to the public address without the server's port, names escaped in HTML mail | This template |
 | **Checks**: tests for the headers, the CSP, the rate limits, the 404 page and all four config files; CI with fmt, clippy on both halves, the tests, a full build and `cargo audit` | This template |
 | **Docs**: `docs/development.md`, `docs/testing.md`, `docs/staging.md` and `docs/production.md` (systemd, Caddy, Cloudflare, one file per environment), `docs/architecture.md` | This template |
@@ -45,6 +46,8 @@ folder.
 - **Tailwind CSS.** You write class names, the build makes the stylesheet.
 - **A SQLite database** with migrations, through Sea-ORM. One file next to
   your code, nothing to install or run.
+- **SQL checked at compile time.** Your own queries use SQLx's `query!`, so
+  a wrong column or type fails `cargo check`, not a page in production.
 - **User accounts**: registration, e-mail verification, login, password reset,
   magic links.
 - **E-mail** with text and HTML templates.
@@ -93,7 +96,9 @@ file.
 | Change what a page shows | `src/views/` |
 | Add something interactive (an island) | `src/islands.rs` |
 | Add a URL or change what it answers | `src/controllers/` |
-| Change the database or add a table | `src/models/` and `migration/` |
+| Change the database or add a table | `migration/`, then refresh the query cache (`docs/development.md`) |
+| Write a query | `sqlx::query!` on `sql::pool(&ctx)` (`src/sql.rs`) |
+| Change Loco's users model | `src/models/` |
 | Change the e-mails or their sender | `src/mailers/auth/`, sender: `settings.mail.from` in `config/` |
 | Change styling | Tailwind classes in the views, fonts and colours in `style/tailwind.css` |
 | Add an image, a font, a static file | `public/` |

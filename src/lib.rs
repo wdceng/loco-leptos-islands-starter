@@ -32,6 +32,8 @@ pub mod render;
 #[cfg(feature = "ssr")]
 pub mod settings;
 #[cfg(feature = "ssr")]
+pub mod sql;
+#[cfg(feature = "ssr")]
 pub mod tasks;
 #[cfg(feature = "ssr")]
 pub mod views;

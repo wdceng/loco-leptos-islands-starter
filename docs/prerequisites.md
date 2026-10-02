@@ -28,6 +28,7 @@ Install commands are each tool's own. Your package manager works too.
 | 2.6 | **cargo-nextest** | One process per test (`cargo nextest run`). `.config/nextest.toml` keeps app-booting tests on one thread | `cargo install --locked cargo-nextest` |
 | 2.7 | **cargo-sweep** | Clears old native, wasm32 and cross builds out of `target/` | `cargo install --locked cargo-sweep` |
 | 2.8 | **sea-orm-cli** | Only for `cargo loco db entities`, which regenerates `src/models/_entities/`. `cargo loco doctor` flags it if missing | `cargo install --locked sea-orm-cli` |
+| 2.9 | **sqlx-cli** | `cargo sqlx prepare` refreshes the `.sqlx/` query cache after a migration or a new query (`development.md`). Same version as the `sqlx` crate, 0.9.0 | `cargo install --locked sqlx-cli@0.9.0 --no-default-features --features sqlite` |
 
 On arm64, like Apple Silicon, `cross` emulates x86_64 and the default image
 tag has no arm64 manifest. Pull the pinned image once:

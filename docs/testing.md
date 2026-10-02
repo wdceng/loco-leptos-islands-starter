@@ -54,6 +54,9 @@ so the suite runs in about a second.
   Create with password, find by e-mail and pid, validation, duplicate
   e-mail, and the verification, reset and magic-link token flows. `insta`
   snapshots in `tests/models/snapshots/`.
+- `tests/models/sql_pool.rs`: SQLx reads, through `sql::pool`, a user
+  Sea-ORM just wrote. It uses a real `query_scalar!`, so it also proves the
+  `.sqlx/` cache works.
 - `tests/requests/auth.rs`: `/api/auth` end to end. Register, verify, login
   (valid and invalid password, unverified user), current user, forgot and
   reset, magic link, resend verification. Login variants are `rstest`
@@ -149,6 +152,11 @@ requests. Same list as the pre-deploy checks in `staging.md` and `production.md`
 - the wasm32 lint below
 - a full `cargo leptos build`
 - `cargo audit`
+- the `.sqlx/` cache check: a fresh test database, migrated, then
+  `cargo sqlx prepare --check -- --all-targets`
+
+Every job builds with `SQLX_OFFLINE=true`, from the committed cache, like
+`cross`.
 
 `cargo audit` fails on vulnerabilities. Advisories ignored on purpose are
 in `.cargo/audit.toml`, each with its reason.

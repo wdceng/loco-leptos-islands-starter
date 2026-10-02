@@ -62,6 +62,16 @@ sea-orm = { version = "2.0.4", features = [
   "runtime-tokio-rustls",
   "macros",
 ], optional = true }
+# The app's own queries: `sqlx::query!` checks the SQL against the migrated
+# schema at compile time, on the pool Sea-ORM opened (src/sql.rs). Must be
+# the version Sea-ORM depends on: a second sqlx in the graph is a different
+# `SqlitePool` type and src/sql.rs stops compiling. Builds without a
+# database (CI, cross) read the committed `.sqlx/` cache.
+sqlx = { version = "0.9.0", default-features = false, features = [
+  "sqlite",
+  "macros",
+  "runtime-tokio",
+], optional = true }
 # Timestamps on the users model (via Sea-ORM) and the current year in the
 # footer, computed at render time. Default features stay on: Sea-ORM needs
 # them.
@@ -154,6 +164,7 @@ ssr = [
   "dep:regex",
   "dep:migration",
   "dep:sea-orm",
+  "dep:sqlx",
   "dep:chrono",
   "dep:validator",
   "dep:uuid",

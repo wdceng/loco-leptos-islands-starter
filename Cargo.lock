@@ -161,6 +161,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "serial_test",
+ "sqlx",
  "tera 2.4.0",
  "tokio",
  "tower-http",
@@ -5662,6 +5663,7 @@ dependencies = [
  "sqlx-postgres",
  "sqlx-sqlite",
  "syn 2.0.119",
+ "thiserror 2.0.21",
  "tokio",
  "url",
 ]

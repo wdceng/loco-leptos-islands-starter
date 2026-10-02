@@ -73,6 +73,28 @@ cargo loco task user_create   # run a task; `cargo loco task` lists them
 
 Migrations also run on every start, so you rarely need `migrate`.
 
+### After a migration, or a new or changed query
+
+The app's own queries are SQLx `query!` macros, checked at compile time
+against the schema (`architecture.md`, "Sea-ORM and SQLx"). Builds read
+that schema from the committed `.sqlx/` cache, so refresh it:
+
+```bash
+cargo loco db migrate                                                          # the schema first
+DATABASE_URL=sqlite://app_development.sqlite cargo sqlx prepare -- --all-targets   # then the cache
+```
+
+Commit `.sqlx/` with the change. CI fails if you forget.
+
+- **Never `export DATABASE_URL`.** Every config reads it, so `cargo test`
+  would run against that database and wipe it. Set it on the one command.
+- **Always `-- --all-targets`.** Without it the tests' queries drop out of
+  the cache.
+- **Checking against the live database** while you write a query: put
+  `SQLX_OFFLINE=false DATABASE_URL=sqlite://app_development.sqlite` in front
+  of `cargo check --all-targets`. A wrong column then fails the build with
+  `no such column`.
+
 ## Tests
 
 ```bash
