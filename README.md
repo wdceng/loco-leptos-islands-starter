@@ -62,6 +62,24 @@ folder.
 - **Security already set up**: headers, a Content Security Policy, rate limits,
   secrets kept out of the code. Tests make sure none of it quietly disappears.
 
+## Checked from the database to the browser
+
+One `cargo check` covers the whole path, so most mistakes fail the build
+instead of reaching a visitor:
+
+| Layer | Checked by the compiler |
+|---|---|
+| SQL | your `query!` calls, against the real schema (SQLx, offline cache in `.sqlx/`) |
+| Server | all Rust: handlers, models, settings (Loco) |
+| Pages and islands | tags, attributes, props, escaping (Leptos) |
+| Mail | the HTML part as a Leptos component, subject and text as `format!` |
+| Static files | every link to `public/` goes through a generated constant: a missing file doesn't compile |
+
+What a compiler can't see is caught as early as possible: the config and
+secrets when the app starts, links and the SQL cache in the tests and CI.
+Only styling (a misspelt Tailwind class) and how a page looks are left to
+your eyes.
+
 ## Run it in five minutes
 
 You need Rust. If you don't have it, install it from https://rustup.rs. Then,
