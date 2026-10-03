@@ -32,3 +32,7 @@ secrets.*.env
 
 # macOS Finder metadata; anything under public/ ships to the server
 .DS_Store
+
+# Claude Code's per-person settings. The shared ones, .claude/skills/ and
+# CLAUDE.md, are committed.
+.claude/settings.local.json

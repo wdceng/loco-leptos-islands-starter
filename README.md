@@ -223,6 +223,8 @@ block of `config/staging.yaml` and `config/production.yaml`.
 - [docs/architecture.md](docs/architecture.md): the reasoning. What each security header does, why
   SQLite, what every crate is for.
 - [docs/prerequisites.md](docs/prerequisites.md): every tool, optional ones too.
+- [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md) and `.claude/skills/loco/`:
+  for AI coding agents. Loco's own guide, and the rules this project adds.
 
 ## Known gaps
 

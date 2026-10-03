@@ -51,3 +51,8 @@ cargo loco doctor           # check the environment
 - Framework agent guide: https://loco.rs/AGENTS.md
 - Full single-file reference: https://loco.rs/llms-full.txt
 - Docs: https://loco.rs/docs
+
+## This project
+
+Leptos pages, SQLx queries and versioned `public/` files change some of the
+above. Read `CLAUDE.md` before changing anything.
