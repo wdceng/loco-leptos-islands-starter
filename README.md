@@ -1,12 +1,19 @@
 # Loco + Leptos Islands Starter
 
 [![CI](https://github.com/wdceng/loco-leptos-islands-starter/actions/workflows/ci.yaml/badge.svg)](https://github.com/wdceng/loco-leptos-islands-starter/actions/workflows/ci.yaml)
+[![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue)](#license)
+[![Rust 1.94+](https://img.shields.io/badge/rust-1.94%2B-orange)](docs/prerequisites.md)
 
 A whole web app in one Rust project: server, pages, database, user accounts,
 e-mail. No JavaScript to write, no Node to install.
 
 It's a GitHub template. Press **Use this template** at the top of the page to
 get your own copy.
+
+**Built with AI, reviewed by a person.** This template was written with
+Claude Code. Every change was reviewed in the editor before it was
+committed, and `CLAUDE.md` holds the rules the AI works by. Commits name no
+tool; the person committing answers for each one.
 
 ## What it is built from
 
