@@ -151,6 +151,11 @@ Rules:
   harness wipes it. Set it on the `prepare` command only.
 - `tests/models/sql_pool.rs` pins that SQLx reads what Sea-ORM wrote, with a
   real `query_scalar!`, so the cache is in use from the start.
+- **Once the app has dozens of `query!` calls, move them into a crate of
+  their own** (a `db` crate next to this one). Every recompile re-expands
+  every `query!` in the crate, so with the queries next to the pages, each
+  page edit in `cargo leptos watch` pays for all of them. In their own crate
+  they only recompile when the SQL changes.
 
 ## What Is in the App
 
