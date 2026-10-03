@@ -76,8 +76,11 @@ Migrations also run on every start, so you rarely need `migrate`.
 ### After a migration, or a new or changed query
 
 The app's own queries are SQLx `query!` macros, checked at compile time
-against the schema (`architecture.md`, "Sea-ORM and SQLx"). Builds read
-that schema from the committed `.sqlx/` cache, so refresh it:
+against the schema (`architecture.md`, "Sea-ORM and SQLx"). Every build
+reads that schema from the committed `.sqlx/` cache, never a database:
+`SQLX_OFFLINE = "true"` in `.cargo/config.toml` makes sure of it, on every
+machine and in `cross`. The one step that touches the database is
+`cargo sqlx prepare`, so after a schema or query change, refresh the cache:
 
 ```bash
 cargo loco db migrate                                                          # the schema first
