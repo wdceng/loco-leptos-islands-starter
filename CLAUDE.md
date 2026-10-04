@@ -14,7 +14,10 @@ where it deliberately differs. The reasons are in `docs/architecture.md`.
   `git worktree` of the current branch, then bring each new file and each
   change to an existing file (`src/app.rs`, `mod.rs`, migrations) over with
   your editing tools. Say what the generator wrote and what you changed
-  after. Delete the worktree.
+  after. Delete the worktree. When the generator makes a mailer, its Tera
+  templates (`.t` files) and the `include_dir` dependency are not brought
+  over: the HTML part becomes a component in `src/views/mail.rs`, and the
+  mail is sent like `AuthMailer` (`src/mailers/auth.rs`).
 - Building, testing and checking run in the repo as normal: `cargo test`,
   `cargo clippy`, `cargo leptos build`, `cargo sqlx prepare`.
 - **Keep Loco's starter code.** Extend what `loco new` generated, don't
