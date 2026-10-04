@@ -24,14 +24,6 @@
 
 /* What the template needs on top of Tailwind's reset (Preflight). */
 @layer base {
-  /* The viewport meta in views/layout.rs uses viewport-fit=cover, so the
-     page runs under the notch and home indicator; these insets (zero on
-     desktop) keep content clear of them. */
-  body {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
   /* Leptos wraps an island in <leptos-island> and its server-rendered
      children in <leptos-children>. Browsers lay unknown elements out as
      inline boxes, which would sit between a grid and its items. `contents`

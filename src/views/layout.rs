@@ -71,10 +71,12 @@ pub fn shell(
         <html lang=meta.lang>
             <head>
                 <meta charset="utf-8"/>
-                // viewport-fit=cover lets the page extend under a phone's
-                // notch and rounded corners; the safe-area padding on <body>
-                // (style/tailwind.css) keeps content out of them.
-                <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+                // No viewport-fit=cover: iOS keeps the page out of the notch
+                // and the home bar by itself, also right after a rotation.
+                // With cover, the page would need env(safe-area-inset-*)
+                // padding, which WebKit sometimes updates only on the next
+                // scroll after rotating, leaving the page off-centre.
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <title>{meta.title}</title>
                 <meta name="description" content=meta.description/>
                 {meta.robots.map(|content| view! { <meta name="robots" content=content/> })}

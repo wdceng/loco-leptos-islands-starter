@@ -367,8 +367,12 @@ the CLI for `loco new`, which is done.
 - The document shell is `shell` in `src/views/layout.rs`. Pages fill only
   `<main>`. Per-page values travel in `PageMeta`. `APP_NAME` there is the
   one place the app's display name lives. The head already has favicons, the
-  manifest, `theme-color`, the home-screen tags and the safe-area viewport.
-  Open Graph tags wait for a 1200×630 image.
+  manifest, `theme-color` and the home-screen tags. The viewport has no
+  `viewport-fit=cover`: iOS keeps the page clear of the notch itself. With
+  `cover`, the page needs `env(safe-area-inset-*)` padding, and WebKit
+  sometimes updates those values only on the next scroll after a rotation,
+  so the page sits off-centre until then. Open Graph tags wait for a
+  1200×630 image.
 - Everything in `public/` is copied into `site/` and served, in production
   with a one-year cache. Every file is versioned for you (`?v=<hash>`,
   "Hashed asset names"): link it from Rust through `src/paths.rs`, never as

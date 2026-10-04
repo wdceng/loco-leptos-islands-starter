@@ -62,4 +62,4 @@ After a migration or a new or changed `query!`, refresh the SQLx cache
 
 Commit messages are plain sentences about the change, with no tool or AI
 named in them. The maintainer commits with
-`git add . && git commit -m "..." && git push`.
+`git status --short && git add . && git commit -m "..." && git push`.
