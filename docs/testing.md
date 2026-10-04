@@ -153,6 +153,9 @@ so the suite runs in about a second.
 - `src/deploy_checks.rs`: real secret values pass, and empty, blank and
   `replace-me` values are named. The boot itself (production refusing,
   the SMTP login warning) is a manual check below.
+- `src/views/mod.rs`: no raw `rounded-*` class in `src/views/` or
+  `src/islands.rs`; corners go through the `shape-*` roles. A failure names
+  the file and line.
 - `src/views/error.rs`: server errors, the 405, the 408 and other client
   errors each have their own wording.
 - `src/views/too_many_requests.rs`: the 429 page links the stylesheet,

@@ -52,7 +52,8 @@
   /* The brand colour: the one colour that is this app's own. Everything
      else comes from Tailwind's default palette, untouched, so class names
      from the Tailwind docs and component libraries work here as written.
-     The web manifest repeats this value as theme_color. */
+     Repeated as hex in BRAND_HEX (src/views/layout.rs), the web manifest's
+     theme_color. */
   --color-primary: #004a96;
 }
 
@@ -65,8 +66,8 @@
 @theme inline {
   /* Filled buttons on hover: the brand blue, a little lighter. */
   --color-primary-hover: color-mix(in oklab, var(--color-primary) 85%, white);
-  /* Page background. views/layout.rs (theme-color) and the web manifest
-     (background_color) repeat it as #f1f5f9. */
+  /* Page background. Repeated as hex in SURFACE_HEX (src/views/layout.rs),
+     used by the theme-color tag and the web manifest's background_color. */
   --color-surface: var(--color-slate-100);
   /* The bottom gradient. Light enough that the muted footer text on top of
      it keeps its contrast. */
@@ -98,6 +99,59 @@
       var(--color-surface-glow),
       transparent 60%
     );
+}
+
+/* Corners, named by role like the colours above. Views use these four only,
+   never `rounded-*` (a test fails on one). Phone first: controls are round,
+   rows keep 8px, panels have no corner because the page is the panel. From
+   `md` (48rem) up the corners are concentric: a control's radius is its
+   panel's minus the gap between them (16 - 8 = 8). Where the browser draws
+   squircles (`corner-shape`), the radius is 1.5x, because a squircle hugs
+   the corner tighter: 12px squircle looks like an 8px round corner. Other
+   browsers keep the round corner. A new role is a new `shape-*` utility and
+   a row in docs/architecture.md, never a one-off radius. */
+@utility shape-control {
+  /* Buttons, pills, the search bar. */
+  border-radius: 9999px;
+  @variant md {
+    border-radius: 0.5rem;
+    @supports (corner-shape: squircle) {
+      border-radius: 0.75rem;
+      corner-shape: squircle;
+    }
+  }
+}
+@utility shape-small {
+  /* Chips, small pills, count badges, a ring inside a control. */
+  border-radius: 9999px;
+  @variant md {
+    border-radius: 0.375rem;
+    @supports (corner-shape: squircle) {
+      border-radius: 0.5rem;
+      corner-shape: squircle;
+    }
+  }
+}
+@utility shape-row {
+  /* A row of a list, a form field: a capsule is a button's shape, not a
+     field's. */
+  border-radius: 0.5rem;
+  @variant md {
+    @supports (corner-shape: squircle) {
+      border-radius: 0.75rem;
+      corner-shape: squircle;
+    }
+  }
+}
+@utility shape-panel {
+  /* The white box controls sit in: card, panel, header, dropdown. */
+  @variant md {
+    border-radius: 1rem;
+    @supports (corner-shape: squircle) {
+      border-radius: 1.5rem;
+      corner-shape: squircle;
+    }
+  }
 }
 
 /* Element defaults on top of Tailwind's own reset (Preflight), which already
