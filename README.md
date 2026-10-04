@@ -22,7 +22,7 @@ tool; the person committing answers for each one.
 | Server, database, user accounts, e-mail, background jobs | Loco's **Rest API** starter: `loco new` with "Rest API (with DB and user auth)", SQLite, async jobs |
 | Pages and interactivity | **Leptos in islands mode**, added on top: pages render on the server, only `#[island]` components run in the browser |
 | **Security**: HTTP headers, a Content Security Policy with a new nonce on every page, rate limits per visitor (stricter on sign-up and login, 404s counted apart, a generous one on static files when deployed), a 64 KB body limit, a 15 s timeout | This template |
-| **Page basics**: page shell with favicons, web manifest and theme colour, the home page, Leptos pages for 404, 429 and errors (a browser never sees Loco's raw JSON or an empty body), `robots.txt`, `llms.txt` for AI assistants, a per-page robots tag, Tailwind v4, the self-hosted Inter font | This template |
+| **Page basics**: page shell with favicons, web manifest and theme colour, the home page, Leptos pages for 404, 429 and errors (a browser never sees Loco's raw JSON or an empty body), `robots.txt`, `llms.txt` for AI assistants, a per-page robots tag, Tailwind v4 on its default look (its font stack and palette), ready for yours | This template |
 | **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
 | **Checked SQL**: the app's own queries as SQLx `query!`, on Sea-ORM's pool, checked against the schema at compile time, with an offline cache for CI and `cross` | This template |
 | **Mail fixes**: sender set in config, links to the public address without the server's port, the HTML part of every mail as a Leptos component (compile-checked, escaped), subject and text as `format!` | This template |
@@ -126,7 +126,7 @@ file.
 | Write a query | `sqlx::query!` on `sql::pool(&ctx)` (`src/sql.rs`) |
 | Change Loco's users model | `src/models/` |
 | Change the e-mails or their sender | HTML part: `src/views/mail.rs`. Subject and text: `src/mailers/auth.rs`. Sender: `settings.mail.from` in `config/` |
-| Change styling | Tailwind classes in the views, fonts and colours in `style/tailwind.css` |
+| Change styling | Tailwind classes in the views; colours, fonts and anything app-wide in `style/tailwind.css` |
 | Add an image, a font, a static file | `public/` |
 | Change settings per environment | `config/development.yaml`, `staging.yaml`, `production.yaml` |
 
@@ -220,7 +220,7 @@ What people see:
 | Page description | `DESCRIPTION` in `src/controllers/home.rs` (also in the manifest and `/llms.txt`) |
 | Tagline | `src/views/home.rs` |
 | Icons | `public/favicon/`: replace a file and build, its `?v=` updates by itself |
-| Colours | `style/tailwind.css`: one brand colour, `--color-primary`, and a few role tokens on top of Tailwind's default palette |
+| Colours | `style/tailwind.css`: four role tokens (`primary`, `surface`, `ink`, `ink-muted`), pointing at Tailwind's default palette |
 | Mail sender, `SaaS Starter <noreply@example.com>` | `config/development.yaml` and `config/test.yaml`, the staging default in `config/staging.yaml`, production reads `MAILER_FROM` |
 
 **Change the colours in two places.** They're in `style/tailwind.css`, and
@@ -262,6 +262,4 @@ block of `config/staging.yaml` and `config/production.yaml`.
 
 ## License
 
-MIT or Apache-2.0, your choice: `LICENSE-MIT`, `LICENSE-APACHE`. The Inter
-font in `public/fonts/` has its own license, the SIL Open Font License, in
-`public/fonts/OFL.txt`.
+MIT or Apache-2.0, your choice: `LICENSE-MIT`, `LICENSE-APACHE`.

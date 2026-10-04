@@ -1,5 +1,7 @@
 /* Tailwind v4 entry point. cargo-leptos feeds this to the Tailwind
-   standalone binary and writes the result to target/site/pkg/app.css. */
+   standalone binary and writes the result to target/site/pkg/app.css.
+   Tailwind's defaults throughout: its font stack, its palette, its reset.
+   Give the app its own look here. */
 @import "tailwindcss";
 
 /* Tailwind scans these files for class names. Our views are Rust, not HTML,
@@ -7,166 +9,21 @@
    there is no static HTML to scan. */
 @source "../src/**/*.rs";
 
-/* Inter, self-hosted from public/fonts (SIL Open Font License, OFL.txt next
-   to the files). Absolute URLs: this stylesheet is served from /pkg/, so a
-   relative "fonts/..." would resolve to /pkg/fonts/ and 404. Each URL ends
-   with ?v=<hash> of the file (build.rs), so a changed font gets past the
-   year-long cache. Replace a font and `cargo test` names the new value to
-   write here (src/paths.rs). */
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter-Regular.woff2?v=2739ce28c8307b18") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter-Medium.woff2?v=39c9882f2a84ed2a") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter-SemiBold.woff2?v=f4543b8628458ba5") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/Inter-Bold.woff2?v=241495f2f99833b9") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Design tokens. Everything in @theme becomes both a CSS variable
-   (var(--color-primary)) and a utility class (bg-primary, text-primary). */
-@theme {
-  /* Make Inter the default sans font: Tailwind's base styles apply
-     --font-sans to <html>, and the `font-sans` utility uses it too. */
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-
-  /* The brand colour: the one colour that is this app's own. Everything
-     else comes from Tailwind's default palette, untouched, so class names
-     from the Tailwind docs and component libraries work here as written.
-     Repeated as hex in BRAND_HEX (src/views/layout.rs), the web manifest's
-     theme_color. */
-  --color-primary: #004a96;
-}
-
-/* Semantic colours, named by role. Views use these names only, never a
-   scale step such as `slate-200`, so the palette can change here without
-   touching a view. `inline` is Tailwind's documented form for tokens that
-   reference other variables: utilities get the target directly
-   (bg-surface -> var(--color-slate-100)). Slate is the grey with a blue
-   undertone, which sits well next to the brand blue. */
+/* Colours, named by role. Views use these names only, never a scale step
+   such as `gray-600`, so a new look means changing these four lines, not
+   the views. They point at Tailwind's default palette. `inline` makes the
+   utilities use the target directly (text-ink -> var(--color-gray-900)).
+   SURFACE_HEX and BRAND_HEX in src/views/layout.rs repeat `surface` and
+   `primary` as hex for the theme-color tag and the web manifest. */
 @theme inline {
-  /* Filled buttons on hover: the brand blue, a little lighter. */
-  --color-primary-hover: color-mix(in oklab, var(--color-primary) 85%, white);
-  /* Page background. Repeated as hex in SURFACE_HEX (src/views/layout.rs),
-     used by the theme-color tag and the web manifest's background_color. */
-  --color-surface: var(--color-slate-100);
-  /* The bottom gradient. Light enough that the muted footer text on top of
-     it keeps its contrast. */
-  --color-surface-glow: var(--color-blue-200);
-  --color-ink: var(--color-slate-900); /* body text */
-  --color-ink-muted: var(--color-slate-600); /* secondary text */
-  --color-line: var(--color-slate-200); /* borders and separators */
-  --color-card: var(--color-white); /* cards */
-  /* A subtle fill for hover on icon buttons: halfway between a card
-     (white) and the page surface. */
-  --color-card-muted: var(--color-slate-50);
-  /* The soft glow along the bottom edge of the page, defined once as a
-     token: the page paints it behind everything (body::before, below), and
-     a component that covers the page can paint the same glow on itself
-     with `bg-glow` so it looks like what it covers. */
-  --background-image-glow:
-    radial-gradient(
-      60% 45% at 0% 100%,
-      var(--color-surface-glow),
-      transparent 65%
-    ),
-    radial-gradient(
-      60% 45% at 100% 100%,
-      var(--color-surface-glow),
-      transparent 65%
-    ),
-    radial-gradient(
-      70% 30% at 50% 100%,
-      var(--color-surface-glow),
-      transparent 60%
-    );
+  --color-primary: var(--color-blue-600); /* links, filled buttons */
+  --color-surface: var(--color-white); /* page background */
+  --color-ink: var(--color-gray-900); /* body text */
+  --color-ink-muted: var(--color-gray-600); /* secondary text */
 }
 
-/* Corners, named by role like the colours above. Views use these four only,
-   never `rounded-*` (a test fails on one). Phone first: controls are round,
-   rows keep 8px, panels have no corner because the page is the panel. From
-   `md` (48rem) up the corners are concentric: a control's radius is its
-   panel's minus the gap between them (16 - 8 = 8). Where the browser draws
-   squircles (`corner-shape`), the radius is 1.5x, because a squircle hugs
-   the corner tighter: 12px squircle looks like an 8px round corner. Other
-   browsers keep the round corner. A new role is a new `shape-*` utility and
-   a row in docs/architecture.md, never a one-off radius. */
-@utility shape-control {
-  /* Buttons, pills, the search bar. */
-  border-radius: 9999px;
-  @variant md {
-    border-radius: 0.5rem;
-    @supports (corner-shape: squircle) {
-      border-radius: 0.75rem;
-      corner-shape: squircle;
-    }
-  }
-}
-@utility shape-small {
-  /* Chips, small pills, count badges, a ring inside a control. */
-  border-radius: 9999px;
-  @variant md {
-    border-radius: 0.375rem;
-    @supports (corner-shape: squircle) {
-      border-radius: 0.5rem;
-      corner-shape: squircle;
-    }
-  }
-}
-@utility shape-row {
-  /* A row of a list, a form field: a capsule is a button's shape, not a
-     field's. */
-  border-radius: 0.5rem;
-  @variant md {
-    @supports (corner-shape: squircle) {
-      border-radius: 0.75rem;
-      corner-shape: squircle;
-    }
-  }
-}
-@utility shape-panel {
-  /* The white box controls sit in: card, panel, header, dropdown. */
-  @variant md {
-    border-radius: 1rem;
-    @supports (corner-shape: squircle) {
-      border-radius: 1.5rem;
-      corner-shape: squircle;
-    }
-  }
-}
-
-/* Element defaults on top of Tailwind's own reset (Preflight), which already
-   covers box-sizing, zero margins/paddings, tap highlight and text-size
-   adjust. `base` is the layer utilities override. */
+/* What the template needs on top of Tailwind's reset (Preflight). */
 @layer base {
-  html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    /* No double-tap zoom, pinch zoom stays. */
-    touch-action: manipulation;
-    /* Defined canvas colour for everything outside the document
-       (overscroll, short pages); same as background_color in the manifest. */
-    background-color: var(--color-surface);
-  }
   /* The viewport meta in views/layout.rs uses viewport-fit=cover, so the
      page runs under the notch and home indicator; these insets (zero on
      desktop) keep content clear of them. */
@@ -183,28 +40,5 @@
   leptos-island,
   leptos-children {
     display: contents;
-  }
-  /* Smooth anchor scrolling, except for visitors who asked for less motion. */
-  @media (prefers-reduced-motion: no-preference) {
-    html {
-      scroll-behavior: smooth;
-    }
-  }
-  /* Soft glow along the bottom edge of the viewport, painted on a
-     viewport-sized box pinned behind the page. Not a fixed background:
-     iOS Safari treats `background-attachment: fixed` as `scroll` and the
-     glow would sit at the bottom of the document, not the screen. The
-     page colour is on <html> above; <body> must stay transparent, or the
-     body background paints over this box (negative z-index children go
-     below it). Text and min-height are classes on <body> in
-     views/layout.rs. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image: var(--background-image-glow);
-    background-repeat: no-repeat;
   }
 }

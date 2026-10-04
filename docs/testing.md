@@ -153,9 +153,6 @@ so the suite runs in about a second.
 - `src/deploy_checks.rs`: real secret values pass, and empty, blank and
   `replace-me` values are named. The boot itself (production refusing,
   the SMTP login warning) is a manual check below.
-- `src/views/mod.rs`: no raw `rounded-*` class in `src/views/` or
-  `src/islands.rs`; corners go through the `shape-*` roles. A failure names
-  the file and line.
 - `src/views/error.rs`: server errors, the 405, the 408 and other client
   errors each have their own wording.
 - `src/views/too_many_requests.rs`: the 429 page links the stylesheet,
@@ -175,9 +172,9 @@ so the suite runs in about a second.
   rounded up, in words: "1 second", "6 seconds"; the stylesheet resolved at
   boot), and the config-to-key-source mapping.
 - `src/paths.rs`: every generated address is a file in `public/` with a
-  16-hex version from `build.rs`. Every font URL in `style/tailwind.css` is
-  the current versioned URL; if not, the failure names the value to write.
-  The preloaded font is one of the stylesheet's URLs, `?v=` included.
+  16-hex version from `build.rs`. Any `public/` file `style/tailwind.css`
+  names (none today) is its current versioned URL; if not, the failure
+  names the value to write.
 - `src/render.rs`: the nonce substitution.
 - `src/settings.rs`: the `settings:` block parses. Unknown keys, a CSP
   template without `{nonce}` and a zero rate-limit burst are refused. The
@@ -236,7 +233,7 @@ cargo leptos build && cargo loco start
 Then, in another terminal:
 
 ```bash
-for p in / /pkg/app.css /pkg/app.js /pkg/app.wasm /fonts/Inter-Regular.woff2 /robots.txt /nope; do
+for p in / /pkg/app.css /pkg/app.js /pkg/app.wasm /favicon/favicon.ico /robots.txt /nope; do
   printf '%-28s ' "$p"; curl -s -o /dev/null -w '%{http_code} %{size_download}B\n' "http://localhost:5150$p"
 done
 ```

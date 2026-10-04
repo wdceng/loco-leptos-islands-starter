@@ -1,17 +1,18 @@
 //! Addresses of the files in `public/`, each with `?v=<hash>` of its own
 //! bytes appended. `build.rs` computes the hashes at compile time and
 //! generates one constant per file in modules that follow the folders
-//! ([`assets`]): `assets::favicon::APPLE_TOUCH_ICON_PNG`,
-//! `assets::fonts::INTER_REGULAR_WOFF2`. Drop a file anywhere in `public/`
+//! ([`assets`]): `assets::FAVICON_ICO`,
+//! `assets::favicon::APPLE_TOUCH_ICON_PNG`. Drop a file anywhere in `public/`
 //! and its constant exists at the next build; replace it and only its own
 //! `?v=` changes, so browsers re-fetch just that file despite the year-long
 //! cache. Rust code links files only through these constants, so a file
 //! that is renamed or removed fails the compile, and `tests/requests/links.rs`
 //! fails on a page that links a `public/` file as a plain string.
 //!
-//! The stylesheet names the fonts itself and can't read the constants: it
-//! carries the same `?v=<hash>` written out, and a test below fails with the
-//! value to paste when a font changes.
+//! The stylesheet can't read the constants. If it ever names a `public/`
+//! file (a self-hosted font, a background image), it writes the same
+//! `?v=<hash>` out, and a test below fails with the value to paste when the
+//! file changes.
 //!
 //! The one address that can't carry a version is `/favicon.ico` at the
 //! root: browsers ask for it by that exact name, and only when a page links
@@ -28,9 +29,6 @@ pub const FAVICON: &str = assets::favicon::FAVICON_ICO;
 pub const FAVICON_32: &str = assets::favicon::FAVICON_32X32_PNG;
 pub const FAVICON_16: &str = assets::favicon::FAVICON_16X16_PNG;
 pub const APPLE_TOUCH_ICON: &str = assets::favicon::APPLE_TOUCH_ICON_PNG;
-/// Preloaded by the shell; must be the exact URL the stylesheet's
-/// `@font-face` uses, `?v=` included, or the browser downloads it twice.
-pub const FONT_INTER_REGULAR: &str = assets::fonts::INTER_REGULAR_WOFF2;
 
 /// The web manifest. A route, not a file (controllers/manifest.rs): built
 /// from `APP_NAME`, the colours and the icon constants above, so it carries
@@ -38,7 +36,7 @@ pub const FONT_INTER_REGULAR: &str = assets::fonts::INTER_REGULAR_WOFF2;
 pub const MANIFEST: &str = "/manifest.webmanifest";
 
 /// The versioned URL of a plain `public/` path such as
-/// `/fonts/Inter-Bold.woff2`, or `None` when no such file exists.
+/// `/favicon/favicon.ico`, or `None` when no such file exists.
 #[must_use]
 pub fn versioned(path: &str) -> Option<&'static str> {
     assets::ALL
@@ -74,30 +72,26 @@ mod tests {
         }
     }
 
-    /// Every `url(...)` in the stylesheet must be the current versioned URL
-    /// of its file; the failure names the value to write.
+    /// Every `url(/...)` in the stylesheet must be the current versioned URL
+    /// of its `public/` file; the failure names the value to write. None
+    /// today: Tailwind's defaults name no file.
     #[test]
-    fn the_stylesheet_names_the_current_font_versions() {
+    fn the_stylesheet_names_public_files_with_their_current_version() {
         let css = fs::read_to_string(root().join("style/tailwind.css")).expect("the stylesheet");
-        let urls: Vec<&str> = css
+        let urls = css
             .split("url(")
             .skip(1)
             .filter_map(|rest| rest.split(')').next())
             .map(|url| url.trim().trim_matches(['"', '\'']))
-            .collect();
-        assert!(!urls.is_empty(), "no url() in style/tailwind.css");
-        for url in &urls {
+            .filter(|url| url.starts_with('/'));
+        for url in urls {
             let plain = url.split('?').next().unwrap_or_default();
             let expected = versioned(plain)
                 .unwrap_or_else(|| panic!("style/tailwind.css: {plain} is not a file in public/"));
             assert_eq!(
-                *url, expected,
+                url, expected,
                 "style/tailwind.css: {plain} changed or isn't versioned; write it as {expected}"
             );
         }
-        assert!(
-            urls.contains(&FONT_INTER_REGULAR),
-            "the shell preloads {FONT_INTER_REGULAR}, which the stylesheet must use as written"
-        );
     }
 }

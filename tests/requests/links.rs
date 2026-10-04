@@ -1,7 +1,7 @@
 //! Every address the app writes leads somewhere: the links and asset paths
 //! in the pages (a `public/` file only with its current `?v=`), the icons in
-//! the web manifest, and the links in the mails. The stylesheet's fonts are
-//! checked in `src/paths.rs`.
+//! the web manifest, and the links in the mails. Files the stylesheet names
+//! are checked in `src/paths.rs`.
 //!
 //! The test environment serves no files (`config/test.yaml` has no `static`
 //! block), so asset paths are checked against `public/` on disk and only

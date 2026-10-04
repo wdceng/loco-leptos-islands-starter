@@ -9,16 +9,17 @@
 //!
 //! ```text
 //! pub const FAVICON_ICO: &str = "/favicon.ico?v=<hash>";
-//! pub mod fonts {
-//!     pub const INTER_REGULAR_WOFF2: &str = "/fonts/Inter-Regular.woff2?v=<hash>";
+//! pub mod favicon {
+//!     pub const APPLE_TOUCH_ICON_PNG: &str = "/favicon/apple-touch-icon.png?v=<hash>";
 //! }
 //! ```
 //!
 //! `src/paths.rs` includes it as `paths::assets`. Rust code links a file
 //! only through these constants, so a file that is renamed or removed fails
-//! the compile. The stylesheet is a static file that can't read them; it
-//! carries the same `?v=<hash>` written out, and a test in `src/paths.rs`
-//! fails with the value to paste when a font changes.
+//! the compile. The stylesheet is a static file that can't read them; if it
+//! names a `public/` file, it carries the same `?v=<hash>` written out, and
+//! a test in `src/paths.rs` fails with the value to paste when the file
+//! changes.
 //!
 //! Cargo reruns this when anything in `public/` changes, is added or is
 //! removed, new folders included, and the binary and `site/` of a deploy
@@ -62,7 +63,7 @@ fn files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// `Inter-Regular.woff2` -> `INTER_REGULAR_WOFF2`; `fav-icons` ->
+/// `apple-touch-icon.png` -> `APPLE_TOUCH_ICON_PNG`; `fav-icons` ->
 /// `fav_icons` for a module. A leading digit gets an `N`/`n` in front.
 fn ident(name: &str, upper: bool) -> String {
     let ident: String = name

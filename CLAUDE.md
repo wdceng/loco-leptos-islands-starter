@@ -47,10 +47,6 @@ where it deliberately differs. The reasons are in `docs/architecture.md`.
   timeout) updates `tests/config.rs` with it.
 - **A new public page** gets a line in `/llms.txt`
   (`src/controllers/llms.rs`).
-- **Corners only through the `shape-*` utilities**, never raw `rounded-*`
-  (a test checks it). **Icons are Lucide only**, inline SVG through one
-  `Icon` component. Both are in "Shapes and Icons" in
-  `docs/architecture.md`.
 
 ## Before you hand over
 

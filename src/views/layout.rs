@@ -16,14 +16,16 @@ use crate::paths;
 pub const APP_NAME: &str = "SaaS Starter";
 
 /// The page's surface colour as hex: `--color-surface` in
-/// `style/tailwind.css` (Tailwind's slate-100). Used where CSS can't reach:
-/// the `theme-color` tag and the manifest's `background_color`. Change it
+/// `style/tailwind.css` (Tailwind's white). Used where CSS can't reach: the
+/// `theme-color` tag and the manifest's `background_color`. Change it
 /// together with the stylesheet.
-pub const SURFACE_HEX: &str = "#f1f5f9";
+pub const SURFACE_HEX: &str = "#ffffff";
 
-/// The brand colour as hex: `--color-primary` in `style/tailwind.css`. The
-/// manifest's `theme_color`, the bars of the installed app.
-pub const BRAND_HEX: &str = "#004a96";
+/// The primary colour as hex: `--color-primary` in `style/tailwind.css`
+/// (Tailwind's blue-600, `oklch(54.6% 0.245 262.881)`). The manifest's
+/// `theme_color`, the bars of the installed app. Change it together with
+/// the stylesheet.
+pub const BRAND_HEX: &str = "#155dfc";
 
 /// The centred prose column shared by the landmarks: capped width, centred
 /// by auto margins, side padding for narrow screens. Defined once here;
@@ -76,10 +78,6 @@ pub fn shell(
                 <title>{meta.title}</title>
                 <meta name="description" content=meta.description/>
                 {meta.robots.map(|content| view! { <meta name="robots" content=content/> })}
-                // Body font fetched alongside the stylesheet, not after it:
-                // no flash of fallback font on first visit. `as` and `type`
-                // are Rust keywords, hence the r# prefix.
-                <link rel="preload" href=paths::FONT_INTER_REGULAR r#as="font" r#type="font/woff2" crossorigin="anonymous"/>
                 // Icons live in public/favicon, which cargo-leptos copies to
                 // target/site/favicon. Browsers also probe /favicon.ico on
                 // their own, so that one is linked explicitly. Each address
@@ -95,11 +93,11 @@ pub fn shell(
                 // challenge page instead, which Chrome reports as a manifest
                 // syntax error. Seen on wdc's staging, same setup as ours.
                 <link rel="manifest" href=paths::MANIFEST crossorigin="use-credentials"/>
-                // Tints the browser's own bars (Safari, Chrome on Android).
-                // The page's surface colour (Tailwind slate-100 as hex; see
-                // --color-surface in style/tailwind.css), so the bars blend
-                // with the page instead of framing it in brand blue; the
-                // manifest keeps the blue theme_color for the installed app.
+                // Tints the browser's own bars (Safari, Chrome on Android)
+                // in the page's surface colour (SURFACE_HEX), so the bars
+                // blend with the page; the manifest keeps the primary colour
+                // as theme_color for the installed app. `type` is a Rust
+                // keyword, hence `r#type` on the icon links above.
                 <meta name="theme-color" content=SURFACE_HEX/>
                 // Home-screen install, full-screen launch: the manifest's
                 // `display: standalone` (Android, and iOS since 11.3) and
@@ -118,15 +116,12 @@ pub fn shell(
                 // wakes up only the `#[island]` components on the page.
                 <HydrationScripts options islands=true/>
             </head>
-            // No background colour here: the page colour is on <html> and the
-            // bottom glow is a fixed box behind the body (style/tailwind.css);
-            // a body background would paint over it.
             <body class=BODY>
                 // First focusable element: keyboard and screen-reader users
                 // jump past the navigation. Invisible until it has focus.
                 <a
                     href="#content"
-                    class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20 focus:shape-small focus:bg-primary focus:px-4 focus:py-2 focus:text-white"
+                    class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-white"
                 >
                     "Skip to content"
                 </a>

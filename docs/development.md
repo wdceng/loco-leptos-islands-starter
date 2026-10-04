@@ -162,9 +162,9 @@ With a one-year cache, a changed file needs a new URL:
   `public/`, link it through its constant, done. Replacing it changes only
   its own `?v=`. A page that links a `public/` file as a plain string fails
   the links test.
-- **Fonts** are named in `style/tailwind.css`, which carries the `?v=`
-  written out. Replace a font and `cargo test` fails with the exact value
-  to paste.
+- **A file named in `style/tailwind.css`** (a self-hosted font, say)
+  carries the `?v=` written out. Replace it and `cargo test` fails with the
+  exact value to paste.
 
 ### On the server
 

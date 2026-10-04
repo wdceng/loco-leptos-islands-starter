@@ -62,68 +62,12 @@ loader.
 
 **Tailwind CSS v4** - Utility classes in `view!` macros. cargo-leptos runs
 the standalone Tailwind binary, so there's no Node or npm. Only classes you
-use reach the stylesheet, which sits next to the islands bundle. The font
-is Inter, self-hosted. Colours are Tailwind's default palette, untouched,
-plus one brand colour and the role tokens `primary`, `surface`, `ink`,
-`ink-muted`, `line` and `card` in `style/tailwind.css`. Views use only the
-tokens, never a scale step like `slate-200`, so the palette changes in one
-place. Corners and icons follow the same idea: see "Shapes and Icons".
-
-## Shapes and Icons
-
-The house style shared with ecs and ECQTA. Keep the values identical, so
-the apps look like one family.
-
-### Shapes: a role, never a radius
-
-Views name a role, never a radius: no `rounded-*` and no `border-radius`
-on elements. The four roles are utilities in `style/tailwind.css`, and a
-test (`src/views/mod.rs`) fails on a raw `rounded-*` in the markup.
-
-| Role | Used for | Phone (< 48rem) | Desktop | Desktop with squircles |
-|---|---|---|---|---|
-| `shape-control` | buttons, pills, the search bar | circle / capsule | 8px | 12px squircle |
-| `shape-small` | chips, small pills, count badges, a ring inside a control | circle / capsule | 6px | 8px squircle |
-| `shape-row` | a row of a list, a form field | 8px | 8px | 12px squircle |
-| `shape-panel` | the white box controls sit in: card, panel, header, dropdown | none | 16px | 24px squircle |
-
-- **Phone:** controls are round, as on iOS and Android. Rows and fields keep
-  8px, because a capsule is a button's shape, not a field's. Panels have no
-  corner: on a phone the page is the panel.
-- **Desktop:** corners are concentric. A control's radius is its panel's
-  minus the gap between them (16 − 8 = 8), so the gap looks even all round.
-- **Squircles** (`corner-shape: squircle`) where the browser supports them,
-  picked with `@supports`; other browsers keep the round corner. Chromium
-  has it since 139; check Firefox and Safari before promising them. The
-  radius is 1.5×, because a squircle hugs the corner tighter: 12px squircle
-  looks like an 8px round corner.
-- **Breakpoint** is `md` (48rem). The choice depends on screen width and
-  role, never on the element's own size.
-- **Not `shape-island`:** in the other projects the panel role may carry that
-  name. Here "island" means a Leptos `#[island]`, so the role is
-  `shape-panel`.
-- **A new role** is a new `shape-*` utility and a row in this table, never a
-  one-off radius. Variants work as usual: `focus:shape-small`.
-
-### Icons: Lucide only
-
-None ship yet. The first icon follows these rules:
-
-- **One set:** Lucide (https://lucide.dev), the 24px outline icons. Mixed
-  sets show in stroke width and corner shapes.
-- **Inline SVG:** copy each icon's path data into one icons module and draw
-  it with one `Icon` component (`viewBox="0 0 24 24"`, `fill="none"`,
-  `stroke="currentColor"`, `stroke-linecap="round"`,
-  `stroke-linejoin="round"`). No icon font, no CDN, nothing for the CSP.
-  Note the Lucide version at the top of the module.
-- **Colour:** `currentColor`, so an icon takes its text's colour.
-- **Accessibility:** every icon `aria-hidden="true"`, with its meaning in the
-  word next to it. A button with only an icon gets an `aria-label`.
-- **Sizes:** in a control (button, pill, search bar, menu row) 20px with a
-  2px line, `size-5 stroke-[2.4]`; in running text 16px with Lucide's own
-  stroke, `size-4`.
-- **Licence:** Lucide is ISC, with parts MIT from Feather. Put both notices
-  at the top of the icons module.
+use reach the stylesheet, which sits next to the islands bundle. The look
+is Tailwind's own default: its font stack, its palette, its reset, so the
+template carries no one's brand. Four role tokens in `style/tailwind.css`
+(`primary`, `surface`, `ink`, `ink-muted`) point at that palette. Views use
+only the tokens, never a scale step like `gray-600`, so a new look changes
+those four lines, not the views.
 
 **Hashed asset names** - `LEPTOS_HASH_FILES=true cargo leptos build --release`
 names the bundle and stylesheet by content hash and writes `hash.txt`, which
@@ -135,12 +79,13 @@ goes stale.
 cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
 every file there itself, at compile time: a hash of each file's bytes
 (FNV-1a, no new crate), written as one Rust constant per file in modules
-that follow the folders (`paths::assets::fonts::INTER_REGULAR_WOFF2 =
-"/fonts/Inter-Regular.woff2?v=<hash>"`). Rust code links files only through
-those constants, so a renamed or removed file fails the compile, and the
-links test fails on a page that links a `public/` file as a plain string.
-The stylesheet names the fonts itself and carries the `?v=` written out; a
-test in `src/paths.rs` fails with the value to paste when a font changes.
+that follow the folders (`paths::assets::favicon::APPLE_TOUCH_ICON_PNG =
+"/favicon/apple-touch-icon.png?v=<hash>"`). Rust code links files only
+through those constants, so a renamed or removed file fails the compile,
+and the links test fails on a page that links a `public/` file as a plain
+string. If the stylesheet names a `public/` file (a self-hosted font, say),
+it carries the `?v=` written out; a test in `src/paths.rs` fails with the
+value to paste when that file changes.
 The web manifest is a route (`src/controllers/manifest.rs`), built from
 `APP_NAME`, the home page's description, `SURFACE_HEX` and `BRAND_HEX`, and
 the icon constants. Cargo reruns the script when anything in `public/`
@@ -412,7 +357,7 @@ the CLI for `loco new`, which is done.
   render on the server only and stay out of the wasm. `style/tailwind.css`
   sets Leptos's `<leptos-island>` / `<leptos-children>` wrappers to
   `display: contents` so they don't disturb grid or flex layouts.
-- The surface and brand colours are repeated as hex in `SURFACE_HEX` and
+- The surface and primary colours are repeated as hex in `SURFACE_HEX` and
   `BRAND_HEX` (`src/views/layout.rs`), which the `theme-color` tag and the
   web manifest use. Change them with `style/tailwind.css`.
 - No `style=` attributes: the CSP is `style-src 'self'`, and the request
