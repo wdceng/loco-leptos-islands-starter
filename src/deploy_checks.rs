@@ -5,8 +5,9 @@
 //! - [`refuse_placeholders`], production only: a JWT secret or SMTP host,
 //!   user or password that is empty or still reads `replace-me` (the
 //!   placeholder `docs/production.md` writes into `secrets.production.env`)
-//!   refuses the boot. Staging keeps its placeholder defaults on purpose.
-//! - [`spawn_smtp_login`], staging and production: logs in to the SMTP
+//!   refuses the boot. Dev-server and staging keep their placeholder
+//!   defaults on purpose.
+//! - [`spawn_smtp_login`], everywhere deployed: logs in to the SMTP
 //!   server once, in the background, and sends nothing. A failure is a
 //!   warning in the journal, not a refusal: an outage at the mail provider
 //!   must not keep the site down. Loco keeps its own transport's type

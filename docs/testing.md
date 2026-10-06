@@ -43,9 +43,11 @@ so the suite runs in about a second.
   Differences on purpose:
   - three `cache_control` values, all valid headers (else Loco silently
     falls back to a year)
-  - staging and production: `CfConnectingIp`, burst 120
+  - dev-server, staging and production: `CfConnectingIp`, burst 120
   - locally: `ConnectInfo`, the live-reload socket
-  - staging only: `X-Robots-Tag`
+  - dev-server and staging only: `X-Robots-Tag`
+  - dev-server: the same config as staging, apart from the defaults the
+    unit replaces (host, database, secrets)
   - test: burst 20
   - test and deployed: the auth API's own bucket, ten at once, then one per
     30 s

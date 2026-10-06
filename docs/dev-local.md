@@ -157,6 +157,7 @@ from environment variables.
 |---|---|---|---|---|
 | `dev-local` | your machine | `target/site` | rechecks every time | `http://localhost:5150` |
 | `test` | `cargo test` | none | none | `http://localhost:5150` |
+| `dev-server` | development copy online, staging's twin | `site/` | 60 s | `server.host` in the config |
 | `staging` | test copy online | `site/` | 60 s | `server.host` in the config |
 | `production` | live site | `site/` | one year | `server.host` in the config |
 
@@ -179,8 +180,9 @@ With a one-year cache, a changed file needs a new URL:
 
 ### On the server
 
-Deploying, the server layout and the systemd unit: `staging.md` and
-`production.md`. Each one is a single file you follow top to bottom.
+Deploying, the server layout and the systemd unit: `dev-server.md`,
+`staging.md` and `production.md`. Each one is a single file you follow top
+to bottom.
 
 ## Gotchas
 

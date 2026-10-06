@@ -180,7 +180,7 @@ template changed a starter file, the column names the change.
 | Nightly restart | This template | `src/maintenance.rs` | Staging and production stop once a day (`settings.nightly_restart`), systemd starts them again. Never in dev-local or test |
 | Migrations | Loco starter | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
 | Own queries | This template | `src/sql.rs`, `.sqlx/` | SQLx on Sea-ORM's pool, checked at compile time ("Sea-ORM and SQLx") |
-| Config | Loco starter (development, test, production), its `development.yaml` renamed `dev-local.yaml`; `staging.yaml` and the typed settings are this template's | `config/<env>.yaml` | Typed settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
+| Config | Loco starter (development, test, production), its `development.yaml` renamed `dev-local.yaml`; `staging.yaml`, `dev-server.yaml` (staging's copy) and the typed settings are this template's | `config/<env>.yaml` | Typed settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
 
 ## Security
 
@@ -224,7 +224,7 @@ Not used:
 - `static` and `fallback`: Loco's file serving and welcome page. `src/app.rs`
   takes both out and puts the app's own fallback first.
 - `powered_by`: Loco's `X-Powered-By` middleware turns itself off when
-  `server.ident` is `""`, as in all four configs.
+  `server.ident` is `""`, as in all five configs.
 
 ### HTTP Security Headers
 
@@ -234,7 +234,7 @@ Two sources, both in `config/*.yaml`.
 `server.middlewares`. The `github` preset sets Content-Security-Policy,
 Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options,
 X-Download-Options, X-Permitted-Cross-Domain-Policies and X-Xss-Protection.
-Seven overrides apply everywhere, an eighth on staging:
+Seven overrides apply everywhere, an eighth on staging and the dev server:
 
 | Header | Why it's an override |
 |--------|----------------------|
@@ -245,7 +245,7 @@ Seven overrides apply everywhere, an eighth on staging:
 | Cross-Origin-Opener-Policy | Added: `same-origin` |
 | Cross-Origin-Resource-Policy | Added: `same-origin`, so the app's files load only on its own pages |
 | Cross-Origin-Embedder-Policy | Added: `require-corp`, as pages load nothing cross-origin. With COOP this gives cross-origin isolation, the Spectre-class defence. An embed from another domain (map, video, payment widget) would need CORP or CORS opt-in, or this header dropped |
-| X-Robots-Tag | Staging only: `noindex, nofollow`, so a test copy stays out of search results even through an inbound link. `robots.txt` already disallows crawling there |
+| X-Robots-Tag | Staging and dev-server only: `noindex, nofollow`, so a test copy stays out of search results even through an inbound link. `robots.txt` already disallows crawling there |
 
 **The page CSP** is a template in `settings.security.content_security_policy`,
 filled per request by `render_page`. Leptos stamps a nonce on every inline
@@ -267,7 +267,7 @@ scripts from any https origin and inline styles.
 Dev-local and test add the `cargo leptos watch` websocket to the page
 CSP's `connect-src`. Staging and production are identical.
 
-**The config canary**: `tests/config.rs` loads all four configs and pins,
+**The config canary**: `tests/config.rs` loads all five configs and pins,
 per environment, the headers, fallback CSP, timeout, body limit, rate limit,
 cache policy and page CSP shape.
 
@@ -277,6 +277,7 @@ cache policy and page CSP shape.
 |------------|----------|---------|--------------|--------|
 | `dev-local` | `app_dev-local.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `dev-local.md` |
 | `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `testing.md` |
+| `dev-server` | `/var/lib/app-dev/app_dev-server.sqlite` (`StateDirectory`) | as staging | as staging | `dev-server.md` |
 | `staging` | `/var/lib/app-stg/app_staging.sqlite` (`StateDirectory`) | placeholder defaults, the environment may override | `site/`, 60 s, adds `X-Robots-Tag: noindex, nofollow` | `staging.md` |
 | `production` | `/var/lib/app-prod/app_production.sqlite` (`StateDirectory`) | required from the environment | `site/`, one year, immutable (needs the `LEPTOS_HASH_FILES=true` build) | `production.md` |
 
@@ -290,7 +291,8 @@ running on a developer's settings. Loco reads `dev-local` as
 Secrets are environment variables, read by the `get_env` helper in the
 YAML. Loco loads no `.env` file. Getting them to the process is the
 deploy's job: each environment has its own
-`secrets.staging.env` or `secrets.production.env` in the repo root,
+`secrets.dev-server.env`, `secrets.staging.env` or
+`secrets.production.env` in the repo root,
 git-ignored, uploaded by every deploy as a root-only `secrets.env` that
 systemd loads before it drops to the service user. Mail links use `server.host`
 as written, with no bind port added (locally the port is part of it), so the
@@ -369,7 +371,7 @@ the CLI for `loco new`, which is done.
   web manifest use. Change them with `style/tailwind.css`.
 - No `style=` attributes: the CSP is `style-src 'self'`, and the request
   test fails on one. With `default-src 'none'`, a new resource kind (video,
-  iframe, worker) needs its own directive in all four configs before it
+  iframe, worker) needs its own directive in all five configs before it
   loads.
 - The document shell is `shell` in `src/views/layout.rs`. Pages fill only
   `<main>`. Per-page values travel in `PageMeta`. `APP_NAME` there is the

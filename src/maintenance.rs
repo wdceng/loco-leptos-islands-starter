@@ -1,5 +1,6 @@
-//! Nightly restart: on staging and production the server stops itself once
-//! a day and the service manager starts it again.
+//! Nightly restart: on the deployed environments (dev-server, staging,
+//! production) the server stops itself once a day and the service manager
+//! starts it again.
 //!
 //! A fresh process every day is cheap insurance against whatever a
 //! long-running one accumulates. The numbers come from

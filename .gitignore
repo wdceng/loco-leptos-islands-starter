@@ -7,12 +7,14 @@ debug/
 target/
 
 # Linux deploy artifacts (binary, hash.txt, site/) staged by the deploy
-# chains in docs/staging.md and docs/production.md before upload.
+# chains in docs/dev-server.md, docs/staging.md and docs/production.md
+# before upload.
 dist/
 
-# Secrets per environment (JWT_SECRET, MAILER_*): secrets.staging.env and
-# secrets.production.env in the repo root, uploaded by every deploy as
-# secrets.env (docs/staging.md, docs/production.md). Never in git.
+# Secrets per environment (JWT_SECRET, MAILER_*): secrets.dev-server.env,
+# secrets.staging.env and secrets.production.env in the repo root, uploaded
+# by every deploy as secrets.env (docs/dev-server.md, docs/staging.md,
+# docs/production.md). Never in git.
 secrets.env
 secrets.*.env
 *.secrets.env

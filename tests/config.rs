@@ -1,4 +1,4 @@
-//! Config canary. The four `config/<env>.yaml` files are the security policy
+//! Config canary. The five `config/<env>.yaml` files are the security policy
 //! (headers, timeout, rate limit, caching, what the visitor IP is read from),
 //! and nothing else reads them before a deploy. These tests load each file
 //! through Loco's own loader and assert the baseline every environment must
@@ -66,6 +66,11 @@ fn staging() -> Environment {
     Environment::Any("staging".into())
 }
 
+/// Staging's twin on its own subdomain (docs/dev-server.md).
+fn dev_server() -> Environment {
+    Environment::Any("dev-server".into())
+}
+
 /// The local environment, `LOCO_ENV=dev-local` (src/settings.rs).
 fn dev_local() -> Environment {
     Environment::Any(DEV_LOCAL.into())
@@ -84,8 +89,13 @@ fn to_tera_syntax(path: &Path, content: &str) -> String {
     content.replace("<%=", "{{").replace("%>", "}}")
 }
 
-fn load(env: &Environment) -> Config {
-    let path = Path::new("config").join(format!("{env}.yaml"));
+fn config_path(env: &Environment) -> std::path::PathBuf {
+    Path::new("config").join(format!("{env}.yaml"))
+}
+
+/// The config file as YAML text, `get_env` answered from the placeholders.
+fn render(env: &Environment) -> String {
+    let path = config_path(env);
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("{}: cannot read: {e}", path.display()));
     let template = to_tera_syntax(&path, &content);
@@ -93,11 +103,34 @@ fn load(env: &Environment) -> Config {
     tera.register_function("get_env", get_env);
     tera.add_raw_template("config", &template)
         .unwrap_or_else(|e| panic!("{}: not a Tera template: {e}", path.display()));
-    let rendered = tera
-        .render("config", &Context::new())
-        .unwrap_or_else(|e| panic!("{}: does not render: {e}", path.display()));
-    serde_yaml::from_str(&rendered)
-        .unwrap_or_else(|e| panic!("{}: not a Loco config: {e}", path.display()))
+    tera.render("config", &Context::new())
+        .unwrap_or_else(|e| panic!("{}: does not render: {e}", path.display()))
+}
+
+fn load(env: &Environment) -> Config {
+    serde_yaml::from_str(&render(env))
+        .unwrap_or_else(|e| panic!("{}: not a Loco config: {e}", config_path(env).display()))
+}
+
+/// The dev server is staging's twin. Rendered with the same placeholders,
+/// which stand in for everything the unit sets (`HOST`, `DATABASE_URL`,
+/// `JWT_SECRET`, `MAILER_*`), the two files are the same config; only the
+/// defaults behind those variables differ.
+#[test]
+fn dev_server_is_staging_on_its_own_host() {
+    let yaml = |env: &Environment| -> serde_yaml::Value {
+        serde_yaml::from_str(&render(env)).expect("yaml")
+    };
+    assert_eq!(
+        yaml(&dev_server()),
+        yaml(&staging()),
+        "config/dev-server.yaml must match config/staging.yaml"
+    );
+    let raw = std::fs::read_to_string(config_path(&dev_server())).expect("dev-server.yaml");
+    assert!(
+        raw.contains(r#"name="HOST", default="https://dev.example.com""#),
+        "dev-server's own host"
+    );
 }
 
 /// Loco falls back to `development` when `LOCO_ENV` is unset. With no
@@ -117,6 +150,7 @@ fn loco_s_default_environment_has_no_config() {
 #[case::dev_local(dev_local())]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
+#[case::dev_server(dev_server())]
 #[case::staging(staging())]
 #[case::production(Environment::Production)]
 fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
@@ -238,6 +272,7 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
 
 #[rstest]
 #[case::dev_local(dev_local(), "no-cache", "target/site")]
+#[case::dev_server(dev_server(), "public, max-age=60", "site")]
 #[case::staging(staging(), "public, max-age=60", "site")]
 #[case::production(Environment::Production, "public, max-age=31536000, immutable", "site")]
 fn static_files_are_served_with_the_agreed_cache_policy(
@@ -269,6 +304,7 @@ fn static_files_are_served_with_the_agreed_cache_policy(
 }
 
 #[rstest]
+#[case::dev_server(dev_server())]
 #[case::staging(staging())]
 #[case::production(Environment::Production)]
 fn deployed_environments_key_on_the_proxy_header(#[case] env: Environment) {
@@ -329,10 +365,11 @@ fn local_environments_key_on_the_peer_and_allow_live_reload(#[case] env: Environ
 }
 
 #[test]
-fn only_staging_hides_from_search_engines() {
+fn only_the_online_test_copies_hide_from_search_engines() {
     for env in [
         dev_local(),
         Environment::Test,
+        dev_server(),
         staging(),
         Environment::Production,
     ] {
@@ -345,14 +382,17 @@ fn only_staging_hides_from_search_engines() {
             .and_then(|h| h.overrides.as_ref())
             .expect("overrides");
         let robots = overrides.get("X-Robots-Tag").map(String::as_str);
-        if matches!(&env, Environment::Any(name) if name == "staging") {
+        if env == staging() || env == dev_server() {
             assert_eq!(
                 robots,
                 Some("noindex, nofollow"),
-                "staging must not be indexed"
+                "{env} must not be indexed"
             );
         } else {
-            assert_eq!(robots, None, "{env}: only staging sends X-Robots-Tag");
+            assert_eq!(
+                robots, None,
+                "{env}: only staging and dev-server send X-Robots-Tag"
+            );
         }
     }
 }
@@ -362,6 +402,7 @@ fn only_staging_hides_from_search_engines() {
 #[rstest]
 #[case::dev_local(dev_local(), false)]
 #[case::test_env(Environment::Test, false)]
+#[case::dev_server(dev_server(), true)]
 #[case::staging(staging(), true)]
 #[case::production(Environment::Production, true)]
 fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] enabled: bool) {
@@ -380,6 +421,7 @@ fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] ena
 #[rstest]
 #[case::dev_local(dev_local(), false)]
 #[case::test_env(Environment::Test, false)]
+#[case::dev_server(dev_server(), true)]
 #[case::staging(staging(), true)]
 #[case::production(Environment::Production, true)]
 fn static_files_are_limited_only_when_deployed(#[case] env: Environment, #[case] enabled: bool) {
@@ -400,6 +442,7 @@ fn static_files_are_limited_only_when_deployed(#[case] env: Environment, #[case]
 #[rstest]
 #[case::dev_local(dev_local(), "SaaS Starter <noreply@example.com>")]
 #[case::test_env(Environment::Test, "SaaS Starter <noreply@example.com>")]
+#[case::dev_server(dev_server(), "SaaS Starter <canary@example.test>")]
 #[case::staging(staging(), "SaaS Starter <canary@example.test>")]
 #[case::production(Environment::Production, "SaaS Starter <canary@example.test>")]
 fn every_environment_names_the_mail_sender(#[case] env: Environment, #[case] from: &str) {

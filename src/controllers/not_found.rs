@@ -22,7 +22,7 @@
 //! and never sees a miss, so without this one machine could ask for
 //! made-up addresses as fast as it liked, every one answered. The files
 //! have a generous bucket of their own where `settings.file_rate_limit`
-//! switches it on (`rate_limit::files_bucket`): staging and production. One
+//! switches it on (`rate_limit::files_bucket`): everywhere deployed. One
 //! page load fetches several files, so no person reaches it, only a script
 //! pulling the same files over and over.
 //!

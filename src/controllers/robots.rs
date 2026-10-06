@@ -40,6 +40,7 @@ mod tests {
         for env in [
             Environment::Any(DEV_LOCAL.into()),
             Environment::Test,
+            Environment::Any("dev-server".into()),
             Environment::Any("staging".into()),
         ] {
             assert_eq!(body_for(&env), "User-agent: *\nDisallow: /\n", "{env:?}");
