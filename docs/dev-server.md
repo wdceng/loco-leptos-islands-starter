@@ -21,7 +21,7 @@ keep staging for what is about to go live.
 
 | | dev-server | staging |
 |---|---|---|
-| URL | `https://dev.example.com` | `https://staging.example.com` |
+| URL | `https://dev.example.com` | `https://stg.example.com` |
 | Port | 3102 | 3101 |
 | Directory, unit | `/srv/app/dev`, `app-dev` | `/srv/app/stg`, `app-stg` |
 | Secrets | `secrets.dev-server.env` | `secrets.staging.env` |

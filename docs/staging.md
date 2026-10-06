@@ -6,7 +6,7 @@
 | Directory  | `/srv/app/stg`                           |
 | Unit, user | `app-stg.service`, `app-stg`             |
 | Port       | 3101                                     |
-| URL        | `https://<domain>`, e.g. `https://staging.example.com` |
+| URL        | `https://<domain>`, e.g. `https://stg.example.com` |
 
 Replace `<server>` and `<domain>` in the commands below. The directory, unit,
 user and port are suggestions; if you change one, change it everywhere in

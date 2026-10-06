@@ -25,7 +25,7 @@ server:
   binding: <%= get_env(name="BINDING", default="0.0.0.0") %>
   # Public origin of the staging site, used for links in outgoing mail.
   # Not a secret, so it has a default; HOST overrides it at start.
-  host: <%= get_env(name="HOST", default="https://staging.example.com") %>
+  host: <%= get_env(name="HOST", default="https://stg.example.com") %>
   # No `X-Powered-By` header.
   ident: ""
   middlewares:
@@ -147,7 +147,7 @@ settings:
   # transactional service wants one it has verified. The default lets
   # staging boot; MAILER_FROM replaces it together with the other MAILER_*.
   mail:
-    from: '<%= get_env(name="MAILER_FROM", default="SaaS Starter <noreply@staging.example.com>") %>'
+    from: '<%= get_env(name="MAILER_FROM", default="SaaS Starter <noreply@stg.example.com>") %>'
   # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
   # `zone` (an IANA name; UTC as shipped, set your own) the server stops
   # itself and the service manager starts it again. `Restart=always` in the
