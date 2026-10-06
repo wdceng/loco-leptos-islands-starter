@@ -1,9 +1,9 @@
 # Loco configuration file documentation
 #
-# This is the production environment. It differs from development in one
+# This is the production environment. It differs from dev-local in one
 # deliberate way: anything that is a secret or an address takes no default.
 # `get_env(name="X")` with no `default` fails at startup if `X` is unset, which
-# is what you want — a production app that silently falls back to a development
+# is what you want — a production app that silently falls back to a local
 # secret or a localhost database is worse than one that refuses to boot.
 #
 # The variables this file requires (loaded by the systemd unit from
@@ -233,7 +233,7 @@ database:
   # Minimum number of connections for a pool.
   min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="1") %>
   # Maximum number of connections for a pool. Serving real traffic on the
-  # development default of 1 serializes every request behind one connection.
+  # dev-local default of 1 serializes every request behind one connection.
   max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="10") %>
   # Run migration up when application loaded.
   # Convenient for single-instance deploys. Turn it off if you run more than

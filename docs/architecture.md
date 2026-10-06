@@ -141,7 +141,7 @@ Rules:
 - **One transaction, one library.** A Sea-ORM transaction and a SQLx
   transaction are never the same transaction.
 - **A new table or column:** a migration, `cargo loco db migrate`, then
-  `cargo sqlx prepare -- --all-targets` (`development.md`). Only then does
+  `cargo sqlx prepare -- --all-targets` (`dev-local.md`). Only then does
   `query!` see it. `.sqlx/` is committed, so builds without a database
   (CI, `cross`) check the queries offline. Always `-- --all-targets`: the
   plain form drops the tests' queries from the cache.
@@ -177,10 +177,10 @@ template changed a starter file, the column names the change.
 | Mail | Loco starter's mailer and wording; the rendering, sender setting and link origin are this template's | `src/mailers/auth.rs`, `src/views/mail.rs` | Welcome, forgot-password and magic-link mails, sent over the SMTP in `config/<env>.yaml` with Loco's `Mailer::mail`. The HTML part is a Leptos component: checked at compile time, every value escaped. Subject and text are `format!`. The sender, `settings.mail.from`, is parsed at boot the way the mailer parses it. Links start with `server.host` |
 | Background | Loco starter | `src/workers/`, `src/tasks/` | Starter examples: a download worker and a `user_create` CLI task |
 | Deploy checks | This template | `src/deploy_checks.rs` | At boot. Production refuses a secret that is set but empty or `replace-me`. Staging and production log in to SMTP once in the background and log the result, sending nothing |
-| Nightly restart | This template | `src/maintenance.rs` | Staging and production stop once a day (`settings.nightly_restart`), systemd starts them again. Never in development or test |
+| Nightly restart | This template | `src/maintenance.rs` | Staging and production stop once a day (`settings.nightly_restart`), systemd starts them again. Never in dev-local or test |
 | Migrations | Loco starter | `migration/` | Sea-ORM migrations, applied at boot (`auto_migrate: true`) |
 | Own queries | This template | `src/sql.rs`, `.sqlx/` | SQLx on Sea-ORM's pool, checked at compile time ("Sea-ORM and SQLx") |
-| Config | Loco starter (development, test, production); `staging.yaml` and the typed settings are this template's | `config/<env>.yaml` | Typed settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
+| Config | Loco starter (development, test, production), its `development.yaml` renamed `dev-local.yaml`; `staging.yaml` and the typed settings are this template's | `config/<env>.yaml` | Typed settings (`rate_limit`, `security`, `mail`, `nightly_restart`) in `src/settings.rs` |
 
 ## Security
 
@@ -216,7 +216,7 @@ mapping.
 | Authentication | JWT (`auth.jwt` in config), passwords hashed by Loco, e-mail verification, magic links, reset tokens | Loco | on |
 | Secrets | `JWT_SECRET` and `MAILER_*` (host, user, password, sender) come from the environment. Production has no defaults and won't boot without them, nor with one that is empty or still `replace-me` (`src/deploy_checks.rs`). Staging has public placeholders, so `LOCO_ENV` alone boots it. Deployed, the app logs in to SMTP once at start, in the background: a wrong account is a warning in the journal, never a refused boot. The production deploy chain stops before building when `secrets.production.env` is missing or has `replace-me` left | this project | on |
 | Outbound TLS (mailer) | Loco's mailer is `lettre` with RusTLS | Loco | on |
-| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`), since Loco has none. A `tower_governor` token bucket per visitor IP, or per /64 network for IPv6 so one machine can't rotate addresses. Keyed like Loco's `remote_ip`: `CF-Connecting-IP` behind the reference CDN, the TCP peer locally. Tuned per environment in `settings.rate_limit`. Misses get their own bucket with the same numbers. Static files get a generous bucket of their own on staging and production (`settings.file_rate_limit`, `rate_limit::files_bucket`): 300 at once, then 10 a second, which no person reaches, only a script pulling the same files over and over. Off in development and test. The 429 is an HTML page with `Retry-After`, rounded up so it's never 0, linking the stylesheet resolved at boot. `/api/auth` gets a second bucket (`rate_limit::auth_bucket`, `settings.rate_limit.auth`) because it mails any address (`register`) or takes a password. Deployed, it allows ten calls at once, then one per 30 s, inside the site-wide limit | this project | on |
+| Rate limiting | `rate_limit` middleware (`src/middleware/rate_limit.rs`), since Loco has none. A `tower_governor` token bucket per visitor IP, or per /64 network for IPv6 so one machine can't rotate addresses. Keyed like Loco's `remote_ip`: `CF-Connecting-IP` behind the reference CDN, the TCP peer locally. Tuned per environment in `settings.rate_limit`. Misses get their own bucket with the same numbers. Static files get a generous bucket of their own on staging and production (`settings.file_rate_limit`, `rate_limit::files_bucket`): 300 at once, then 10 a second, which no person reaches, only a script pulling the same files over and over. Off in dev-local and test. The 429 is an HTML page with `Retry-After`, rounded up so it's never 0, linking the stylesheet resolved at boot. `/api/auth` gets a second bucket (`rate_limit::auth_bucket`, `settings.rate_limit.auth`) because it mails any address (`register`) or takes a password. Deployed, it allows ten calls at once, then one per 30 s, inside the site-wide limit | this project | on |
 
 Not used:
 
@@ -264,7 +264,7 @@ wins on pages, the not-found and error pages included. Everything else
 scripts, no framing. It replaces the `github` preset's CSP, which allows
 scripts from any https origin and inline styles.
 
-Development and test add the `cargo leptos watch` websocket to the page
+Dev-local and test add the `cargo leptos watch` websocket to the page
 CSP's `connect-src`. Staging and production are identical.
 
 **The config canary**: `tests/config.rs` loads all four configs and pins,
@@ -275,10 +275,17 @@ cache policy and page CSP shape.
 
 | `LOCO_ENV` | Database | Secrets | Static files | Detail |
 |------------|----------|---------|--------------|--------|
-| `development` | `app_development.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `development.md` |
+| `dev-local` | `app_dev-local.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `dev-local.md` |
 | `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `testing.md` |
 | `staging` | `/var/lib/app-stg/app_staging.sqlite` (`StateDirectory`) | placeholder defaults, the environment may override | `site/`, 60 s, adds `X-Robots-Tag: noindex, nofollow` | `staging.md` |
 | `production` | `/var/lib/app-prod/app_production.sqlite` (`StateDirectory`) | required from the environment | `site/`, one year, immutable (needs the `LEPTOS_HASH_FILES=true` build) | `production.md` |
+
+**`dev-local` is Loco's `development`, renamed.** Loco falls back to
+`development` when `LOCO_ENV` is unset, and no config answers to that name
+here: a server started without `LOCO_ENV` refuses to boot instead of
+running on a developer's settings. Loco reads `dev-local` as
+`Environment::Any`, so code asks `settings::is_local`, never
+`Environment::Development`. `tests/config.rs` pins that the file stays gone.
 
 Secrets are environment variables, read by the `get_env` helper in the
 YAML. Loco loads no `.env` file. Getting them to the process is the
@@ -313,7 +320,7 @@ connections, requests in flight finish, `on_shutdown` runs, exit status 0.
 Without that, the stop is just a stop. Without signals, or if raising one
 fails, the task exits the process directly.
 
-Development and test never restart, whatever the config says. The stop
+Dev-local and test never restart, whatever the config says. The stop
 would kill `cargo leptos watch` with nothing to restart it, and tests boot
 the app inside the test process. The shipped configs keep it off there too,
 and `tests/config.rs` pins that.

@@ -28,7 +28,7 @@ Install commands are each tool's own. Your package manager works too.
 | 2.6 | **cargo-nextest** | One process per test (`cargo nextest run`). `.config/nextest.toml` keeps app-booting tests on one thread | `cargo install --locked cargo-nextest` |
 | 2.7 | **cargo-sweep** | Clears old native, wasm32 and cross builds out of `target/` | `cargo install --locked cargo-sweep` |
 | 2.8 | **sea-orm-cli** | Only for `cargo loco db entities`, which regenerates `src/models/_entities/`. `cargo loco doctor` flags it if missing | `cargo install --locked sea-orm-cli` |
-| 2.9 | **sqlx-cli** | `cargo sqlx prepare` refreshes the `.sqlx/` query cache after a migration or a new query (`development.md`). Same version as the `sqlx` crate, 0.9.0 | `cargo install --locked sqlx-cli@0.9.0 --no-default-features --features sqlite` |
+| 2.9 | **sqlx-cli** | `cargo sqlx prepare` refreshes the `.sqlx/` query cache after a migration or a new query (`dev-local.md`). Same version as the `sqlx` crate, 0.9.0 | `cargo install --locked sqlx-cli@0.9.0 --no-default-features --features sqlite` |
 
 On arm64, like Apple Silicon, `cross` emulates x86_64 and the default image
 tag has no arm64 manifest. Pull the pinned image once:
@@ -41,7 +41,7 @@ docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu:mai
 
 | # | Tool | Purpose | Install |
 |-----|------|---------|---------|
-| 3.1 | **SMTP catcher** | `config/development.yaml` sends mail to `localhost:1025`. Registration and password reset need something listening. Mailpit, MailHog and maildev all default to 1025, with a web inbox on 8025 | `docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit`, or a native build from https://github.com/axllent/mailpit. Or set `stub: true` under `mailer:` to keep mail in memory |
+| 3.1 | **SMTP catcher** | `config/dev-local.yaml` sends mail to `localhost:1025`. Registration and password reset need something listening. Mailpit, MailHog and maildev all default to 1025, with a web inbox on 8025 | `docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit`, or a native build from https://github.com/axllent/mailpit. Or set `stub: true` under `mailer:` to keep mail in memory |
 | 3.2 | **sqlite3** | Inspect the database files (`app_<env>.sqlite`). `.backup` makes a consistent copy while the app runs | Package manager, or https://sqlite.org/download.html |
 
 ## 4. Downloaded by cargo-leptos

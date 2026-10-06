@@ -16,7 +16,7 @@
 
 use std::path::Path;
 
-use app::settings::Settings;
+use app::settings::{DEV_LOCAL, Settings};
 use axum::http::HeaderValue;
 use loco_rs::{
     config::Config,
@@ -66,6 +66,11 @@ fn staging() -> Environment {
     Environment::Any("staging".into())
 }
 
+/// The local environment, `LOCO_ENV=dev-local` (src/settings.rs).
+fn dev_local() -> Environment {
+    Environment::Any(DEV_LOCAL.into())
+}
+
 /// Loco's configs use YAML-safe `<%= expr %>` tags, which its loader turns
 /// into Tera's `{{ expr }}` before rendering. That translation is private
 /// to Loco; ours only needs the interpolation form, so a statement or
@@ -95,8 +100,21 @@ fn load(env: &Environment) -> Config {
         .unwrap_or_else(|e| panic!("{}: not a Loco config: {e}", path.display()))
 }
 
+/// Loco falls back to `development` when `LOCO_ENV` is unset. With no
+/// config by that name, a server started without `LOCO_ENV` refuses to boot
+/// instead of running on a developer's settings.
+#[test]
+fn loco_s_default_environment_has_no_config() {
+    let path = Path::new("config").join(format!("{}.yaml", Environment::Development));
+    assert!(
+        !path.exists(),
+        "{}: the local config is {DEV_LOCAL}.yaml",
+        path.display()
+    );
+}
+
 #[rstest]
-#[case::development(Environment::Development)]
+#[case::dev_local(dev_local())]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
 #[case::staging(staging())]
@@ -219,7 +237,7 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
 }
 
 #[rstest]
-#[case::development(Environment::Development, "no-cache", "target/site")]
+#[case::dev_local(dev_local(), "no-cache", "target/site")]
 #[case::staging(staging(), "public, max-age=60", "site")]
 #[case::production(Environment::Production, "public, max-age=31536000, immutable", "site")]
 fn static_files_are_served_with_the_agreed_cache_policy(
@@ -280,12 +298,12 @@ fn deployed_environments_key_on_the_proxy_header(#[case] env: Environment) {
     );
     assert!(
         !settings.security.content_security_policy.contains("ws://"),
-        "{env}: the live-reload socket is development only"
+        "{env}: the live-reload socket is local only"
     );
 }
 
 #[rstest]
-#[case::development(Environment::Development)]
+#[case::dev_local(dev_local())]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
 fn local_environments_key_on_the_peer_and_allow_live_reload(#[case] env: Environment) {
@@ -313,7 +331,7 @@ fn local_environments_key_on_the_peer_and_allow_live_reload(#[case] env: Environ
 #[test]
 fn only_staging_hides_from_search_engines() {
     for env in [
-        Environment::Development,
+        dev_local(),
         Environment::Test,
         staging(),
         Environment::Production,
@@ -342,7 +360,7 @@ fn only_staging_hides_from_search_engines() {
 /// The nightly restart (src/maintenance.rs) must be off wherever nothing
 /// would restart the process: locally, and in the test harness.
 #[rstest]
-#[case::development(Environment::Development, false)]
+#[case::dev_local(dev_local(), false)]
 #[case::test_env(Environment::Test, false)]
 #[case::staging(staging(), true)]
 #[case::production(Environment::Production, true)]
@@ -360,7 +378,7 @@ fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] ena
 /// rechecks every file on every view, and in the test harness, which serves
 /// none. Generous where it is on: a page loads about ten files.
 #[rstest]
-#[case::development(Environment::Development, false)]
+#[case::dev_local(dev_local(), false)]
 #[case::test_env(Environment::Test, false)]
 #[case::staging(staging(), true)]
 #[case::production(Environment::Production, true)]
@@ -380,7 +398,7 @@ fn static_files_are_limited_only_when_deployed(#[case] env: Environment, #[case]
 /// which most SMTP services refuse. Deployed environments read it from
 /// `MAILER_FROM`, which the placeholder table stands in for here.
 #[rstest]
-#[case::development(Environment::Development, "SaaS Starter <noreply@example.com>")]
+#[case::dev_local(dev_local(), "SaaS Starter <noreply@example.com>")]
 #[case::test_env(Environment::Test, "SaaS Starter <noreply@example.com>")]
 #[case::staging(staging(), "SaaS Starter <canary@example.test>")]
 #[case::production(Environment::Production, "SaaS Starter <canary@example.test>")]

@@ -42,7 +42,7 @@ missing it says nothing either, so check that `ls secrets.production.env`
 finds it. The deploy chain below checks both.
 
 Try the release build locally first (http://localhost:5150), then
-`cargo leptos build` to go back to development:
+`cargo leptos build` to go back to dev-local:
 
 ```bash
 LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app start

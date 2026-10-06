@@ -52,7 +52,7 @@ use tower_governor::{
 use crate::{
     app::stored,
     assets::Assets,
-    settings::{RateLimitSettings, Settings},
+    settings::{RateLimitSettings, Settings, is_local},
     views::too_many_requests,
 };
 
@@ -62,7 +62,7 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 /// Where the visitor address is read from. Derived from `remote_ip`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum KeySource {
-    /// The TCP peer (`ConnectInfo`): development and tests.
+    /// The TCP peer (`ConnectInfo`): dev-local and the tests.
     Peer,
     /// `CF-Connecting-IP`, with the peer as fallback: behind Cloudflare.
     CfConnectingIp,
@@ -73,9 +73,9 @@ pub enum KeySource {
 ///
 /// # Errors
 /// The `remote_ip` source is one this limiter does not support, or the
-/// environment is a deployed one (anything but development/test) while the
-/// key would be the peer address, which behind a reverse proxy is always the
-/// proxy itself.
+/// environment is a deployed one (anything but dev-local and the tests,
+/// `settings::is_local`) while the key would be the peer address, which
+/// behind a reverse proxy is always the proxy itself.
 pub fn key_source(
     remote_ip: Option<&RemoteIpMiddleware>,
     env: &Environment,
@@ -93,10 +93,9 @@ pub fn key_source(
         },
         _ => KeySource::Peer,
     };
-    let local = matches!(env, Environment::Development | Environment::Test);
-    if !local && source == KeySource::Peer {
+    if !is_local(env) && source == KeySource::Peer {
         return Err(
-            "rate_limit: outside development/test the peer address is the reverse proxy, \
+            "rate_limit: outside dev-local and the tests the peer address is the reverse proxy, \
              so every visitor would share one bucket; enable remote_ip with source CfConnectingIp"
                 .into(),
         );
@@ -385,6 +384,7 @@ mod tests {
     use axum::http::HeaderMap;
 
     use super::*;
+    use crate::settings::DEV_LOCAL;
 
     const HEADER_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 9));
     const PEER_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1));
@@ -585,7 +585,7 @@ mod tests {
     fn key_source_follows_remote_ip() {
         let staging = Environment::Any("staging".into());
         assert_eq!(
-            key_source(None, &Environment::Development),
+            key_source(None, &Environment::Any(DEV_LOCAL.into())),
             Ok(KeySource::Peer)
         );
         assert_eq!(
@@ -620,7 +620,7 @@ mod tests {
     fn key_source_refuses_unsupported_sources() {
         let err = key_source(
             Some(&remote_ip(true, ClientIpSource::RightmostXForwardedFor)),
-            &Environment::Development,
+            &Environment::Any(DEV_LOCAL.into()),
         )
         .expect_err("XFF is not supported");
         assert!(err.contains("not supported"), "{err}");

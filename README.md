@@ -23,11 +23,11 @@ tool; the person committing answers for each one.
 | Pages and interactivity | **Leptos in islands mode**, added on top: pages render on the server, only `#[island]` components run in the browser |
 | **Security**: HTTP headers, a Content Security Policy with a new nonce on every page, rate limits per visitor (stricter on sign-up and login, 404s counted apart, a generous one on static files when deployed), a 64 KB body limit, a 15 s timeout | This template |
 | **Page basics**: page shell with favicons, web manifest and theme colour, the home page, Leptos pages for 404, 429 and errors (a browser never sees Loco's raw JSON or an empty body), `robots.txt`, `llms.txt` for AI assistants, a per-page robots tag, Tailwind v4 on its default look (its font stack and palette), ready for yours | This template |
-| **Running it**: a staging environment next to development, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
+| **Running it**: a staging environment next to dev-local, test and production, settings checked at boot, hashed asset names for a one-year cache in production, a nightly restart, SQLite only | This template |
 | **Checked SQL**: the app's own queries as SQLx `query!`, on Sea-ORM's pool, checked against the schema at compile time, with an offline cache for CI and `cross` | This template |
 | **Mail fixes**: sender set in config, links to the public address without the server's port, the HTML part of every mail as a Leptos component (compile-checked, escaped), subject and text as `format!` | This template |
 | **Checks**: tests for the headers, the CSP, the rate limits, the 404 page and all four config files; CI with fmt, clippy on both halves, the tests, a full build and `cargo audit` | This template |
-| **Docs**: `docs/development.md`, `docs/testing.md`, `docs/staging.md` and `docs/production.md` (systemd, Caddy, Cloudflare, one file per environment), `docs/architecture.md` | This template |
+| **Docs**: `docs/dev-local.md`, `docs/testing.md`, `docs/staging.md` and `docs/production.md` (systemd, Caddy, Cloudflare, one file per environment), `docs/architecture.md` | This template |
 
 Nothing Loco generated was removed except its nine Tera mail templates,
 now Leptos and `format!` (same mails, same links). Some files are extended,
@@ -88,8 +88,12 @@ in a terminal inside your copy of the project:
 ```sh
 rustup target add wasm32-unknown-unknown      # compile for the browser
 cargo install --locked cargo-leptos@0.3.8     # Leptos build tool, same version as CI
+export LOCO_ENV=dev-local                     # your machine's settings
 cargo leptos watch -- start                   # build and run the server
 ```
+
+Put the `export` line in your shell profile too (`~/.zshrc`). Without
+`LOCO_ENV` the app refuses to start, on purpose (`docs/dev-local.md`).
 
 The first build takes a few minutes while every dependency compiles. After
 that, seconds. When the terminal says the server is listening, open
@@ -97,7 +101,7 @@ http://localhost:5150.
 
 Change the text in `src/views/home.rs` and save. The page reloads by itself.
 
-The new `app_development.sqlite` in the project folder is your database.
+The new `app_dev-local.sqlite` in the project folder is your database.
 Delete it whenever you like, the next start makes a new one.
 
 Two things you'll want soon:
@@ -109,7 +113,7 @@ server. Run a fake one and read the mail at http://localhost:8025:
 docker run -p 1025:1025 -p 8025:8025 axllent/mailpit
 ```
 
-Or set `stub: true` under `mailer:` in `config/development.yaml` to keep mail
+Or set `stub: true` under `mailer:` in `config/dev-local.yaml` to keep mail
 in memory instead. The sender is `from:` under `settings: mail:` in the same
 file.
 
@@ -122,13 +126,13 @@ file.
 | Change what a page shows | `src/views/` |
 | Add something interactive (an island) | `src/islands.rs` |
 | Add a URL or change what it answers | `src/controllers/` |
-| Change the database or add a table | `migration/`, then refresh the query cache (`docs/development.md`) |
+| Change the database or add a table | `migration/`, then refresh the query cache (`docs/dev-local.md`) |
 | Write a query | `sqlx::query!` on `sql::pool(&ctx)` (`src/sql.rs`) |
 | Change Loco's users model | `src/models/` |
 | Change the e-mails or their sender | HTML part: `src/views/mail.rs`. Subject and text: `src/mailers/auth.rs`. Sender: `settings.mail.from` in `config/` |
 | Change styling | Tailwind classes in the views; colours, fonts and anything app-wide in `style/tailwind.css` |
 | Add an image, a font, a static file | `public/` |
-| Change settings per environment | `config/development.yaml`, `staging.yaml`, `production.yaml` |
+| Change settings per environment | `config/dev-local.yaml`, `staging.yaml`, `production.yaml` |
 
 ## Your first page
 
@@ -200,7 +204,7 @@ search for `app` in:
 - `examples/playground.rs`
 - the `tests/` folder
 - the `app_<env>.sqlite` lines in `config/*.yaml`
-- the commands in `docs/development.md`, `docs/testing.md`,
+- the commands in `docs/dev-local.md`, `docs/testing.md`,
   `docs/staging.md` and `docs/production.md`: every `app` that names the
   binary, such as `target/release/app`, `dist/app`, `/srv/app/stg/app` and
   `LEPTOS_OUTPUT_NAME=app`. The `/srv/app/` directories and the `app-stg`
@@ -221,7 +225,7 @@ What people see:
 | Tagline | `src/views/home.rs` |
 | Icons | `public/favicon/`: replace a file and build, its `?v=` updates by itself |
 | Colours | `style/tailwind.css`: four role tokens (`primary`, `surface`, `ink`, `ink-muted`), pointing at Tailwind's default palette |
-| Mail sender, `SaaS Starter <noreply@example.com>` | `config/development.yaml` and `config/test.yaml`, the staging default in `config/staging.yaml`, production reads `MAILER_FROM` |
+| Mail sender, `SaaS Starter <noreply@example.com>` | `config/dev-local.yaml` and `config/test.yaml`, the staging default in `config/staging.yaml`, production reads `MAILER_FROM` |
 
 **Change the colours in two places.** They're in `style/tailwind.css`, and
 repeated as hex in `SURFACE_HEX` and `BRAND_HEX` in `src/views/layout.rs`,
@@ -237,7 +241,7 @@ block of `config/staging.yaml` and `config/production.yaml`.
 
 ## Going further
 
-- [docs/development.md](docs/development.md): every command, the environments, release builds and the
+- [docs/dev-local.md](docs/dev-local.md): every command, the environments, release builds and the
   gotchas.
 - [docs/testing.md](docs/testing.md): what the tests cover and how to check the security by hand.
 - [docs/staging.md](docs/staging.md) and [docs/production.md](docs/production.md):

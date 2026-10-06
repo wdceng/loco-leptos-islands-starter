@@ -41,7 +41,7 @@ cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --featu
 The template's placeholders are fine on staging, not on production.
 
 Try the release build locally first (http://localhost:5150), then
-`cargo leptos build` to go back to development:
+`cargo leptos build` to go back to dev-local:
 
 ```bash
 LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app start

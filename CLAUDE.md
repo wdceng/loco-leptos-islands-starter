@@ -30,6 +30,7 @@ where it deliberately differs. The reasons are in `docs/architecture.md`.
 | Views are Tera templates or JSON (`src/views/`) | Pages are **Leptos** components (`src/views/`), rendered through `render_page` (`src/render.rs`). `src/views/auth.rs` still holds the auth API's JSON shapes |
 | Mailers use Tera `.t` templates (`mail_template`) | The HTML part is a Leptos component (`src/views/mail.rs`), subject and text are `format!`, sent with `Mailer::mail`. `cargo loco generate mailer` writes Tera templates and won't compile here (no `include_dir` crate); write new mails like `src/mailers/auth.rs` |
 | Query through Sea-ORM | Loco's own models stay on Sea-ORM. **The app's own queries use SQLx `query!`** on `sql::pool(&ctx)`: checked against the schema at compile time ("Sea-ORM and SQLx" in `docs/architecture.md`) |
+| Environments `development`, `test`, `production` (`LOCO_ENV`, default `development`) | The local one is **`dev-local`** (`config/dev-local.yaml`, `settings::DEV_LOCAL`), plus `staging`. There is no `development` config, so an unset `LOCO_ENV` refuses to boot. Check "is this local?" with `settings::is_local`, never `Environment::Development` |
 | Static files from `assets/static` | Files live in `public/` and are **linked only through `paths::assets`** (versioned constants from `build.rs`). A plain `"/favicon/..."` string fails the links test |
 
 ## Rules the compiler or tests can't enforce
@@ -58,7 +59,7 @@ cargo test
 ```
 
 After a migration or a new or changed `query!`, refresh the SQLx cache
-(`docs/development.md`) and commit `.sqlx/` with the change.
+(`docs/dev-local.md`) and commit `.sqlx/` with the change.
 
 Commit messages are plain sentences about the change, with no tool or AI
 named in them. The maintainer commits with

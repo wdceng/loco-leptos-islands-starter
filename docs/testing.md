@@ -164,7 +164,7 @@ so the suite runs in about a second.
   is today while the hour is ahead, tomorrow from the hour on. In
   Europe/Zagreb, 2026-03-29 02:30 (the spring-forward gap) is `None` but
   03:00 exists, and 2026-10-25 02:30 (repeated in autumn) resolves to the
-  later, CET one. Development and test never restart, production and
+  later, CET one. Dev-local and test never restart, production and
   staging may. The stop itself is Loco's ordinary SIGTERM shutdown, checked
   by hand below.
 - `src/middleware/rate_limit.rs`: the key extractor (IPv6 keyed by its /64
@@ -257,8 +257,8 @@ chain works: server markers, bundle load, `hydrate()`, hydration.
 
 ### Rate limiting
 
-Development allows a burst of 300 route requests per IP, refilling one per
-second (`settings.rate_limit` in `config/development.yaml`). Against
+Dev-local allows a burst of 300 route requests per IP, refilling one per
+second (`settings.rate_limit` in `config/dev-local.yaml`). Against
 `cargo loco start`, in one go:
 
 ```bash
@@ -292,7 +292,7 @@ Expected: `120 200` and `5 429`. With `2001:db8:1:$i::1` instead, every
 request is a different /64, so all 125 pass.
 
 The auth API has its own, smaller bucket: `settings.rate_limit.auth`, burst
-30 in development. `cargo loco middleware -c` shows it under `auth` in the
+30 in dev-local. `cargo loco middleware -c` shows it under `auth` in the
 `rate_limit` entry, not as a middleware of its own. To see it:
 
 ```bash
@@ -314,7 +314,7 @@ curl -s -X POST -H 'content-type: application/json' -d '{"name":"Ana","email":"a
 
 Expected in the catcher's inbox (http://localhost:8025): one mail from
 `SaaS Starter <noreply@example.com>` (`settings.mail.from` in
-`config/development.yaml`, never Loco's `System <system@example.com>`),
+`config/dev-local.yaml`, never Loco's `System <system@example.com>`),
 with a verification link starting `http://localhost:5150/api/auth/verify/`
 (`server.host` as written, not `host:port`).
 
@@ -355,7 +355,7 @@ Both files must be in `target/site/pkg`. Then check the two refusals:
    `target/site` is hashed, so it must refuse with "a hashed build must be
    deployed together with its hash file".
 
-Finish with `cargo leptos build` to get plain names back for development.
+Finish with `cargo leptos build` to get plain names back for dev-local.
 
 ### Security headers
 
@@ -369,7 +369,7 @@ from the config instead (`default-src 'none'; style-src 'self'; …`). On a
 deployed copy, run it against `http://127.0.0.1:<port>/`.
 
 Under `cargo leptos watch -- start`, with the console open: no CSP
-violation, and live reload still works (the development `connect-src`
+violation, and live reload still works (the dev-local `connect-src`
 allows its websocket).
 
 After a deploy, scan the public host on https://securityheaders.com and

@@ -1,5 +1,5 @@
 //! `/robots.txt`, decided by environment. Only production may be indexed;
-//! staging, development and test tell crawlers to stay away, so the staging
+//! staging, dev-local and test tell crawlers to stay away, so the staging
 //! copy never competes with the live site in search results.
 
 use loco_rs::{environment::Environment, prelude::*};
@@ -25,6 +25,7 @@ pub fn routes() -> Routes {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings::DEV_LOCAL;
 
     #[test]
     fn production_is_open() {
@@ -37,7 +38,7 @@ mod tests {
     #[test]
     fn everything_else_is_closed() {
         for env in [
-            Environment::Development,
+            Environment::Any(DEV_LOCAL.into()),
             Environment::Test,
             Environment::Any("staging".into()),
         ] {

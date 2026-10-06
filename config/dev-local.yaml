@@ -1,4 +1,10 @@
 # Loco configuration file documentation
+#
+# This is the dev-local environment, a developer's own machine:
+# `LOCO_ENV=dev-local`. It replaces Loco's `development`, which Loco falls
+# back to when `LOCO_ENV` is unset. No config answers to that name, so a
+# server started without `LOCO_ENV` refuses to boot instead of running on
+# these settings.
 
 # Application logging configuration
 logger:
@@ -146,7 +152,7 @@ settings:
   # Nightly restart (src/maintenance.rs): once a day at `hour` o'clock in
   # `zone` (an IANA name; UTC as shipped, set your own) the server stops
   # itself and the service manager starts it again. Off locally: nothing
-  # would restart the dev loop, and the app ignores the flag in development
+  # would restart the dev loop, and the app ignores the flag in dev-local
   # and test anyway.
   nightly_restart:
     enable: false
@@ -165,7 +171,7 @@ workers:
 
 # Mailer Configuration.
 mailer:
-  # Sending mail in development needs something listening on the port below.
+  # Sending mail locally needs something listening on the port below.
   # Run a local catcher — mailpit, MailHog or maildev all default to SMTP on
   # 1025 with a web inbox on 8025 — e.g. `docker run -p 1025:1025 -p 8025:8025
   # axllent/mailpit`, then read the mail at http://localhost:8025.
@@ -197,7 +203,7 @@ mailer:
 # Database Configuration
 database:
   # Database connection URI
-  uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_development.sqlite?mode=rwc") %>
+  uri: <%= get_env(name="DATABASE_URL", default="sqlite://app_dev-local.sqlite?mode=rwc") %>
   # When enabled, the sql query will be logged.
   enable_logging: <%= get_env(name="DB_LOGGING", default="false") %>
   # Set the timeout duration when acquiring a connection.

@@ -15,7 +15,7 @@
 //! instead. Either way the restart itself is the unit's `Restart=always`
 //! (`docs/production.md`): without that line the stop is just a stop.
 //!
-//! Deployed environments only: `spawn` refuses to run in development, where
+//! Deployed environments only: `spawn` refuses to run in dev-local, where
 //! the stop would kill the `cargo leptos watch` server with nothing to
 //! restart it, and in test, where the harness boots the app inside the test
 //! process. The config files keep the block off locally as well; this is
@@ -32,7 +32,7 @@ use chrono_tz::Tz;
 use loco_rs::{Error, Result, environment::Environment};
 use tracing::{info, warn};
 
-use crate::settings::NightlyRestartSettings;
+use crate::settings::{NightlyRestartSettings, is_local};
 
 /// Starts the restart loop in the background and logs the decision either
 /// way. Called once per server start, from `after_routes` in `app.rs`.
@@ -64,13 +64,6 @@ pub fn spawn(settings: &NightlyRestartSettings, env: &Environment) -> Result<()>
     );
     tokio::spawn(run_nightly_restart_loop(at, zone));
     Ok(())
-}
-
-/// Development and test never restart, whatever the config says. Loco
-/// parses an environment name it does not know into `Any`, which is how
-/// `LOCO_ENV=staging` arrives here, so everything else counts as deployed.
-pub(crate) fn is_local(env: &Environment) -> bool {
-    matches!(env, Environment::Development | Environment::Test)
 }
 
 /// Sleeps until the next `at` in `zone`, then stops the process.
@@ -230,13 +223,5 @@ mod tests {
             3600,
             "the later one is CET"
         );
-    }
-
-    #[test]
-    fn local_environments_never_restart() {
-        assert!(is_local(&Environment::Development));
-        assert!(is_local(&Environment::Test));
-        assert!(!is_local(&Environment::Production));
-        assert!(!is_local(&Environment::Any("staging".to_string())));
     }
 }
