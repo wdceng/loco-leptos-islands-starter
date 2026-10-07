@@ -1,20 +1,9 @@
-# Dev-local
+# Development
 
-Day-to-day commands on your own machine, and a few traps. First time here?
-Start with "Run it in five minutes" in `README.md`.
+Day-to-day commands and a few traps. First time here? Start with "Run it in
+five minutes" in `README.md`.
 
 ## Run
-
-Your machine is the `dev-local` environment. Set it once in your shell
-profile (`~/.zshrc`, `~/.bash_profile`):
-
-```bash
-export LOCO_ENV=dev-local
-```
-
-**Without it nothing starts.** Loco falls back to `development`, and there's
-no config by that name: on a server, a missing `LOCO_ENV` fails loudly
-instead of running on your settings.
 
 ```bash
 cargo leptos watch -- start                  # this Mac only
@@ -77,7 +66,7 @@ code.
 ```bash
 cargo loco db status          # which migrations ran
 cargo loco db migrate         # run new ones
-cargo loco db reset           # wipe and rebuild (dev-local only)
+cargo loco db reset           # wipe and rebuild (development only)
 cargo loco db entities        # regenerate src/models/_entities/ (needs sea-orm-cli)
 cargo loco task user_create   # run a task; `cargo loco task` lists them
 ```
@@ -95,7 +84,7 @@ machine and in `cross`. The one step that touches the database is
 
 ```bash
 cargo loco db migrate                                                          # the schema first
-DATABASE_URL=sqlite://app_dev-local.sqlite cargo sqlx prepare -- --all-targets     # then the cache
+DATABASE_URL=sqlite://app_development.sqlite cargo sqlx prepare -- --all-targets   # then the cache
 ```
 
 Commit `.sqlx/` with the change. CI fails if you forget.
@@ -105,7 +94,7 @@ Commit `.sqlx/` with the change. CI fails if you forget.
 - **Always `-- --all-targets`.** Without it the tests' queries drop out of
   the cache.
 - **Checking against the live database** while you write a query: put
-  `SQLX_OFFLINE=false DATABASE_URL=sqlite://app_dev-local.sqlite` in front
+  `SQLX_OFFLINE=false DATABASE_URL=sqlite://app_development.sqlite` in front
   of `cargo check --all-targets`. A wrong column then fails the build with
   `no such column`.
 
@@ -155,7 +144,7 @@ from environment variables.
 
 | Environment | For | Files from | Browser cache | Host |
 |---|---|---|---|---|
-| `dev-local` | your machine | `target/site` | rechecks every time | `http://localhost:5150` |
+| `development` | your machine (default) | `target/site` | rechecks every time | `http://localhost:5150` |
 | `test` | `cargo test` | none | none | `http://localhost:5150` |
 | `dev-server` | development copy online, staging's twin | `site/` | 60 s | `server.host` in the config |
 | `staging` | test copy online | `site/` | 60 s | `server.host` in the config |
@@ -163,7 +152,7 @@ from environment variables.
 
 The host is where links in e-mails point. It's used exactly as written, no
 port added, so if you run locally on another port, change it in
-`config/dev-local.yaml` too.
+`config/development.yaml` too.
 
 With a one-year cache, a changed file needs a new URL:
 
@@ -198,5 +187,5 @@ to bottom.
 - **`as` and `type` are keywords.** In `view!`, write `r#as` and `r#type`.
 - **Islands go in `src/islands.rs`.** One in `src/views/` renders, but never
   runs in the browser.
-- **Staging and production restart every night.** Dev-local never does,
+- **Staging and production restart every night.** Development never does,
   so a watch loop left on overnight is still running in the morning.

@@ -63,7 +63,7 @@ impl Hooks for App {
     ///    owns the routes. A second boot in the same process (tests) gets
     ///    `Err(already set)`, which is fine to ignore.
     /// 2. Loads the Leptos options and parks them in Loco's shared store,
-    ///    where controllers pick them up to render pages. In dev-local and
+    ///    where controllers pick them up to render pages. In development and
     ///    tests they come from `[package.metadata.leptos]` in Cargo.toml,
     ///    with any `LEPTOS_*` env vars (set by cargo-leptos) taking
     ///    precedence. In production there is no Cargo.toml next to the

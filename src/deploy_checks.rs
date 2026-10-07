@@ -107,7 +107,7 @@ fn transport(smtp: &SmtpMailer) -> std::result::Result<AsyncSmtpTransport<Tokio1
 }
 
 /// Starts the one-time SMTP login in the background, when deployed and
-/// mail goes over SMTP. Dev-local (Mailpit may not run) and test (the
+/// mail goes over SMTP. Development (Mailpit may not run) and test (the
 /// stub mailer) are skipped.
 pub fn spawn_smtp_login(ctx: &AppContext) {
     if is_local(&ctx.environment) {

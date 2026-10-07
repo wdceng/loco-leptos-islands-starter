@@ -222,7 +222,7 @@ assets-dir = "public"
 # so build.rs recomputes its `?v=` hash (src/paths.rs) at once, not at the
 # next Rust edit.
 watch-additional-files = ["public"]
-# Must match where Loco listens (config/dev-local.yaml).
+# Must match where Loco listens (config/development.yaml).
 site-addr = "127.0.0.1:5150"
 # Server half builds with `ssr`, browser half with `hydrate`, nothing else.
 bin-features = ["ssr"]

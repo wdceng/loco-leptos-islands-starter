@@ -19,7 +19,7 @@ server:
   # Port on which the server will listen. the server binding is 0.0.0.0:{PORT}
   port: 5150
   # The start of every link in outgoing mail; the port is part of it, as in
-  # dev-local.yaml.
+  # development.yaml.
   host: http://localhost:5150
   # Empty removes the X-Powered-By header, as in every other environment.
   ident: ""
@@ -40,7 +40,7 @@ server:
     limit_payload:
       body_limit: 64kb
     # Same headers as the deployed environments so the request tests assert
-    # the real values. See dev-local.yaml for the reasoning.
+    # the real values. See development.yaml for the reasoning.
     secure_headers:
       enable: true
       preset: github
@@ -78,7 +78,7 @@ settings:
   file_rate_limit:
     enable: false
   security:
-    # Same policy as dev-local, so the tests see what a developer sees.
+    # Same policy as development, so the tests see what a developer sees.
     content_security_policy: >-
       default-src 'none';
       script-src 'self' 'nonce-{nonce}' 'wasm-unsafe-eval';

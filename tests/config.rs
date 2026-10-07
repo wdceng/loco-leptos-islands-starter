@@ -16,7 +16,7 @@
 
 use std::path::Path;
 
-use app::settings::{DEV_LOCAL, Settings};
+use app::settings::Settings;
 use axum::http::HeaderValue;
 use loco_rs::{
     config::Config,
@@ -69,11 +69,6 @@ fn staging() -> Environment {
 /// Staging's twin on its own subdomain (docs/dev-server.md).
 fn dev_server() -> Environment {
     Environment::Any("dev-server".into())
-}
-
-/// The local environment, `LOCO_ENV=dev-local` (src/settings.rs).
-fn dev_local() -> Environment {
-    Environment::Any(DEV_LOCAL.into())
 }
 
 /// Loco's configs use YAML-safe `<%= expr %>` tags, which its loader turns
@@ -133,21 +128,8 @@ fn dev_server_is_staging_on_its_own_host() {
     );
 }
 
-/// Loco falls back to `development` when `LOCO_ENV` is unset. With no
-/// config by that name, a server started without `LOCO_ENV` refuses to boot
-/// instead of running on a developer's settings.
-#[test]
-fn loco_s_default_environment_has_no_config() {
-    let path = Path::new("config").join(format!("{}.yaml", Environment::Development));
-    assert!(
-        !path.exists(),
-        "{}: the local config is {DEV_LOCAL}.yaml",
-        path.display()
-    );
-}
-
 #[rstest]
-#[case::dev_local(dev_local())]
+#[case::development(Environment::Development)]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
 #[case::dev_server(dev_server())]
@@ -271,7 +253,7 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
 }
 
 #[rstest]
-#[case::dev_local(dev_local(), "no-cache", "target/site")]
+#[case::development(Environment::Development, "no-cache", "target/site")]
 #[case::dev_server(dev_server(), "public, max-age=60", "site")]
 #[case::staging(staging(), "public, max-age=60", "site")]
 #[case::production(Environment::Production, "public, max-age=31536000, immutable", "site")]
@@ -339,7 +321,7 @@ fn deployed_environments_key_on_the_proxy_header(#[case] env: Environment) {
 }
 
 #[rstest]
-#[case::dev_local(dev_local())]
+#[case::development(Environment::Development)]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
 fn local_environments_key_on_the_peer_and_allow_live_reload(#[case] env: Environment) {
@@ -367,7 +349,7 @@ fn local_environments_key_on_the_peer_and_allow_live_reload(#[case] env: Environ
 #[test]
 fn only_the_online_test_copies_hide_from_search_engines() {
     for env in [
-        dev_local(),
+        Environment::Development,
         Environment::Test,
         dev_server(),
         staging(),
@@ -400,7 +382,7 @@ fn only_the_online_test_copies_hide_from_search_engines() {
 /// The nightly restart (src/maintenance.rs) must be off wherever nothing
 /// would restart the process: locally, and in the test harness.
 #[rstest]
-#[case::dev_local(dev_local(), false)]
+#[case::development(Environment::Development, false)]
 #[case::test_env(Environment::Test, false)]
 #[case::dev_server(dev_server(), true)]
 #[case::staging(staging(), true)]
@@ -419,7 +401,7 @@ fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] ena
 /// rechecks every file on every view, and in the test harness, which serves
 /// none. Generous where it is on: a page loads about ten files.
 #[rstest]
-#[case::dev_local(dev_local(), false)]
+#[case::development(Environment::Development, false)]
 #[case::test_env(Environment::Test, false)]
 #[case::dev_server(dev_server(), true)]
 #[case::staging(staging(), true)]
@@ -440,7 +422,7 @@ fn static_files_are_limited_only_when_deployed(#[case] env: Environment, #[case]
 /// which most SMTP services refuse. Deployed environments read it from
 /// `MAILER_FROM`, which the placeholder table stands in for here.
 #[rstest]
-#[case::dev_local(dev_local(), "SaaS Starter <noreply@example.com>")]
+#[case::development(Environment::Development, "SaaS Starter <noreply@example.com>")]
 #[case::test_env(Environment::Test, "SaaS Starter <noreply@example.com>")]
 #[case::dev_server(dev_server(), "SaaS Starter <canary@example.test>")]
 #[case::staging(staging(), "SaaS Starter <canary@example.test>")]

@@ -62,7 +62,7 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 /// Where the visitor address is read from. Derived from `remote_ip`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum KeySource {
-    /// The TCP peer (`ConnectInfo`): dev-local and the tests.
+    /// The TCP peer (`ConnectInfo`): development and the tests.
     Peer,
     /// `CF-Connecting-IP`, with the peer as fallback: behind Cloudflare.
     CfConnectingIp,
@@ -73,7 +73,7 @@ pub enum KeySource {
 ///
 /// # Errors
 /// The `remote_ip` source is one this limiter does not support, or the
-/// environment is a deployed one (anything but dev-local and the tests,
+/// environment is a deployed one (anything but development and the tests,
 /// `settings::is_local`) while the key would be the peer address, which
 /// behind a reverse proxy is always the proxy itself.
 pub fn key_source(
@@ -95,7 +95,7 @@ pub fn key_source(
     };
     if !is_local(env) && source == KeySource::Peer {
         return Err(
-            "rate_limit: outside dev-local and the tests the peer address is the reverse proxy, \
+            "rate_limit: outside development and the tests the peer address is the reverse proxy, \
              so every visitor would share one bucket; enable remote_ip with source CfConnectingIp"
                 .into(),
         );
@@ -384,7 +384,6 @@ mod tests {
     use axum::http::HeaderMap;
 
     use super::*;
-    use crate::settings::DEV_LOCAL;
 
     const HEADER_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 9));
     const PEER_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1));
@@ -585,7 +584,7 @@ mod tests {
     fn key_source_follows_remote_ip() {
         let staging = Environment::Any("staging".into());
         assert_eq!(
-            key_source(None, &Environment::Any(DEV_LOCAL.into())),
+            key_source(None, &Environment::Development),
             Ok(KeySource::Peer)
         );
         assert_eq!(
@@ -620,7 +619,7 @@ mod tests {
     fn key_source_refuses_unsupported_sources() {
         let err = key_source(
             Some(&remote_ip(true, ClientIpSource::RightmostXForwardedFor)),
-            &Environment::Any(DEV_LOCAL.into()),
+            &Environment::Development,
         )
         .expect_err("XFF is not supported");
         assert!(err.contains("not supported"), "{err}");

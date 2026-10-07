@@ -20,24 +20,15 @@ use serde::{Deserialize, Serialize};
 /// per request by `render_page` (src/render.rs).
 pub const NONCE_PLACEHOLDER: &str = "{nonce}";
 
-/// The local environment's name, a developer's own machine:
-/// `LOCO_ENV=dev-local`, `config/dev-local.yaml`. It takes the place of
-/// Loco's `development`, which a shell without `LOCO_ENV` falls back to and
-/// which has no config here, so a server started without `LOCO_ENV` refuses
-/// to boot instead of running on local settings. Loco reads a name it
-/// doesn't know as `Environment::Any`.
-pub const DEV_LOCAL: &str = "dev-local";
-
-/// Whether `env` runs on a developer's machine or in the tests, never
-/// deployed: the nightly restart and the SMTP login check skip it, and the
-/// rate limiter keys on the connection's own address.
+/// Whether `env` runs on a developer's machine (`development`, Loco's
+/// default when `LOCO_ENV` is unset) or in the tests, never deployed: the
+/// nightly restart and the SMTP login check skip it, and the rate limiter
+/// keys on the connection's own address. Loco reads a name it doesn't know
+/// as `Environment::Any`, which is how `staging` and `dev-server` arrive, so
+/// everything else counts as deployed.
 #[must_use]
 pub fn is_local(env: &Environment) -> bool {
-    match env {
-        Environment::Test => true,
-        Environment::Any(name) => name == DEV_LOCAL,
-        _ => false,
-    }
+    matches!(env, Environment::Development | Environment::Test)
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -485,12 +476,11 @@ mod tests {
     }
 
     #[test]
-    fn only_dev_local_and_the_tests_are_local() {
-        assert!(is_local(&Environment::Any(DEV_LOCAL.into())));
+    fn only_development_and_the_tests_are_local() {
+        assert!(is_local(&Environment::Development));
         assert!(is_local(&Environment::Test));
         assert!(!is_local(&Environment::Production));
         assert!(!is_local(&Environment::Any("staging".into())));
-        // Loco's own name for it, which no config answers to here.
-        assert!(!is_local(&Environment::Development));
+        assert!(!is_local(&Environment::Any("dev-server".into())));
     }
 }

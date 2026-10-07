@@ -16,7 +16,7 @@
 //! instead. Either way the restart itself is the unit's `Restart=always`
 //! (`docs/production.md`): without that line the stop is just a stop.
 //!
-//! Deployed environments only: `spawn` refuses to run in dev-local, where
+//! Deployed environments only: `spawn` refuses to run in development, where
 //! the stop would kill the `cargo leptos watch` server with nothing to
 //! restart it, and in test, where the harness boots the app inside the test
 //! process. The config files keep the block off locally as well; this is
