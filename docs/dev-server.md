@@ -52,7 +52,7 @@ LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ### Build and deploy
 
 ```bash
-cargo clippy --all-targets && cargo test &&
+test -f secrets.dev-server.env &&
 LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --frontend-only &&
 cross build --profile staging --target x86_64-unknown-linux-gnu &&
 rm -rf dist && mkdir dist &&
@@ -73,6 +73,9 @@ ssh <server> "journalctl -u app-dev -f"
 ```
 
 - A failing step stops the chain. A failed build never touches the server.
+- **No `secrets.dev-server.env`, no deploy.** The first line stops the
+  chain before anything is built; without it the upload near the end would
+  fail with the unit already stopped.
 - The `staging` profile is faster to rebuild than `--release` and keeps
   line numbers in backtraces. The dev server shares it.
 - `hash.txt` must travel with the binary and match `site/`, or the app
