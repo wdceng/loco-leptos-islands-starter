@@ -339,25 +339,26 @@ or password is a `WARN` with the reason, and the site still answers.
 ### Hashed asset names
 
 ```bash
-LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app start
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release &&
+LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```
 
 Then:
 
 ```bash
-curl -s http://localhost:5150/ | grep -o 'href="/pkg/[^"]*"'   # app.<hash>.css and app.<hash>.js
+curl -s http://localhost:5151/ | grep -o 'href="/pkg/[^"]*"'   # app.<hash>.css and app.<hash>.js
 cat target/release/hash.txt                                    # the same hashes
 ```
 
-Both files must be in `target/site/pkg`. Then check the two refusals:
+Both files must be in `target/site-release/pkg`, and `target/site` keeps
+the watch loop's plain names. Then check the two refusals:
 
 1. Edit a hash in `target/release/hash.txt` and start the release binary
    again. It must refuse with "the hash file is stale".
-2. Run `cargo loco start`. The debug binary has no hash file next to it but
-   `target/site` is hashed, so it must refuse with "a hashed build must be
-   deployed together with its hash file".
-
-Finish with `cargo leptos build` to get plain names back for development.
+2. Run `LEPTOS_SITE_ROOT=target/site-release cargo loco start`. The debug
+   binary has no hash file next to it but `target/site-release` is hashed,
+   so it must refuse with "a hashed build must be deployed together with
+   its hash file".
 
 ### Security headers
 

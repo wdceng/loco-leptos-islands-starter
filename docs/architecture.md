@@ -76,6 +76,15 @@ depends on it, so every release is built this way. `Cargo.toml` leaves
 hashing off on purpose: the watch loop only hashes its first build, then
 goes stale.
 
+Release builds also set `LEPTOS_SITE_ROOT=target/site-release`, which
+cargo-leptos reads over `site-root` in `Cargo.toml`. cargo-leptos empties
+its site folder at the start of every build, so a release build into
+`target/site` would replace the watch loop's files with hashed ones. Kept
+apart, the two never touch each other's files. `hash.txt` doesn't move: it
+goes next to the binary, whatever the site folder. Locally,
+`config/development.yaml` reads the same variable for its `static` folder,
+so a release binary run with it serves its own files.
+
 cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
 every file there itself, at compile time: a hash of each file's bytes
 (FNV-1a, no new crate), written as one Rust constant per file in modules

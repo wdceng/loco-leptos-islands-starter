@@ -41,11 +41,12 @@ The second line prints nothing when the file is ready. If the file is
 missing it says nothing either, so check that `ls secrets.production.env`
 finds it. The deploy chain below checks both.
 
-Try the release build locally first (http://localhost:5150), then
-`cargo leptos build` to go back to development:
+Try the release build locally first (http://localhost:5151). It builds into
+`target/site-release`, so the watch loop on 5150 keeps running untouched:
 
 ```bash
-LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app start
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release &&
+LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```
 
 ### Build and deploy
@@ -54,12 +55,12 @@ LEPTOS_HASH_FILES=true cargo leptos build --release && ./target/release/app star
 cargo audit && ! grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs &&
 test -s secrets.production.env && ! grep -q "replace-me" secrets.production.env &&
 cargo clippy --all-targets && cargo test &&
-LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only &&
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --frontend-only &&
 cross build --release --target x86_64-unknown-linux-gnu &&
 rm -rf dist && mkdir dist &&
 cp target/x86_64-unknown-linux-gnu/release/app dist/app &&
 cp target/release/hash.txt dist/hash.txt &&
-cp -r target/site dist/site &&
+cp -r target/site-release dist/site &&
 ssh <server> "mkdir -p /srv/app/prod/config" &&
 ssh <server> "systemctl stop app-prod" &&
 ssh <server> "cd /srv/app/prod && { [ -f app ] && cp app app.prev; [ -f hash.txt ] && cp hash.txt hash.txt.prev; [ -d site ] && rm -rf site.prev && mv site site.prev; true; }" &&
@@ -198,7 +199,7 @@ umask 077 && printf 'JWT_SECRET=%s\nMAILER_HOST=replace-me\nMAILER_USER=replace-
 ├── app          Linux binary
 ├── hash.txt     next to the binary
 ├── config/      production.yaml only
-├── site/        target/site
+├── site/        target/site-release
 └── secrets.env  root-only, loaded by the unit
 ```
 

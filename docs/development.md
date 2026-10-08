@@ -110,14 +110,21 @@ No server or browser needed. More in `testing.md`.
 ## Release Builds
 
 ```bash
-LEPTOS_HASH_FILES=true cargo leptos build --release
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release   # build
+LEPTOS_SITE_ROOT=target/site-release ./target/release/app start                           # run it locally
 ```
 
 Always keep `LEPTOS_HASH_FILES=true`. It puts a hash in the file names
 (`app.<hash>.css`) and writes `hash.txt` next to the binary, so production
 can cache files for a year. Without it, visitors get stale files.
 
-You get `target/release/app`, `target/release/hash.txt` and `target/site/`.
+Always keep `LEPTOS_SITE_ROOT=target/site-release` too. The watch loop owns
+`target/site`; a release build there would replace its files with hashed
+ones. Kept apart, both can run at once: give the release one
+`PORT=5151`.
+
+You get `target/release/app`, `target/release/hash.txt` and
+`target/site-release/`.
 
 Size, for reference: with no island the wasm is about 28 KB gzipped. The
 first island brings in the Leptos runtime, about 52 KB gzipped. More islands
@@ -129,8 +136,8 @@ Your Mac can't build a Linux binary directly, so the server part is built
 with `cross`, inside a Linux container:
 
 ```bash
-LEPTOS_HASH_FILES=true cargo leptos build --release --frontend-only   # site files and hash.txt
-cross build --release --target x86_64-unknown-linux-gnu               # target/x86_64-unknown-linux-gnu/release/app
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --frontend-only   # site files and hash.txt
+cross build --release --target x86_64-unknown-linux-gnu                                                   # target/x86_64-unknown-linux-gnu/release/app
 ```
 
 For staging, use `--profile staging` instead of `--release` on the second
@@ -175,13 +182,15 @@ to bottom.
 
 ## Gotchas
 
-- **Won't start after a release build?** `target/site` now has hashed names
+- **Won't start after a release build?** It was built without
+  `LEPTOS_SITE_ROOT=target/site-release`, so `target/site` has hashed names
   the debug build can't find. Run `cargo leptos build` or the watch loop.
 - **Keep `LEPTOS_OUTPUT_NAME` in `.cargo/config.toml`.** Leptos needs it to
   name the wasm file the same way cargo-leptos does.
 - **Some crates recompile** when you switch between `cargo leptos` and plain
   `cargo`. It only costs a few seconds.
-- **`target/site` is wiped on every build.** Put static files in `public/`.
+- **`target/site` and `target/site-release` are wiped on every build.** Put
+  static files in `public/`.
 - **Two `Error` types.** Loco and Leptos both export one. In files that use
   both, import Leptos items by name, not `leptos::prelude::*`.
 - **`as` and `type` are keywords.** In `view!`, write `r#as` and `r#type`.

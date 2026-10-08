@@ -41,6 +41,11 @@ where it deliberately differs. The reasons are in `docs/architecture.md`.
   credentials and are git-ignored; check `git status` before every commit.
 - **Never export `DATABASE_URL`.** Every config reads it, so `cargo test`
   would wipe that database. Set it on one command only.
+- **Release builds go to `target/site-release`.** Put
+  `LEPTOS_SITE_ROOT=target/site-release` on every
+  `cargo leptos build --release` and on the release binary run locally.
+  `target/site` belongs to the maintainer's watch loop: a build there
+  replaces its files.
 - **English** for every identifier, comment, doc, config key and CSS class.
   Only text a visitor reads on a page may be another language.
 - **Docs in a plain human voice:** short sentences, few words, commands with

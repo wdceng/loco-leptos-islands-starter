@@ -96,7 +96,11 @@ server:
       must_exist: false
       folder:
         uri: "/"
-        path: "target/site"
+        # The same variable Leptos reads for its site folder, so both follow
+        # it together: the watch loop's target/site by default, the release
+        # build's target/site-release when that one is run locally
+        # (docs/development.md, "Release Builds").
+        path: <%= get_env(name="LEPTOS_SITE_ROOT", default="target/site") %>
       # Revalidate on every request: a plain refresh always shows the latest
       # stylesheet. Without a Cache-Control header the browser would guess a
       # lifetime from the file's age and could keep a stale copy for hours.
