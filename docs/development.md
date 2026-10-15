@@ -181,8 +181,18 @@ show only in release builds:
 CI uses the same script, and checks that two hashed builds give the same
 names and that the main script names a loader that exists.
 
-**Once both fixes are released:** `cargo install --locked cargo-leptos@<version>`,
-the same line in CI, and delete `tools/cargo-leptos/` (`docs/decisions.md`).
+**Released yet?**
+
+```bash
+tools/cargo-leptos/upstream.sh   # "not yet", or "maybe" with a test for the plain release
+```
+
+It reads PR #691, the latest cargo-leptos release, issue #79 and the
+crate's latest version. "Maybe" prints a two-build check that installs the
+plain release into a scratch folder, so your working cargo-leptos stays.
+**If that passes:** `cargo install --locked cargo-leptos@<version>`, the
+same line in CI, and delete `tools/cargo-leptos/` ("Way back" in
+`docs/decisions.md`).
 
 ## Environments
 

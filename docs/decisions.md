@@ -44,8 +44,9 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-15: **cargo-leptos is a patched build** (`tools/cargo-leptos/`):
   0.3.11 at commit `0fb3de86` (PR #691, issue #690: stale names after a
   hashed split build) against a sorted `wasm_split_cli_support` 0.2.3
-  (wasm-split-prototype #79: new names on every build). **Way back:** once
-  both are released, `cargo install --locked cargo-leptos@<version>` in the
+  (wasm-split-prototype #79: new names on every build). **Released yet?**
+  `tools/cargo-leptos/upstream.sh`. **Way back:** once it says "maybe" and
+  its test passes, `cargo install --locked cargo-leptos@<version>` in the
   README, `prerequisites.md` and CI, delete `tools/cargo-leptos/` and the
   `check.sh` gates in the deploy chains, and add a line here.
 
