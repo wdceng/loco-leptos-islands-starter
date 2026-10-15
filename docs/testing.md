@@ -201,7 +201,11 @@ requests. Same list as the pre-deploy checks in `staging.md` and `production.md`
 - `cargo clippy --all-targets -- -D warnings`
 - `cargo test`
 - the wasm32 lint below
-- a full `cargo leptos build`
+- a full `cargo leptos build --split`, with the patched cargo-leptos
+  (`tools/cargo-leptos/`)
+- two hashed `--split` builds that must give the same file names, the main
+  script naming a split loader that exists (`development.md`, "Lazy
+  islands")
 - `cargo audit`
 - the `.sqlx/` cache check: a fresh test database, migrated, then
   `cargo sqlx prepare --check -- --all-targets`
@@ -229,7 +233,7 @@ the only pass that sees the islands.
 ### Full build served locally
 
 ```bash
-cargo leptos build && cargo loco start
+cargo leptos build --split && cargo loco start
 ```
 
 Then, in another terminal:
@@ -251,8 +255,12 @@ Open http://localhost:5150 with the developer console open. Expected: no
 errors, no warning about a missing island function, and the wasm and JS
 requests in the network tab.
 
-Once you have an island (a login form, say), use it. If it works, the whole
-chain works: server markers, bundle load, `hydrate()`, hydration.
+The home page's last line is the `IslandsCheck` lazy island: "Islands:
+running" once its chunk has loaded and hydrated, "Islands: not running"
+before. The network tab shows the split loader (`__wasm_split.*.js`) and
+the island's own `split_islands_check_*.wasm`. If it says "running", the
+whole chain works: server markers, bundle load, the split chunk,
+`hydrate()`, hydration.
 
 **Missing island function?** The island is in `views/`. Move it to
 `src/islands.rs`.
@@ -339,7 +347,7 @@ or password is a `WARN` with the reason, and the site still answers.
 ### Hashed asset names
 
 ```bash
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release &&
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split &&
 LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```
 
@@ -347,11 +355,11 @@ Then:
 
 ```bash
 curl -s http://localhost:5151/ | grep -o 'href="/pkg/[^"]*"'   # app.<hash>.css and app.<hash>.js
-cat target/release/hash.txt                                    # the same hashes
+cat target/release/hash.txt                                    # the same hashes, plus split: and manifest:
 ```
 
 Both files must be in `target/site-release/pkg`, and `target/site` keeps
-the watch loop's plain names. Then check the two refusals:
+the watch loop's plain names. Then check the three refusals:
 
 1. Edit a hash in `target/release/hash.txt` and start the release binary
    again. It must refuse with "the hash file is stale".
@@ -359,6 +367,9 @@ the watch loop's plain names. Then check the two refusals:
    binary has no hash file next to it but `target/site-release` is hashed,
    so it must refuse with "a hashed build must be deployed together with
    its hash file".
+3. Run `cargo leptos build` (no `--split`), then `cargo loco start`. It must
+   refuse with "built without --split while a lazy island exists". Rebuild
+   with `cargo leptos build --split`.
 
 ### Security headers
 
@@ -371,7 +382,7 @@ different one. `/robots.txt`, `/pkg/app.css` and `/nope` get the strict CSP
 from the config instead (`default-src 'none'; style-src 'self'; …`). On a
 deployed copy, run it against `http://127.0.0.1:<port>/`.
 
-Under `cargo leptos watch -- start`, with the console open: no CSP
+Under `cargo leptos watch --split -- start`, with the console open: no CSP
 violation, and live reload still works (the development `connect-src`
 allows its websocket).
 

@@ -87,9 +87,13 @@ in a terminal inside your copy of the project:
 
 ```sh
 rustup target add wasm32-unknown-unknown      # compile for the browser
-cargo install --locked cargo-leptos@0.3.8     # Leptos build tool, same version as CI
-cargo leptos watch -- start                   # build and run the server
+tools/cargo-leptos/install.sh                 # Leptos build tool, patched, as CI (~3 min)
+cargo leptos watch --split -- start           # build and run the server
 ```
+
+**Always `--split`.** The home page has a lazy island, and without the
+flag no island runs: the server says so and refuses to start. Why the
+build tool is patched: `docs/development.md`, "Lazy islands".
 
 The first build takes a few minutes while every dependency compiles. After
 that, seconds. When the terminal says the server is listening, open

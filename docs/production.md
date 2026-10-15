@@ -45,7 +45,7 @@ Try the release build locally first (http://localhost:5151). It builds into
 `target/site-release`, so the watch loop on 5150 keeps running untouched:
 
 ```bash
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release &&
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split &&
 LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```
 
@@ -53,9 +53,9 @@ LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 
 ```bash
 cargo audit && ! grep -n "example\.com\|SaaS Starter" config/production.yaml src/views/layout.rs &&
-test -s secrets.production.env && ! grep -q "replace-me" secrets.production.env &&
+test -s secrets.production.env && ! grep -q "replace-me" secrets.production.env && tools/cargo-leptos/check.sh &&
 cargo clippy --all-targets && cargo test &&
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --frontend-only &&
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only &&
 cross build --release --target x86_64-unknown-linux-gnu &&
 rm -rf dist && mkdir dist &&
 cp target/x86_64-unknown-linux-gnu/release/app dist/app &&
@@ -79,6 +79,9 @@ ssh <server> "journalctl -u app-prod -f"
   has no `replace-me` left. A placeholder mail account would boot fine and
   only fail when the first mail is sent. A missing file would fail at the
   upload, after the service was already stopped.
+- **No patched cargo-leptos, no deploy.** `tools/cargo-leptos/check.sh` stops
+  the chain when this machine's cargo-leptos lacks the split fixes
+  (`development.md`, "Lazy islands").
 - A failing step stops the chain. A failed build never touches the server.
 - `--release` is a full, slow build every time.
 - The previous deploy is kept as `*.prev` for the rollback below.

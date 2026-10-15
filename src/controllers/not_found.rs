@@ -122,7 +122,7 @@ fn site(ctx: &AppContext) -> Result<Router> {
     // such file is needed (or served).
     if assets.must_exist && !assets.folder.path.is_dir() {
         return Err(Error::Message(format!(
-            "the site folder `{}` is missing (static.folder.path): deploy site/ next to the binary, or run `cargo leptos build` locally",
+            "the site folder `{}` is missing (static.folder.path): deploy site/ next to the binary, or run `cargo leptos build --split` locally",
             assets.folder.path.display(),
         )));
     }

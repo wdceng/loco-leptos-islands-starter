@@ -85,6 +85,18 @@ goes next to the binary, whatever the site folder. Locally,
 `config/development.yaml` reads the same variable for its `static` folder,
 so a release binary run with it serves its own files.
 
+**Lazy islands** - `#[island(lazy)]` puts an island in a wasm chunk of its
+own, which a split loader (`__wasm_split.<hash>.js`) fetches only on a page
+that renders it. Every cargo-leptos command carries `--split`: cargo-leptos
+reads it from the command line only, never from `Cargo.toml`. Without it the
+main script imports `__wasm_split_placeholder__`, a module no browser can
+load, so not one island runs. `src/assets.rs` refuses to boot that build,
+and one whose main script names a loader the site folder lacks. Released
+cargo-leptos 0.3.11 gets hashed split names wrong in two ways, so every
+machine and CI build the patched one in `tools/cargo-leptos/`
+(`development.md`, "Lazy islands"). The home page's `IslandsCheck` keeps
+the split path in use, so CI builds and checks it.
+
 cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
 every file there itself, at compile time: a hash of each file's bytes
 (FNV-1a, no new crate), written as one Rust constant per file in modules
@@ -336,7 +348,7 @@ autumn takes the later.
 ## The Checks CI Runs
 
 ```sh
-cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test && cargo leptos build &&
+cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test && cargo leptos build --split &&
 cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 ```
 

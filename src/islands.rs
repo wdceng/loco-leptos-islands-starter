@@ -20,4 +20,32 @@
 //! `<leptos-children>`; `style/tailwind.css` sets both to `display: contents`
 //! so they do not disturb grid or flex layouts.
 //!
-//! The template ships no island; the first one goes here.
+//! Lazy islands (`#[island(lazy)]`) are split out of the main bundle into a
+//! chunk of their own, fetched only by a page that renders one. That needs
+//! `--split` on every cargo-leptos command; without it no island on any page
+//! runs, and the server refuses to boot (`src/assets.rs`). Make an island
+//! lazy when only some pages use it, and render it only where it is needed:
+//! one rendered on every page is fetched on every page.
+
+use leptos::prelude::*;
+
+/// Shows whether the browser half runs: the server renders "not running",
+/// and the island switches to "running" once its chunk has loaded and
+/// hydrated. Lazy, so it also proves the split build works. Home page only.
+#[island(lazy)]
+pub fn IslandsCheck() -> impl IntoView {
+    let (running, set_running) = signal(false);
+    // Effects run in the browser only, after hydration.
+    Effect::new(move |_| set_running.set(true));
+    view! {
+        <p class="mt-8 text-sm text-ink-muted">
+            {move || {
+                if running.get() {
+                    "Islands: running. This line is a lazy island, loaded on its own."
+                } else {
+                    "Islands: not running."
+                }
+            }}
+        </p>
+    }
+}

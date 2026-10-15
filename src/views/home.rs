@@ -1,9 +1,9 @@
-//! Home page. Server-rendered only: a plain `#[component]`, not an island,
-//! so none of this reaches the browser bundle.
+//! Home page. Server-rendered: a plain `#[component]`, not an island, so
+//! none of it reaches the browser bundle but the `IslandsCheck` island.
 
 use leptos::prelude::*;
 
-use crate::views::layout::APP_NAME;
+use crate::{islands::IslandsCheck, views::layout::APP_NAME};
 
 /// Landing page content, rendered inside the shell's <main>.
 #[component]
@@ -15,5 +15,6 @@ pub fn HomePage() -> impl IntoView {
         <p class="mt-4 text-lg text-ink-muted">
             "Loco on the server, Leptos islands in the browser."
         </p>
+        <IslandsCheck/>
     }
 }

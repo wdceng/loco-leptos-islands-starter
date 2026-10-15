@@ -44,15 +44,15 @@ Try the release build locally first (http://localhost:5151). It builds into
 `target/site-release`, so the watch loop on 5150 keeps running untouched:
 
 ```bash
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release &&
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split &&
 LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```
 
 ### Build and deploy
 
 ```bash
-test -f secrets.staging.env &&
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --frontend-only &&
+test -f secrets.staging.env && tools/cargo-leptos/check.sh &&
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only &&
 cross build --profile staging --target x86_64-unknown-linux-gnu &&
 rm -rf dist && mkdir dist &&
 cp target/x86_64-unknown-linux-gnu/staging/app dist/app &&
@@ -75,6 +75,9 @@ ssh <server> "journalctl -u app-stg -f"
 - **No `secrets.staging.env`, no deploy.** The first line stops the chain
   before anything is built; without it the upload near the end would fail
   with the unit already stopped.
+- **No patched cargo-leptos, no deploy.** `tools/cargo-leptos/check.sh` stops
+  the chain when this machine's cargo-leptos lacks the split fixes
+  (`development.md`, "Lazy islands").
 - The `staging` profile is faster to rebuild than `--release` and keeps
   line numbers in backtraces.
 - `hash.txt` must travel with the binary and match `site/`, or the app

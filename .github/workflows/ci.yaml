@@ -66,26 +66,49 @@ jobs:
       - run: cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings
 
   leptos:
-    # Both halves plus Tailwind, as cargo-leptos builds them. cargo-leptos
-    # comes prebuilt via cargo-binstall; it downloads the Tailwind and
-    # wasm-bindgen binaries itself.
+    # Both halves plus Tailwind, as cargo-leptos builds them, with `--split`
+    # for the lazy islands. cargo-leptos is the patched build every machine
+    # uses until both split fixes are released (tools/cargo-leptos/install.sh,
+    # pinned to a commit and a patch in this repository), cached on the
+    # script and the patch. It downloads the Tailwind and wasm-bindgen
+    # binaries itself.
     name: cargo leptos build
     runs-on: ubuntu-latest
+    env:
+      CARGO_LEPTOS_SRC: /home/runner/cargo-leptos-split
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      # Before rust-cache, which leaves alone what ~/.cargo/bin already holds.
+      - id: cargo-leptos
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-leptos
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+            /home/runner/cargo-leptos-split
+          key: cargo-leptos-${{ runner.os }}-${{ hashFiles('tools/cargo-leptos/**') }}
+      - if: steps.cargo-leptos.outputs.cache-hit != 'true'
+        run: tools/cargo-leptos/install.sh
+      - run: tools/cargo-leptos/check.sh
       - uses: Swatinem/rust-cache@v2
-      # Pinned to a release, not `@main`: an unreviewed change in that
-      # repository must not run here. Bump deliberately.
-      - uses: cargo-bins/cargo-binstall@v1.23.0
-      # Pinned like the action, and to the version used locally: a new
-      # cargo-leptos can change the Tailwind or wasm-bindgen it downloads
-      # between two runs of the same commit. Bump it here and locally
-      # together (`cargo install --locked cargo-leptos@<version>`).
-      - run: cargo binstall -y cargo-leptos@0.3.8
-      - run: cargo leptos build
+      - run: cargo leptos build --split
+      # The deploy's frontend build, twice into a scratch folder: the same
+      # code must give the same file names (wasm-split-prototype #79), and
+      # the main script must name a split loader that exists
+      # (cargo-leptos #690).
+      - name: Hashed split build is stable
+        run: |
+          for run in 1 2; do
+            LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-check cargo leptos build --release --split --frontend-only
+            ls target/site-check/pkg | sort > "names-$run.txt"
+          done
+          diff names-1.txt names-2.txt
+          loader="$(grep -oh '__wasm_split\.[A-Za-z0-9_-]*\.js' target/site-check/pkg/app.*.js | head -1)"
+          test -n "$loader" && test -f "target/site-check/pkg/$loader"
 
   sqlx:
     # The `.sqlx/` cache must match the queries and the migrated schema:

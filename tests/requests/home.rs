@@ -71,3 +71,28 @@ async fn home_renders_html() {
     })
     .await;
 }
+
+/// The lazy `IslandsCheck` (src/islands.rs) is rendered on the home page,
+/// wrapped as an island, in its server state. The browser switches it to
+/// "running" once its split chunk has loaded (docs/testing.md, "Islands in
+/// the browser").
+#[tokio::test]
+#[serial]
+async fn home_renders_the_lazy_islands_check() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let body = request.get("/").await.text();
+        let island = body
+            .find("<leptos-island")
+            .map(|start| &body[start..])
+            .unwrap_or_else(|| panic!("no island on the home page:\n{body}"));
+        assert!(
+            island.contains("IslandsCheck"),
+            "the island is not IslandsCheck:\n{island}"
+        );
+        assert!(
+            island.contains("Islands: not running."),
+            "the island's server state is missing:\n{island}"
+        );
+    })
+    .await;
+}

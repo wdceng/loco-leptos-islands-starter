@@ -6,8 +6,8 @@ five minutes" in `README.md`.
 ## Run
 
 ```bash
-cargo leptos watch -- start                  # this Mac only
-BINDING=0.0.0.0 cargo leptos watch -- start  # every device on the network
+cargo leptos watch --split -- start                  # this Mac only
+BINDING=0.0.0.0 cargo leptos watch --split -- start  # every device on the network
 ```
 
 Open http://localhost:5150. Save a file and the page updates by itself, like
@@ -16,6 +16,9 @@ a change to `style/tailwind.css` swaps in without one. Real hot reload needs
 nightly Rust, so we don't use it.
 
 Keep the `-- start`. Without it the app only prints its help.
+
+Keep `--split` on every cargo-leptos command. Without it no island runs, and
+the server refuses to start ("Lazy islands" below).
 
 **On your phone:** use the second line, get your Mac's address with
 `ipconfig getifaddr en0` and open `http://<address>:5150`. Allow `app` if
@@ -30,7 +33,7 @@ cargo loco watch    # restart on every change (needs cargo-watch)
 ```
 
 Run one loop at a time, they share port 5150. Another port:
-`PORT=5151 cargo leptos watch -- start`.
+`PORT=5151 cargo leptos watch --split -- start`.
 
 ```bash
 ps aux | grep 'app start'   # find the running app
@@ -110,8 +113,8 @@ No server or browser needed. More in `testing.md`.
 ## Release Builds
 
 ```bash
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release   # build
-LEPTOS_SITE_ROOT=target/site-release ./target/release/app start                           # run it locally
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split   # build
+LEPTOS_SITE_ROOT=target/site-release ./target/release/app start                                   # run it locally
 ```
 
 Always keep `LEPTOS_HASH_FILES=true`. It puts a hash in the file names
@@ -128,7 +131,7 @@ You get `target/release/app`, `target/release/hash.txt` and
 
 Size, for reference: with no island the wasm is about 28 KB gzipped. The
 first island brings in the Leptos runtime, about 52 KB gzipped. More islands
-cost much less.
+cost much less, and a lazy one only on the pages that render it.
 
 ### For a Linux server
 
@@ -136,13 +139,50 @@ Your Mac can't build a Linux binary directly, so the server part is built
 with `cross`, inside a Linux container:
 
 ```bash
-LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --frontend-only   # site files and hash.txt
-cross build --release --target x86_64-unknown-linux-gnu                                                   # target/x86_64-unknown-linux-gnu/release/app
+LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only   # site files and hash.txt
+cross build --release --target x86_64-unknown-linux-gnu                                                           # target/x86_64-unknown-linux-gnu/release/app
 ```
 
 For staging, use `--profile staging` instead of `--release` on the second
 line: it builds faster and keeps readable backtraces. The first `cross`
 build on Apple Silicon takes a few minutes. Full steps in `staging.md` and `production.md`.
+
+## Lazy islands
+
+`#[island(lazy)]` moves an island out of the main wasm into a chunk of its
+own, fetched only by a page that renders it. `IslandsCheck` on the home page
+is one (`src/islands.rs`).
+
+```bash
+tools/cargo-leptos/check.sh   # does this machine's cargo-leptos have both fixes?
+tools/cargo-leptos/install.sh # if not: build and install it (~3 min)
+```
+
+- **`--split` on every cargo-leptos command:** the watch loop, local
+  builds, deploys, CI. Without it the main script imports a module that
+  doesn't exist, so no island runs on any page. The server checks at boot
+  and refuses that build (`src/assets.rs`).
+- **Lazy when only some pages use it.** An island on every page saves
+  nothing as lazy. Render an island only where it's needed: rendered means
+  fetched.
+- **`hash.txt` gains `split:` and `manifest:` lines.** It travels with the
+  binary as before.
+
+**Why the patched cargo-leptos.** Released cargo-leptos (0.3.11) has two
+bugs with `--split` and hashed names. The watch loop doesn't hash, so they
+show only in release builds:
+
+| Bug | Effect | Fix |
+|---|---|---|
+| [cargo-leptos #690](https://github.com/leptos-rs/cargo-leptos/issues/690) | The main `.js`/`.wasm` keep their old names after the loader's name is written into them. After a deploy, a cached main script imports a loader that's gone: no island runs until a hard refresh | [PR #691](https://github.com/leptos-rs/cargo-leptos/pull/691), commit `0fb3de86`, not released |
+| [wasm-split-prototype #79](https://github.com/WorldSEnder/wasm-split-prototype/issues/79) | The loader's imports come out in random order, so every build gets new names and visitors download it all again | `tools/cargo-leptos/wasm-split-sort.patch`, not merged |
+
+`install.sh` builds cargo-leptos at that commit, against the patched crate.
+CI uses the same script, and checks that two hashed builds give the same
+names and that the main script names a loader that exists.
+
+**Once both fixes are released:** `cargo install --locked cargo-leptos@<version>`,
+the same line in CI, and delete `tools/cargo-leptos/` (`docs/decisions.md`).
 
 ## Environments
 
@@ -184,7 +224,8 @@ to bottom.
 
 - **Won't start after a release build?** It was built without
   `LEPTOS_SITE_ROOT=target/site-release`, so `target/site` has hashed names
-  the debug build can't find. Run `cargo leptos build` or the watch loop.
+  the debug build can't find. Run `cargo leptos build --split` or the watch
+  loop.
 - **Keep `LEPTOS_OUTPUT_NAME` in `.cargo/config.toml`.** Leptos needs it to
   name the wasm file the same way cargo-leptos does.
 - **Some crates recompile** when you switch between `cargo leptos` and plain

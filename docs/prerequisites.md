@@ -12,7 +12,7 @@ Install commands are each tool's own. Your package manager works too.
 | 1.1 | **C toolchain** | Linker and system libraries for the native build | Xcode Command Line Tools on macOS (`xcode-select --install`), `build-essential` on Debian/Ubuntu, Visual Studio Build Tools on Windows |
 | 1.2 | **Rust**, stable 1.94+ | Compiles both halves. Loco 1.2 and Sea-ORM 2.0.4 need 1.94+ | https://rustup.rs |
 | 1.3 | **wasm32 target** | Compiles the islands bundle | `rustup target add wasm32-unknown-unknown` |
-| 1.4 | **cargo-leptos** | Builds both halves, runs Tailwind and the live-reload dev loop. Use 0.3.8 to match CI (`.github/workflows/ci.yaml`) | `cargo install --locked cargo-leptos@0.3.8` |
+| 1.4 | **cargo-leptos**, patched | Builds both halves, runs Tailwind and the live-reload dev loop. 0.3.11 plus the two split fixes lazy islands need, the same build as CI (`development.md`, "Lazy islands"). About 3 minutes; once per machine, and again when `tools/cargo-leptos/` changes | `tools/cargo-leptos/install.sh` |
 
 `clippy` and `rustfmt` come with Rust.
 
@@ -20,10 +20,10 @@ Install commands are each tool's own. Your package manager works too.
 
 | # | Tool | Purpose | Install |
 |-----|------|---------|---------|
-| 2.1 | **cargo-watch** | Only for `cargo loco watch`, which reloads just the server. The usual loop is `cargo leptos watch -- start` | `cargo install --locked cargo-watch` |
+| 2.1 | **cargo-watch** | Only for `cargo loco watch`, which reloads just the server. The usual loop is `cargo leptos watch --split -- start` | `cargo install --locked cargo-watch` |
 | 2.2 | **cargo-audit** | Scans `Cargo.lock` for known vulnerabilities. CI runs 0.22.2. `.cargo/audit.toml` lists ignored advisories | `cargo install --locked cargo-audit@0.22.2` |
 | 2.3 | **cross** | Builds a Linux x86_64 server binary on another platform (`staging.md`, `production.md`). Needs Docker. `Cross.toml` pins the image | `cargo install --locked cross` |
-| 2.4 | **cargo-binstall** | Installs prebuilt cargo tools instead of compiling them. CI uses it for cargo-leptos and cargo-audit | `cargo install --locked cargo-binstall` |
+| 2.4 | **cargo-binstall** | Installs prebuilt cargo tools instead of compiling them. CI uses it for cargo-audit | `cargo install --locked cargo-binstall` |
 | 2.5 | **loco** | The Loco CLI, only for `loco new` and generators. Not needed here: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
 | 2.6 | **cargo-nextest** | One process per test (`cargo nextest run`). `.config/nextest.toml` keeps app-booting tests on one thread | `cargo install --locked cargo-nextest` |
 | 2.7 | **cargo-sweep** | Clears old native, wasm32 and cross builds out of `target/` | `cargo install --locked cargo-sweep` |
@@ -73,15 +73,19 @@ open the folder.
 
 ## Verify
 
-You're set if this prints the target and a version:
+You're set if this prints the target and "both fixes in":
 
 ```bash
-rustup target list --installed | grep wasm32 && cargo leptos --version
+rustup target list --installed | grep wasm32 && tools/cargo-leptos/check.sh
 ```
 
 ## Updates
 
 ```bash
-rustup update                                     # Rust, clippy, rustfmt
-cargo install --locked cargo-leptos@<version>     # then the same version in .github/workflows/ci.yaml
+rustup update                    # Rust, clippy, rustfmt
+tools/cargo-leptos/install.sh    # after tools/cargo-leptos/ changed
 ```
+
+Once both split fixes are released, cargo-leptos goes back to
+`cargo install --locked cargo-leptos@<version>`, with the same version in
+`.github/workflows/ci.yaml`.
