@@ -5,12 +5,19 @@
   "css.lint.unknownAtRules": "ignore",
 
   // For the Tailwind CSS IntelliSense extension (bradlc.vscode-tailwindcss),
-  // if installed: treat Rust files as markup so class names inside `view!`
-  // macros get completion, hover previews and typo warnings.
+  // if installed: treat Rust files as markup so class names get completion,
+  // hover previews and conflict warnings (`p-2 p-4`). A misspelt class gets
+  // no warning: the extension has no such check. A class without a hover
+  // preview is the hint. Three places hold classes: `class="…"` in `view!`;
+  // a string constant, `const COLUMN: &str = "…"`, the line break after `=`
+  // included; and a `format!`'s string around its `{…}`, as
+  // `class=format!("{COLUMN} py-6")`.
   "tailwindCSS.includeLanguages": {
     "rust": "html"
   },
   "tailwindCSS.experimental.classRegex": [
-    ["class\\s*=\\s*\"([^\"]*)\"", "([^\\s\"]+)"]
+    ["class\\s*=\\s*\"([^\"]*)\"", "([^\\s\"]+)"],
+    ["const\\s+[A-Z][A-Z0-9_]*\\s*:\\s*&str\\s*=\\s*\"([^\"]*)\"", "([^\\s\"]+)"],
+    ["format!\\(\\s*\"([^\"]*)\"", "([^\\s\"{}]+)"]
   ]
 }
