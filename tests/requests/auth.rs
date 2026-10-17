@@ -174,9 +174,11 @@ async fn login_with_un_existing_email() {
 
 #[tokio::test]
 #[serial]
-async fn can_login_without_verify() {
-    configure_insta!();
-
+/// Loco's starter let an unverified account log in (`can_login_without_verify`),
+/// although its own `verify` says it can't: anyone could register with
+/// somebody else's address and use it at once. Refused now, with the same
+/// answer as a wrong password.
+async fn cannot_login_without_verify() {
     request::<App, _, _>(|request, _ctx| async move {
         let email = "test@loco.com";
         let password = "12341234";
@@ -198,7 +200,6 @@ async fn can_login_without_verify() {
             "Register request should succeed"
         );
 
-        //verify user request
         let login_response = request
             .post("/api/auth/login")
             .json(&serde_json::json!({
@@ -207,17 +208,113 @@ async fn can_login_without_verify() {
             }))
             .await;
 
-        assert_eq!(
-            login_response.status_code(),
-            200,
-            "Login request should succeed"
-        );
+        assert_eq!(login_response.status_code(), 401, "an unverified account");
+        login_response.assert_json(&refused());
+    })
+    .await;
+}
 
-        with_settings!({
-            filters => cleanup_user_model()
-        }, {
-            assert_debug_snapshot!(login_response.text());
-        });
+/// The one body every refused login gets, from Loco's `unauthorized`.
+fn refused() -> serde_json::Value {
+    serde_json::json!({"error": "unauthorized", "description": "You do not have permission to access this resource"})
+}
+
+/// No account, a wrong password and an unverified account answer alike, so
+/// the answer tells nobody which addresses are registered.
+#[tokio::test]
+#[serial]
+async fn every_refused_login_answers_alike() {
+    request::<App, _, _>(|request, ctx| async move {
+        // An unverified account, then a verified one.
+        for (email, verify) in [("unverified@loco.com", false), ("verified@loco.com", true)] {
+            request
+                .post("/api/auth/register")
+                .json(
+                    &serde_json::json!({ "name": "loco", "email": email, "password": "12341234" }),
+                )
+                .await;
+            if verify {
+                let token = users::Model::find_by_email(&ctx.db, email)
+                    .await
+                    .expect("registered")
+                    .email_verification_token
+                    .expect("a verification token");
+                request.get(&format!("/api/auth/verify/{token}")).await;
+            }
+        }
+        for (what, email, password) in [
+            ("no account", "nobody@loco.com", "12341234"),
+            ("a wrong password", "verified@loco.com", "wrong-password"),
+            ("an unverified account", "unverified@loco.com", "12341234"),
+        ] {
+            let response = request
+                .post("/api/auth/login")
+                .json(&serde_json::json!({ "email": email, "password": password }))
+                .await;
+            assert_eq!(response.status_code(), 401, "{what}");
+            response.assert_json(&refused());
+        }
+        // And the right password on the verified account still works.
+        let response = request
+            .post("/api/auth/login")
+            .json(&serde_json::json!({ "email": "verified@loco.com", "password": "12341234" }))
+            .await;
+        assert_eq!(response.status_code(), 200);
+    })
+    .await;
+}
+
+/// 8 to 128 characters (`users::PASSWORD_MIN`, `PASSWORD_MAX`), on register
+/// and on reset, checked before anything else.
+#[tokio::test]
+#[serial]
+async fn passwords_outside_8_to_128_characters_are_refused() {
+    request::<App, _, _>(|request, ctx| async move {
+        for (password, status) in [
+            ("a".repeat(7), 400),
+            ("a".repeat(129), 400),
+            ("a".repeat(8), 200),
+            ("a".repeat(128), 200),
+        ] {
+            let email = format!("p{}@loco.com", password.len());
+            let response = request
+                .post("/api/auth/register")
+                .json(&serde_json::json!({ "name": "loco", "email": email, "password": password }))
+                .await;
+            assert_eq!(
+                response.status_code(),
+                status,
+                "{} characters",
+                password.len()
+            );
+            let exists = users::Model::find_by_email(&ctx.db, &email).await.is_ok();
+            assert_eq!(exists, status == 200, "{} characters", password.len());
+        }
+        // Reset: the rule comes before the token, so a bad token can't be
+        // told from a good one by a short password.
+        let response = request
+            .post("/api/auth/reset")
+            .json(&serde_json::json!({ "token": "any", "password": "short" }))
+            .await;
+        assert_eq!(response.status_code(), 400);
+    })
+    .await;
+}
+
+/// A taken email answers like a new one: the same status and body, and no
+/// second account.
+#[tokio::test]
+#[serial]
+async fn a_taken_email_registers_like_a_new_one() {
+    request::<App, _, _>(|request, ctx| async move {
+        let payload =
+            serde_json::json!({ "name": "loco", "email": "taken@loco.com", "password": "12341234" });
+        let first = request.post("/api/auth/register").json(&payload).await;
+        let second = request.post("/api/auth/register").json(&payload).await;
+        assert_eq!(first.status_code(), second.status_code());
+        assert_eq!(first.text(), second.text());
+        let deliveries = ctx.mailer.unwrap().deliveries();
+        assert_eq!(deliveries.count, 1, "one welcome mail, for the new account only");
     })
     .await;
 }

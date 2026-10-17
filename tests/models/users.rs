@@ -279,7 +279,7 @@ async fn can_reset_password() {
         .expect("Failed to find user by PID");
 
     assert!(
-        user.verify_password("12341234"),
+        user.verify_password("12341234").await,
         "Password verification failed for original password"
     );
 
@@ -296,7 +296,7 @@ async fn can_reset_password() {
         .expect("Failed to find user by PID after password reset");
 
     assert!(
-        user.verify_password("new-password"),
+        user.verify_password("new-password").await,
         "Password verification failed for new password"
     );
 }

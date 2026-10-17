@@ -39,6 +39,7 @@ loco-rs = { workspace = true, optional = true }
 axum = { version = "0.8.9", optional = true }
 tokio = { version = "1.53.1", default-features = false, features = [
   "rt-multi-thread",
+  "sync", # src/hashing.rs: at most four password hashes at once
   "time", # rate limiter housekeeping interval
 ], optional = true }
 async-trait = { version = "0.1.92", optional = true }

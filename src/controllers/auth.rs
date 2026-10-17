@@ -1,10 +1,11 @@
 use crate::{
     app::stored,
+    hashing,
     mailers::auth::AuthMailer,
     middleware::rate_limit::Bucket,
     models::{
         _entities::users,
-        users::{LoginParams, RegisterParams},
+        users::{LoginParams, RegisterParams, password_problem},
     },
     views::auth::{CurrentResponse, LoginResponse},
 };
@@ -56,6 +57,10 @@ async fn register(
     State(ctx): State<AppContext>,
     Json(params): Json<RegisterParams>,
 ) -> Result<Response> {
+    // First, so the answer is the same whether the email is taken or not.
+    if let Some(problem) = password_problem(&params.password) {
+        return bad_request(problem);
+    }
     let res = users::Model::create_with_password(&ctx.db, &params).await;
 
     let user = match res {
@@ -127,6 +132,10 @@ async fn forgot(
 /// reset user password by the given parameters
 #[debug_handler]
 async fn reset(State(ctx): State<AppContext>, Json(params): Json<ResetParams>) -> Result<Response> {
+    // First, so the answer says nothing about whether the token is valid.
+    if let Some(problem) = password_problem(&params.password) {
+        return bad_request(problem);
+    }
     let Ok(user) = users::Model::find_by_reset_token(&ctx.db, &params.token).await else {
         // we don't want to expose our users email. if the email is invalid we still
         // returning success to the caller
@@ -142,21 +151,32 @@ async fn reset(State(ctx): State<AppContext>, Json(params): Json<ResetParams>) -
 }
 
 /// Creates a user login and returns a token
+///
+/// Every refusal is the same 401 after the same work: an email with no
+/// account checks the password against a dummy hash (`src/hashing.rs`), so
+/// neither the answer nor its time tells whether the address is
+/// registered. An account whose email isn't verified yet is refused too,
+/// as `verify` above promises.
 #[debug_handler]
 async fn login(State(ctx): State<AppContext>, Json(params): Json<LoginParams>) -> Result<Response> {
-    let Ok(user) = users::Model::find_by_email(&ctx.db, &params.email).await else {
-        tracing::debug!(
-            email = params.email,
-            "login attempt with non-existent email"
-        );
-        return unauthorized("Invalid credentials!");
+    let user = users::Model::find_by_email(&ctx.db, &params.email)
+        .await
+        .ok();
+    let valid = match &user {
+        Some(user) => user.verify_password(&params.password).await,
+        None => {
+            hashing::verify_dummy(&params.password).await;
+            false
+        }
     };
-
-    let valid = user.verify_password(&params.password);
-
-    if !valid {
-        return unauthorized("unauthorized!");
-    }
+    let Some(user) = user
+        .filter(|_| valid)
+        .filter(|user| user.email_verified_at.is_some())
+    else {
+        // Which of the three it was stays out of the log: the address is
+        // personal data, and the count is what matters.
+        return unauthorized("login refused");
+    };
 
     let jwt_secret = ctx.config.get_jwt_config()?;
 
@@ -214,6 +234,10 @@ async fn magic_link(
 }
 
 /// Verifies a magic link token and authenticates the user.
+///
+/// The link was mailed to the account's address, so following it proves
+/// the same thing the verification link does: an unverified email becomes
+/// verified here, and `login` then accepts the account too.
 async fn magic_link_verify(
     Path(token): Path<String>,
     State(ctx): State<AppContext>,
@@ -225,6 +249,13 @@ async fn magic_link_verify(
     };
 
     let user = user.into_active_model().clear_magic_link(&ctx.db).await?;
+    let user = if user.email_verified_at.is_none() {
+        user.into_active_model()
+            .verified_by_magic_link(&ctx.db)
+            .await?
+    } else {
+        user
+    };
 
     let jwt_secret = ctx.config.get_jwt_config()?;
 

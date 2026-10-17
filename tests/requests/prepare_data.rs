@@ -3,7 +3,8 @@ use axum::http::{HeaderName, HeaderValue};
 use loco_rs::{TestServer, app::AppContext};
 
 const USER_EMAIL: &str = "test@loco.com";
-const USER_PASSWORD: &str = "1234";
+// At least 8 characters (`users::PASSWORD_MIN`).
+const USER_PASSWORD: &str = "12341234";
 
 pub struct LoggedInUser {
     pub user: users::Model,
@@ -26,11 +27,12 @@ pub async fn init_user_login(request: &TestServer, ctx: &AppContext) -> LoggedIn
         .await
         .unwrap();
 
-    let verify_payload = serde_json::json!({
-        "token": user.email_verification_token,
-    });
-
-    request.post("/api/auth/verify").json(&verify_payload).await;
+    // The route is `GET /api/auth/verify/{token}`. A POST here verified
+    // nobody, which went unnoticed while login didn't check.
+    let token = user
+        .email_verification_token
+        .expect("a registered user has a verification token");
+    request.get(&format!("/api/auth/verify/{token}")).await;
 
     let response = request
         .post("/api/auth/login")

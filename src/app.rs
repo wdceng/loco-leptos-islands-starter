@@ -20,7 +20,7 @@ use loco_rs::{
 use migration::Migrator;
 
 use crate::{
-    assets, controllers, deploy_checks, maintenance,
+    assets, controllers, deploy_checks, hashing, maintenance,
     middleware::{
         error_page::ErrorPages,
         rate_limit::{self, RateLimit},
@@ -95,6 +95,9 @@ impl Hooks for App {
         // From the settings and the stylesheet now in the store.
         let limit = rate_limit::auth_bucket(&ctx)?;
         ctx.shared_store.insert(controllers::auth::AuthLimit(limit));
+        // The login's dummy hash, built now so the first sign-in with an
+        // unknown email doesn't take longer than the rest (src/hashing.rs).
+        hashing::prepare();
         Ok(ctx)
     }
 

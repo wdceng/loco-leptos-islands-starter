@@ -20,6 +20,8 @@ pub mod deploy_checks;
 #[cfg(feature = "ssr")]
 pub mod dtos;
 #[cfg(feature = "ssr")]
+pub mod hashing;
+#[cfg(feature = "ssr")]
 pub mod initializers;
 #[cfg(feature = "ssr")]
 pub mod mailers;

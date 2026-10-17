@@ -6,10 +6,27 @@ use serde_json::Map;
 use uuid::Uuid;
 
 pub use super::_entities::users::{self, ActiveModel, Entity, Model};
+use crate::hashing;
 
 pub const MAGIC_LINK_LENGTH: i8 = 32;
 pub const MAGIC_LINK_EXPIRATION_MIN: i8 = 5;
 pub const RESET_TOKEN_EXPIRATION_MIN: i64 = 30;
+
+/// A password's length in characters: at least 8, as NIST SP 800-63B asks,
+/// with no rules about which characters; at most 128, so nobody can make
+/// every sign-in hash a megabyte.
+pub const PASSWORD_MIN: usize = 8;
+pub const PASSWORD_MAX: usize = 128;
+
+/// Why `password` is refused, or `None` when it's long enough and not too
+/// long. Checked before anything else, so the answer says nothing about
+/// whether an account exists.
+#[must_use]
+pub fn password_problem(password: &str) -> Option<String> {
+    let length = password.chars().count();
+    (!(PASSWORD_MIN..=PASSWORD_MAX).contains(&length))
+        .then(|| format!("The password must be {PASSWORD_MIN} to {PASSWORD_MAX} characters long."))
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LoginParams {
@@ -216,14 +233,10 @@ impl Model {
         user.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Verifies whether the provided plain password matches the hashed password
-    ///
-    /// # Errors
-    ///
-    /// when could not verify password
-    #[must_use]
-    pub fn verify_password(&self, password: &str) -> bool {
-        hash::verify_password(password, &self.password)
+    /// Verifies whether the provided plain password matches the hashed
+    /// password, on a blocking thread (`src/hashing.rs`).
+    pub async fn verify_password(&self, password: &str) -> bool {
+        hashing::verify(password, &self.password).await
     }
 
     /// Asynchronously creates a user with a password and saves it to the
@@ -236,6 +249,12 @@ impl Model {
         db: &DatabaseConnection,
         params: &RegisterParams,
     ) -> ModelResult<Self> {
+        // Hashed before the duplicate check, so a taken email costs one
+        // hash like a new one, and the time says nothing either way.
+        let password_hash = hashing::hash(&params.password)
+            .await
+            .map_err(|e| ModelError::Any(e.into()))?;
+
         let txn = db.begin().await?;
 
         if users::Entity::find()
@@ -251,8 +270,6 @@ impl Model {
             return Err(ModelError::EntityAlreadyExists {});
         }
 
-        let password_hash =
-            hash::hash_password(&params.password).map_err(|e| ModelError::Any(e.into()))?;
         let user = users::ActiveModel {
             email: ActiveValue::set(params.email.clone()),
             password: ActiveValue::set(password_hash),
@@ -332,6 +349,19 @@ impl ActiveModel {
         self.update(db).await.map_err(ModelError::from)
     }
 
+    /// Marks the email verified by a followed magic link, which reached the
+    /// same inbox. Unlike [`Self::verified`] it keeps the verification
+    /// token, so the welcome mail's link, followed later, still answers
+    /// ("already verified") instead of "invalid token".
+    ///
+    /// # Errors
+    ///
+    /// when has DB query error
+    pub async fn verified_by_magic_link(mut self, db: &DatabaseConnection) -> ModelResult<Model> {
+        self.email_verified_at = ActiveValue::set(Some(Local::now().into()));
+        self.update(db).await.map_err(ModelError::from)
+    }
+
     /// Resets the current user password with a new password and
     /// updates it in the database.
     ///
@@ -346,8 +376,11 @@ impl ActiveModel {
         db: &DatabaseConnection,
         password: &str,
     ) -> ModelResult<Model> {
-        self.password =
-            ActiveValue::set(hash::hash_password(password).map_err(|e| ModelError::Any(e.into()))?);
+        self.password = ActiveValue::set(
+            hashing::hash(password)
+                .await
+                .map_err(|e| ModelError::Any(e.into()))?,
+        );
         self.reset_token = ActiveValue::Set(None);
         self.reset_sent_at = ActiveValue::Set(None);
         self.update(db).await.map_err(ModelError::from)

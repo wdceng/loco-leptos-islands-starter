@@ -250,6 +250,15 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
         "{env}: CSP must forbid framing"
     );
     assert!(!csp.contains("unsafe-inline"), "{env}: CSP allows inline");
+    // With the quotes: `'wasm-unsafe-eval'` contains the same words and stays.
+    // `'unsafe-eval'` would let a library that reads attributes (full
+    // Alpine, htmx's `hx-on`) turn injected HTML into any JavaScript.
+    for (which, policy) in [("page", csp.as_str()), ("fallback", FALLBACK_CSP)] {
+        assert!(
+            !policy.contains("'unsafe-eval'"),
+            "{env}: the {which} CSP allows eval"
+        );
+    }
 }
 
 #[rstest]
