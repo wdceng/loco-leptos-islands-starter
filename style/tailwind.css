@@ -2,11 +2,15 @@
    standalone binary and writes the result to target/site/pkg/app.css.
    Tailwind's defaults throughout: its font stack, its palette, its reset.
    Give the app its own look here. */
-@import "tailwindcss";
+/* `source("../src")`: Tailwind scans only src/ for class names. Its default
+   scans the whole project, so a class named in the docs, a config or
+   .vscode/settings.json ended up in the CSS (about a quarter of it). A
+   utility's bare name in a Rust comment still counts, so comments in src/
+   describe CSS in words. */
+@import "tailwindcss" source("../src");
 
-/* Tailwind scans these files for class names. Our views are Rust, not HTML,
-   so the .rs sources have to be listed explicitly. Every page is Leptos;
-   there is no static HTML to scan. */
+/* Our views are Rust, not HTML, so the .rs sources are listed explicitly.
+   Every page is Leptos; there is no static HTML to scan. */
 @source "../src/**/*.rs";
 
 /* Colours, named by role. Views use these names only, never a scale step

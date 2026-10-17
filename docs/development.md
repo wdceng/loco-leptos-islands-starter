@@ -174,8 +174,8 @@ show only in release builds:
 
 | Bug | Effect | Fix |
 |---|---|---|
-| [cargo-leptos #690](https://github.com/leptos-rs/cargo-leptos/issues/690) | The main `.js`/`.wasm` keep their old names after the loader's name is written into them. After a deploy, a cached main script imports a loader that's gone: no island runs until a hard refresh | [PR #691](https://github.com/leptos-rs/cargo-leptos/pull/691), commit `0fb3de86`, not released |
-| [wasm-split-prototype #79](https://github.com/WorldSEnder/wasm-split-prototype/issues/79) | The loader's imports come out in random order, so every build gets new names and visitors download it all again | `tools/cargo-leptos/wasm-split-sort.patch`, not merged |
+| [cargo-leptos #690](https://github.com/leptos-rs/cargo-leptos/issues/690) | The main `.js`/`.wasm` keep their old names after the loader's name is written into them. After a deploy, a cached main script imports a loader that's gone: no island runs until a hard refresh | [PR #691](https://github.com/leptos-rs/cargo-leptos/pull/691), commit `0fb3de86`. Merged 2026-10-16, not released |
+| [wasm-split-prototype #79](https://github.com/WorldSEnder/wasm-split-prototype/issues/79) | The loader's imports come out in random order, so every build gets new names and visitors download it all again | `tools/cargo-leptos/wasm-split-sort.patch`, the same code as upstream's `cc582f1`. Merged 2026-10-16, not released, and released cargo-leptos still locks 0.2.3 |
 
 `install.sh` builds cargo-leptos at that commit, against the patched crate.
 CI uses the same script, and checks that two hashed builds give the same
@@ -184,12 +184,16 @@ names and that the main script names a loader that exists.
 **Released yet?**
 
 ```bash
-tools/cargo-leptos/upstream.sh   # "not yet", or "maybe" with a test for the plain release
+tools/upstream.sh   # every upstream fix the template waits for, and whether it's released
 ```
 
-It reads PR #691, the latest cargo-leptos release, issue #79 and the
-crate's latest version. "Maybe" prints a two-build check that installs the
-plain release into a scratch folder, so your working cargo-leptos stays.
+It watches four: the two above, leptos #4953 (islands disposed when they
+leave the page) and htmx #4147 (Chrome dropping the comments Leptos
+hydrates by). Fix 2 counts only once a cargo-leptos **release's own
+`Cargo.lock`** locks a newer `wasm_split_cli_support`: `cargo install
+--locked` takes that lock, not crates.io's latest. When both split fixes
+are in a release it prints a two-build check that installs the plain
+release into a scratch folder, so your working cargo-leptos stays.
 **If that passes:** `cargo install --locked cargo-leptos@<version>`, the
 same line in CI, and delete `tools/cargo-leptos/` ("Way back" in
 `docs/decisions.md`).

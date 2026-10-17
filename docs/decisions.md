@@ -17,6 +17,9 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-04: **Tailwind's default look.** The template is public, so it
   carries no house style: no brand colour, no self-hosted font, no shape
   roles. An app adds its own.
+- 2026-10-17: **Tailwind scans `src/` only** (`source("../src")` on the
+  import). Its default scanned the docs and configs too, and their prose
+  made about a quarter of the CSS.
 
 ## Environments and builds
 
@@ -44,10 +47,12 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-15: **cargo-leptos is a patched build** (`tools/cargo-leptos/`):
   0.3.11 at commit `0fb3de86` (PR #691, issue #690: stale names after a
   hashed split build) against a sorted `wasm_split_cli_support` 0.2.3
-  (wasm-split-prototype #79: new names on every build). **Released yet?**
-  `tools/cargo-leptos/upstream.sh`. **Way back:** once it says "maybe" and
-  its test passes, `cargo install --locked cargo-leptos@<version>` in the
-  README, `prerequisites.md` and CI, delete `tools/cargo-leptos/` and the
+  (wasm-split-prototype #79: new names on every build). Both fixes were
+  merged upstream on 2026-10-16 (#79 as `cc582f1`, the same code as our
+  patch); neither is released yet. **Released yet?** `tools/upstream.sh`.
+  **Way back:** once it prints the cargo-leptos test and that passes,
+  `cargo install --locked cargo-leptos@<version>` in the README,
+  `prerequisites.md` and CI, delete `tools/cargo-leptos/` and the
   `check.sh` gates in the deploy chains, and add a line here.
 
 ## Working
