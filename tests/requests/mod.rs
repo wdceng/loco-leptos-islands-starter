@@ -9,3 +9,4 @@ mod rate_limit;
 mod reset;
 mod robots;
 mod security_headers;
+mod security_txt;

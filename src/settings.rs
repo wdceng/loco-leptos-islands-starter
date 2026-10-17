@@ -85,10 +85,23 @@ pub struct SecuritySettings {
     /// Content-Security-Policy for rendered pages. Must contain `{nonce}`
     /// once; `render_page` replaces it per request.
     pub content_security_policy: String,
+    /// Where someone who finds a security hole writes to: a `mailto:` or
+    /// `https://` address, the `Contact:` of `/.well-known/security.txt`
+    /// (controllers/security_txt.rs). Production refuses to boot while it's
+    /// still the template's `example.com` (src/deploy_checks.rs).
+    pub contact: String,
 }
 
 impl SecuritySettings {
     fn validate(&self) -> Result<()> {
+        let contact = &self.contact;
+        if !(contact.starts_with("mailto:") || contact.starts_with("https://"))
+            || contact.chars().any(|c| c.is_control() || c.is_whitespace())
+        {
+            return Err(Error::Message(format!(
+                "config: settings.security.contact must be a `mailto:` or `https://` address with no spaces, not `{contact}`"
+            )));
+        }
         let template = &self.content_security_policy;
         if template.matches(NONCE_PLACEHOLDER).count() != 1 {
             return Err(Error::Message(format!(
@@ -274,10 +287,12 @@ mod tests {
                 "burst": 120,
                 "auth": { "per_second": 30, "burst": 10 }
             },
-            "security": { "content_security_policy": CSP },
+            "security": { "content_security_policy": CSP, "contact": CONTACT },
             "mail": { "from": FROM }
         })
     }
+
+    const CONTACT: &str = "mailto:security@example.com";
 
     /// [`base`] with one of its parts left out.
     fn without(part: &str) -> Value {
@@ -299,7 +314,32 @@ mod tests {
         assert_eq!(s.rate_limit.auth.per_second, 30);
         assert_eq!(s.rate_limit.auth.burst, 10);
         assert_eq!(s.security.content_security_policy, CSP);
+        assert_eq!(s.security.contact, CONTACT);
         assert_eq!(s.mail.from, FROM);
+    }
+
+    #[test]
+    fn the_security_contact_is_a_mailto_or_https_address() {
+        for good in [
+            "mailto:security@example.com",
+            "https://example.com/security",
+        ] {
+            let mut block = base();
+            block["security"]["contact"] = json!(good);
+            parse(&block).unwrap_or_else(|e| panic!("{good}: {e}"));
+        }
+        // A line break would add fields of its own to security.txt.
+        for bad in [
+            "security@example.com",
+            "http://example.com/security",
+            "mailto:a@example.com\nExpires: 2099-01-01T00:00:00Z",
+            "",
+        ] {
+            let mut block = base();
+            block["security"]["contact"] = json!(bad);
+            let err = parse(&block).expect_err(bad);
+            assert!(err.to_string().contains("contact"), "{bad}: {err}");
+        }
     }
 
     #[test]

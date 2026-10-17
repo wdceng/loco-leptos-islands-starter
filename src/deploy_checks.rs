@@ -5,8 +5,9 @@
 //! - [`refuse_placeholders`], production only: a JWT secret or SMTP host,
 //!   user or password that is empty or still reads `replace-me` (the
 //!   placeholder `docs/production.md` writes into `secrets.production.env`)
-//!   refuses the boot. Dev-server and staging keep their placeholder
-//!   defaults on purpose.
+//!   refuses the boot. So does `settings.security.contact` still at the
+//!   template's `example.com`: `security.txt` would send reports nowhere.
+//!   Dev-server and staging keep their placeholder defaults on purpose.
 //! - [`spawn_smtp_login`], everywhere deployed: logs in to the SMTP
 //!   server once, in the background, and sends nothing. A failure is a
 //!   warning in the journal, not a refusal: an outage at the mail provider
@@ -26,7 +27,10 @@ use loco_rs::{
 };
 use tracing::{info, warn};
 
-use crate::settings::is_local;
+use crate::{
+    app::stored,
+    settings::{Settings, is_local},
+};
 
 /// What `docs/production.md` writes for a value still to be filled in.
 pub const PLACEHOLDER: &str = "replace-me";
@@ -73,13 +77,25 @@ pub fn refuse_placeholders(ctx: &AppContext) -> Result<()> {
         return Ok(());
     }
     let missing = not_filled_in(&secrets(ctx));
-    if missing.is_empty() {
-        return Ok(());
+    if !missing.is_empty() {
+        return Err(Error::Message(format!(
+            "production won't start: {} empty or still `{PLACEHOLDER}`. Fill them in secrets.production.env and deploy it (docs/production.md)",
+            missing.join(", ")
+        )));
     }
-    Err(Error::Message(format!(
-        "production won't start: {} empty or still `{PLACEHOLDER}`. Fill them in secrets.production.env and deploy it (docs/production.md)",
-        missing.join(", ")
-    )))
+    let settings: Settings = stored(ctx)?;
+    if contact_is_a_placeholder(&settings.security.contact) {
+        return Err(Error::Message(format!(
+            "production won't start: settings.security.contact is still `{}`. Put the real address in config/production.yaml (docs/security.md)",
+            settings.security.contact
+        )));
+    }
+    Ok(())
+}
+
+/// Whether the security contact is still the template's.
+fn contact_is_a_placeholder(contact: &str) -> bool {
+    contact.contains("example.com") || contact.contains(PLACEHOLDER)
 }
 
 /// An SMTP transport for `smtp`, built the way Loco's
@@ -176,5 +192,13 @@ mod tests {
             not_filled_in(&mixed),
             vec!["MAILER_HOST", "MAILER_USER", "MAILER_PASSWORD"]
         );
+    }
+
+    #[test]
+    fn the_templates_security_contact_is_a_placeholder() {
+        assert!(contact_is_a_placeholder("mailto:security@example.com"));
+        assert!(contact_is_a_placeholder("mailto:replace-me"));
+        assert!(!contact_is_a_placeholder("mailto:security@shop.hr"));
+        assert!(!contact_is_a_placeholder("https://shop.hr/security"));
     }
 }

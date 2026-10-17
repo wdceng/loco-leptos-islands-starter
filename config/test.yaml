@@ -78,6 +78,7 @@ settings:
   file_rate_limit:
     enable: false
   security:
+    contact: "mailto:security@example.com"
     # Same policy as development, so the tests see what a developer sees.
     content_security_policy: >-
       default-src 'none';

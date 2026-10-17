@@ -127,6 +127,9 @@ settings:
   file_rate_limit:
     enable: false
   security:
+    # Where a security hole is reported: /.well-known/security.txt's
+    # Contact (docs/security.md). A `mailto:` or `https://` address.
+    contact: "mailto:security@example.com"
     # Per-page CSP; {nonce} is replaced per request with the nonce Leptos
     # stamps on its inline scripts. 'wasm-unsafe-eval' is what the islands
     # bundle needs; nothing else is inline or third party. The ws:// sources

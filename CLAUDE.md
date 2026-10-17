@@ -16,6 +16,7 @@ touches it. A rule a test can check becomes a test, not a line here.
 | `docs/decisions.md` | Before changing a choice: each one, dated, with its reason |
 | `docs/tried-and-dropped.md` | Before suggesting something: what failed, and why. Never suggested again without a new reason |
 | `docs/one-job.md` | Before adding a component, a constant or a helper |
+| `docs/security.md` | Before touching auth, sessions, headers or the CSP; it's updated in the same commit |
 | `docs/development.md`, `docs/testing.md` | Commands, environments, builds, checks |
 | `docs/dev-server.md`, `docs/staging.md`, `docs/production.md` | Deploys. Parallel files: a change to one section goes into all three in the same pass |
 

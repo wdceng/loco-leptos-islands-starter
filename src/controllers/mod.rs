@@ -5,3 +5,4 @@ pub mod manifest;
 pub mod not_found;
 pub mod reset;
 pub mod robots;
+pub mod security_txt;

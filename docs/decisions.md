@@ -55,6 +55,23 @@ change of mind gets a new line, and the old one moves to
   `prerequisites.md` and CI, delete `tools/cargo-leptos/` and the
   `check.sh` gates in the deploy chains, and add a line here.
 
+## Security
+
+- 2026-10-18: **A security review of the starter auth**, its 13 findings
+  and their status in `docs/security.md`. That page is updated with every
+  change to auth, sessions, headers or the CSP.
+- 2026-10-18: **JWTs live one day.** They can't be revoked; logout and
+  longer sessions come with cookie sessions, an app's step.
+- 2026-10-18: **Passwords: length only, 8 to 128 characters,** as NIST SP
+  800-63B advises. No composition rules; a breached-password check is an
+  app's choice.
+- 2026-10-18: **The reset link carries its token in the query**
+  (`/reset?token=…`), not Loco's `#token`: the page is server-rendered with
+  no JavaScript. Its answers send `no-referrer` and `no-store`.
+- 2026-10-18: **The security contact lives in the config**, not the
+  environment: it isn't a secret. Production refuses to boot while it's
+  still `example.com`.
+
 ## Working
 
 - 2026-10-03: **Generators run in a scratch `git worktree`**, their files
