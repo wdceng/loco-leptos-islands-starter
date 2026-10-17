@@ -86,9 +86,12 @@ impl AuthMailer {
     ///
     /// When email sending is failed
     pub async fn forgot_password(ctx: &AppContext, user: &users::Model) -> Result<()> {
+        // A query, not Loco's `#token`: the reset page is server-rendered
+        // and can't read what follows `#` (controllers/reset.rs).
         let link = format!(
-            "{}/reset#{}",
+            "{}{}?token={}",
             Self::origin(ctx),
+            crate::controllers::reset::PATH,
             user.reset_token.as_deref().unwrap_or_default()
         );
         Self::send(

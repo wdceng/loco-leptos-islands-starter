@@ -24,6 +24,9 @@ different, and a change reaches only one of them.
 | The not-found page | `NotFoundPage` | `src/views/not_found.rs` |
 | An error page, and its words per status | `ErrorPage`, `wording` | `src/views/error.rs` |
 | The 429 page, with the wait filled in | `too_many_requests::document`, `WAIT` | `src/views/too_many_requests.rs` |
+| A password reset from the mail's link: the form, done, expired | `ResetForm`, `ResetDone`, `ResetExpired`; the address `reset::PATH` | `src/views/reset.rs`, `src/controllers/reset.rs` |
+| A password's rule (8 to 128 characters), anywhere one is set | `password_problem` | `src/models/users.rs` |
+| Hash or check a password | `hashing::hash`, `verify`, `verify_dummy` | `src/hashing.rs` |
 | A page AI assistants should know about | a line in `/llms.txt` | `src/controllers/llms.rs` |
 
 ## Look

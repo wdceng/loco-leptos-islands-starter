@@ -149,13 +149,17 @@ async fn every_link_in_the_mails_leads_somewhere() {
         let deliveries = ctx.mailer.unwrap().deliveries();
         assert_eq!(deliveries.count, 3, "welcome, reset and magic-link mails");
 
-        // Quoted-printable may wrap a long line ("=" + line break), so the
-        // breaks come out before the links are read.
-        let link = Regex::new(r"http://localhost:5150(/[A-Za-z0-9_./#?&%-]+)").expect("regex");
+        // Quoted-printable may wrap a long line ("=" + line break) and writes
+        // "=" itself as "=3D", so both come out before the links are read.
+        let link = Regex::new(r"http://localhost:5150(/[A-Za-z0-9_./#?&=%-]+)").expect("regex");
         let mut paths: Vec<String> = deliveries
             .messages
             .iter()
-            .map(|mail| mail.replace("=\r\n", "").replace("=\n", ""))
+            .map(|mail| {
+                mail.replace("=\r\n", "")
+                    .replace("=\n", "")
+                    .replace("=3D", "=")
+            })
             .flat_map(|mail| {
                 link.captures_iter(&mail)
                     .map(|c| c[1].to_string())
@@ -174,15 +178,7 @@ async fn every_link_in_the_mails_leads_somewhere() {
                 .add_header("accept", BROWSER)
                 .await
                 .status_code();
-            if route == "/reset" {
-                // KNOWN GAP (README.md, docs/architecture.md): the reset mail
-                // links to a page the template doesn't have yet. Once a
-                // `/reset` page exists, this fails: delete this branch and
-                // the known gap.
-                assert_eq!(status, 404, "/reset now answers: remove the known gap");
-            } else {
-                assert_eq!(status, 200, "mail link {path} answers {status}");
-            }
+            assert_eq!(status, 200, "mail link {path} answers {status}");
         }
     })
     .await;

@@ -429,14 +429,12 @@ the CLI for `loco new`, which is done.
   clients should read `Retry-After`.
 - Magic-link login is limited to two e-mail domains (`EMAIL_DOMAIN_RE` in
   `src/controllers/auth.rs`).
-- The password-reset mail links to `/reset#<token>`, a page the template
-  doesn't have. Loco's starter leaves it to the front end and only
-  `POST /api/auth/reset` exists, so the link gets the not-found page.
-  Browsers never send what's after the `#`, so that page must be an island
-  that reads the token and posts the new password to the API. The verify
-  and magic-link mails link straight to JSON API routes, so clicking them
-  shows JSON. `tests/requests/links.rs` pins all three: once a `/reset`
-  page exists, it fails and says to remove this gap.
+- The verify and magic-link mails link straight to JSON API routes, so
+  clicking them shows JSON. The reset mail links to a page, `/reset?token=…`
+  (`src/controllers/reset.rs`): a plain form, the token in a query rather
+  than Loco's `#token`, which a server-rendered page can't read, answered
+  with `no-referrer` and `no-store`. `tests/requests/links.rs` requests all
+  three.
 - Addresses are strings: links, asset paths and the mail links compile
   whatever they say. `tests/requests/links.rs` checks every one the pages,
   the manifest, the stylesheet and the mails use, so a renamed file or a

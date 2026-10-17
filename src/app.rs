@@ -157,6 +157,7 @@ impl Hooks for App {
         AppRoutes::with_default_routes() // controller routes below
             .add_route(controllers::auth::routes(ctx))
             .add_route(controllers::home::routes())
+            .add_route(controllers::reset::routes())
             .add_route(controllers::robots::routes())
             .add_route(controllers::llms::routes())
             .add_route(controllers::manifest::routes())

@@ -69,8 +69,9 @@ so the suite runs in about a second.
   - Register, forgot and magic link read their mail back. `From:` is
     `settings.mail.from`, and the link starts with `server.host` and carries
     the user's token.
-  - The reset link points at `/reset`, which doesn't exist yet (Known Gaps
-    in `architecture.md`).
+  - Every refused login (no account, wrong password, unverified) gives the
+    same 401; passwords of 7 and 129 characters are refused, on register
+    and reset; a taken email registers like a new one.
   - Markup in the name arrives escaped in the HTML part.
   - A name over 100 characters registers nobody and sends nothing.
   - A body over 64 KB is a 413.
@@ -90,10 +91,12 @@ so the suite runs in about a second.
     on the page. `/pkg/…` is cargo-leptos's output, which `home.rs` checks.
   - The web manifest (a route) is JSON with `APP_NAME`, `SURFACE_HEX`,
     `standalone`, and icons that are current versioned files in `public/`.
-  - The three auth mails are sent and each link is requested. The verify
-    and magic links answer 200. The reset link is pinned as the known gap:
-    it's a 404 until a `/reset` page exists, and then the test fails and
-    says to remove the gap.
+  - The three auth mails are sent and each link is requested: all three
+    answer 200.
+- `tests/requests/reset.rs`: the reset page as a person uses it. The mail's
+  link shows the form (`no-store`, `no-referrer`, `noindex`); a short
+  password shows it again with the reason; a good one changes the password,
+  the old one stops working, and the link is spent.
 - `tests/requests/home.rs`: a 200 with an HTML content type, a real document
   (doctype, `lang="en"`), the app name (`APP_NAME`), exactly one `<h1>`, the
   skip link and its target, the islands loader script, the wasm file it

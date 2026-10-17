@@ -260,10 +260,6 @@ the `nightly_restart` block of `config/dev-server.yaml`,
 
 ## Known gaps
 
-- **No island yet.** The wiring is done, the first one is yours.
-- **The password-reset mail links to a `/reset` page that doesn't exist yet.**
-  Loco's starter leaves that page to your front end. The reset itself works
-  through the JSON API, `POST /api/auth/reset`.
 - **Behind a proxy, a request that reaches the server directly can fake its IP
   for the rate limiter.** The firewall in `docs/production.md` closes that.
 

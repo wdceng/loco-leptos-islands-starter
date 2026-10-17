@@ -404,12 +404,15 @@ async fn can_reset_password() {
         let deliveries = ctx.mailer.unwrap().deliveries();
         assert_eq!(deliveries.count, 2, "Exactly one email should be sent");
         // The second mail is the reset link (the first is the welcome mail
-        // from registering). `/reset` is a page the project's front end
-        // provides; the template has none yet (Known Gaps in docs/architecture.md).
-        let mail = &deliveries.messages[1];
-        assert_from_the_configured_sender(mail);
+        // from registering), to the `/reset` page (controllers/reset.rs).
+        // Quoted-printable writes its "=" as "=3D" and may wrap the line.
+        let mail = deliveries.messages[1]
+            .replace("=\r\n", "")
+            .replace("=\n", "")
+            .replace("=3D", "=");
+        assert_from_the_configured_sender(&mail);
         assert!(
-            mail.contains(&format!("http://localhost:5150/reset#{reset_token}")),
+            mail.contains(&format!("http://localhost:5150/reset?token={reset_token}")),
             "reset link does not start with server.host:\n{mail}"
         );
         // with_settings!({

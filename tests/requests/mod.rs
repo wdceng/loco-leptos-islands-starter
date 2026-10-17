@@ -6,5 +6,6 @@ mod llms;
 mod not_found;
 mod prepare_data;
 mod rate_limit;
+mod reset;
 mod robots;
 mod security_headers;
