@@ -27,8 +27,9 @@ keep staging for what is about to go live.
 | Secrets | `secrets.dev-server.env` | `secrets.staging.env` |
 
 Everything else is staging's (`docs/staging.md`), and the same differences
-from production apply. The firewall, the origin key and the mail account
-are set up once per server and described in `docs/production.md`.
+from production apply. The firewall, the log retention, the origin key and
+the mail account are set up once per server and described in
+`docs/production.md`.
 
 ## Deploy
 

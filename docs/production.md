@@ -356,6 +356,21 @@ ssh <server> 'apt install -y ufw && ufw allow OpenSSH && for ip in $(curl -s htt
 - Shared box? Every site on it now needs Cloudflare in front.
 - Cloudflare's list rarely changes. If it does, run the loop again.
 
+## Log retention (once per server)
+
+The app's logs go to the journal. They name accounts by `pid`, never by
+email, but a request log still holds IP addresses: keep 30 days, then let
+them go.
+
+```bash
+ssh <server> 'mkdir -p /etc/systemd/journald.conf.d && printf "[Journal]\nMaxRetentionSec=30day\n" > /etc/systemd/journald.conf.d/retention.conf && systemctl restart systemd-journald && journalctl --disk-usage'
+```
+
+- It covers every unit on the box, the app's three included.
+- A different period? Change `30day` and run it again. Privacy law usually
+  asks for "no longer than needed": write down why yours is the length it
+  is.
+
 ## The origin key (once per server)
 
 Cloudflare adds a secret header, `X-Origin-Key`, to every request. Caddy's

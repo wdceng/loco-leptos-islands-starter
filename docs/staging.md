@@ -26,8 +26,8 @@ Staging is production's twin. The differences:
 | Logs | compact, debug, backtraces on | JSON, info |
 | Before a deploy | checks | checks, `cargo audit`, no placeholders |
 
-The firewall, the origin key and the mail account are set up once per
-server and described in `docs/production.md`.
+The firewall, the log retention, the origin key and the mail account are
+set up once per server and described in `docs/production.md`.
 
 ## Deploy
 

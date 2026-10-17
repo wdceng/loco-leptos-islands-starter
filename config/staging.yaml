@@ -219,5 +219,7 @@ auth:
     # production account. The default is for staging only and is public
     # (it is in git); set JWT_SECRET in the unit to replace it.
     secret: <%= get_env(name="JWT_SECRET", default="staging-only-not-a-secret") %>
-    # Token expiration time in seconds
-    expiration: 604800 # 7 days
+    # Token expiration time in seconds. One day: a JWT can't be revoked, so
+    # a stolen one works until it expires. Longer sessions and a logout need
+    # cookie sessions (docs/security.md).
+    expiration: 86400 # 1 day

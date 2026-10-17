@@ -2,7 +2,10 @@ use loco_rs::prelude::*;
 
 use crate::{
     mailers::auth::AuthMailer,
-    models::{_entities::users, users::RegisterParams},
+    models::{
+        _entities::users,
+        users::{RegisterParams, password_problem},
+    },
 };
 
 pub struct UserCreate;
@@ -24,6 +27,10 @@ impl Task for UserCreate {
         let password = vars
             .cli_arg("password")
             .map_err(|_| Error::string("password is mandatory"))?;
+        // The same rule as the register route.
+        if let Some(problem) = password_problem(password) {
+            return Err(Error::string(&problem));
+        }
 
         let register_params = RegisterParams {
             email: email.to_owned(),
@@ -36,23 +43,22 @@ impl Task for UserCreate {
 
         let user = match res {
             Ok(user) => {
+                // The pid, never the address: the log is kept on the
+                // server, and the address is personal data.
                 tracing::info!(
                     message = "User created successfully",
-                    user_email = &register_params.email,
                     user_pid = user.pid.to_string(),
                     "user created via task"
                 );
                 user
             }
             Err(err) => {
-                tracing::error!(
-                    message = err.to_string(),
-                    user_email = &register_params.email,
-                    "could not create user via task"
-                );
+                tracing::error!(message = err.to_string(), "could not create user via task");
                 return Err(Error::string(&format!("Failed to create user. err: {err}")));
             }
         };
+
+        let user_pid = user.pid.to_string();
 
         // Set email verification sent (same as register controller)
         let user = user
@@ -62,7 +68,7 @@ impl Task for UserCreate {
             .map_err(|err| {
                 tracing::error!(
                     message = err.to_string(),
-                    user_email = &register_params.email,
+                    user_pid = user_pid,
                     "could not set email verification"
                 );
                 Error::string("Failed to set email verification")
@@ -74,7 +80,7 @@ impl Task for UserCreate {
             .map_err(|err| {
                 tracing::error!(
                     message = err.to_string(),
-                    user_email = &register_params.email,
+                    user_pid = user_pid,
                     "could not send welcome email"
                 );
                 Error::string("Failed to send welcome email")
@@ -82,7 +88,6 @@ impl Task for UserCreate {
 
         tracing::info!(
             message = "User creation task completed successfully",
-            user_email = &register_params.email,
             user_pid = user.pid.to_string(),
             "user creation task finished"
         );

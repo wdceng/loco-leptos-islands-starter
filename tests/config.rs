@@ -441,6 +441,28 @@ fn every_environment_names_the_mail_sender(#[case] env: Environment, #[case] fro
     assert_eq!(settings.mail.from, from, "{env}: settings.mail.from");
 }
 
+/// A JWT lives one day everywhere: it can't be revoked, so a stolen one
+/// works until it expires (docs/security.md).
+#[rstest]
+#[case::development(Environment::Development)]
+// `case::test` would make rstest drop the function without a warning.
+#[case::test_env(Environment::Test)]
+#[case::dev_server(dev_server())]
+#[case::staging(staging())]
+#[case::production(Environment::Production)]
+fn tokens_live_one_day(#[case] env: Environment) {
+    let config = load(&env);
+    let jwt = config
+        .auth
+        .as_ref()
+        .and_then(|auth| auth.jwt.as_ref())
+        .unwrap_or_else(|| panic!("{env}: auth.jwt block missing"));
+    assert_eq!(
+        jwt.expiration, 86_400,
+        "{env}: auth.jwt.expiration in seconds"
+    );
+}
+
 /// The request tests count on this: twenty requests pass, the next is a 429.
 /// Large enough that the auth tests (register, verify, login, then the call
 /// under test) never trip it. The auth API's own bucket takes production's

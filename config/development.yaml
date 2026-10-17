@@ -225,8 +225,10 @@ auth:
   jwt:
     # Secret key for token generation and verification
     secret: yWTg61hOAF0kVrU0oOHv
-    # Token expiration time in seconds
-    expiration: 604800 # 7 days
+    # Token expiration time in seconds. One day: a JWT can't be revoked, so
+    # a stolen one works until it expires. Longer sessions and a logout need
+    # cookie sessions (docs/security.md).
+    expiration: 86400 # 1 day
     # Where to read the token from. Omitted => `Authorization: Bearer <token>`.
     # A cookie or query parameter is a single map with a `from:` tag:
     #

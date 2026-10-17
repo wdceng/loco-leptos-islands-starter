@@ -66,11 +66,9 @@ async fn register(
     let user = match res {
         Ok(user) => user,
         Err(err) => {
-            tracing::info!(
-                message = err.to_string(),
-                user_email = &params.email,
-                "could not register user",
-            );
+            // Never the address: personal data, and a taken one is exactly
+            // what the answer keeps to itself.
+            tracing::info!(message = err.to_string(), "could not register user");
             return format::json(());
         }
     };
@@ -213,17 +211,14 @@ async fn magic_link(
 ) -> Result<Response> {
     let email_regex = get_allow_email_domain_re();
     if !email_regex.is_match(&params.email) {
-        tracing::debug!(
-            email = params.email,
-            "The provided email is invalid or does not match the allowed domains"
-        );
+        tracing::debug!("The provided email is invalid or does not match the allowed domains");
         return bad_request("invalid request");
     }
 
     let Ok(user) = users::Model::find_by_email(&ctx.db, &params.email).await else {
         // we don't want to expose our users email. if the email is invalid we still
         // returning success to the caller
-        tracing::debug!(email = params.email, "user not found by email");
+        tracing::debug!("magic link: no account for the address");
         return format::empty_json();
     };
 
@@ -272,10 +267,7 @@ async fn resend_verification_email(
     Json(params): Json<ResendVerificationParams>,
 ) -> Result<Response> {
     let Ok(user) = users::Model::find_by_email(&ctx.db, &params.email).await else {
-        tracing::info!(
-            email = params.email,
-            "User not found for resend verification"
-        );
+        tracing::info!("User not found for resend verification");
         return format::json(());
     };
 
