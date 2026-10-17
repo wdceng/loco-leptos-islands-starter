@@ -32,6 +32,7 @@ different, and a change reaches only one of them.
 |---|---|---|
 | A colour in a view | the role tokens `primary`, `surface`, `ink`, `ink-muted`, never a scale step | `style/tailwind.css` |
 | A colour where CSS can't reach (`theme-color`, the manifest) | `SURFACE_HEX`, `BRAND_HEX` | `src/views/layout.rs` |
+| Room at the screen's edges in the home-screen app (a control under the clock or by the home indicator) | the `standalone:` variant, on a phone: `standalone:max-md:pt-6` | `style/tailwind.css` |
 
 ## Files and addresses
 

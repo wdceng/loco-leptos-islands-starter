@@ -22,6 +22,20 @@
   --color-ink-muted: var(--color-gray-600); /* secondary text */
 }
 
+/* `standalone:`, for the app opened from a phone's home screen (the web
+   manifest's `display: standalone`). Without Safari's bars the page reaches
+   the glass: a control at the top sits under the clock, one at the foot in
+   the screen's rounded corner. Give those room with this variant, on a
+   phone only, as `standalone:max-md:pt-6`. Not the safe-area insets: they
+   read 0 without `viewport-fit=cover`, which the template leaves out
+   (docs/tried-and-dropped.md). Tailwind generates it only where a class
+   uses it. */
+@custom-variant standalone {
+  @media (display-mode: standalone) {
+    @slot;
+  }
+}
+
 /* What the template needs on top of Tailwind's reset (Preflight). */
 @layer base {
   /* Leptos wraps an island in <leptos-island> and its server-rendered

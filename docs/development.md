@@ -249,3 +249,14 @@ to bottom.
   runs in the browser.
 - **Staging and production restart every night.** Development never does,
   so a watch loop left on overnight is still running in the morning.
+- **The home-screen app reaches the glass.** Opened from a phone's home
+  screen, the page has no Safari bars around it: give controls at the top
+  and the foot room with `standalone:max-md:…` (`style/tailwind.css`).
+- **No safe-area insets without `viewport-fit=cover`.**
+  `env(safe-area-inset-*)` reads 0 here; use the `standalone:` variant
+  instead.
+- **No test sees the home-screen app.** WebDriver can't open one, and
+  DevTools doesn't truly emulate `display-mode` (`matchMedia` stays false).
+  Check it by hand on a phone.
+- **Swipe the home-screen app away after a deploy, then reopen it.** A
+  backgrounded app keeps its old CSS.
