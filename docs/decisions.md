@@ -61,9 +61,19 @@ change of mind gets a new line, and the old one moves to
   byte for byte from npm (`htmx.org` 4.0.0, `@alpinejs/csp` 3.17.4), each
   checked against the package before it came in.
 - 2026-10-18: **The `parseHTMLUnsafe` workaround** in
-  `public/js/htmx-islands.js` (htmx #4147: Chrome 155 drops the comments
-  Leptos hydrates by). **Way back:** once `tools/upstream.sh` reports
-  #4147 closed with a fix in a release, read how, then drop the line.
+  `public/js/htmx-islands.js` (htmx #4147: Chrome drops the comments
+  Leptos hydrates by).
+- 2026-10-19: **It passes options instead of deleting the function**, the
+  htmx maintainer's way: Chrome 150 to 156 drops the comments only when
+  called with one argument. #4147 closed without a change in htmx.
+  **Way back:** once Chrome 157 is everywhere, drop it.
+- 2026-10-19: **Every idle callback gets a 2 s timeout**
+  (`public/js/htmx-islands.js`). Leptos 0.8's island loader waits for idle
+  time with none, and Chrome 114 to 123 can stop giving it after many whole
+  loads in one tab, found in an islands app: then no island starts.
+  Leptos's own hydration script already passes one. Not a pinned Leptos
+  fork: others copy this template. **Way back:** once a Leptos release's
+  loader passes a timeout, drop it.
 - 2026-10-18: **The `Navigation` island** ports four behaviours from the
   sister app's `Chores`: focus and announcement, Back's scroll, a newer
   build loading plainly, a gateway's error loading plainly. Its

@@ -2,15 +2,32 @@
 // Keeps Leptos islands alive in HTML htmx swaps in. The one hand-written
 // script in the template: plumbing, no page logic (CLAUDE.md, "Islands").
 
-// 1. Chrome's parseHTMLUnsafe drops the comments Leptos hydrates by;
-//    without it htmx falls back to DOMParser, which keeps them
-//    (https://github.com/bigskysoftware/htmx/issues/4147,
-//    tools/upstream.sh). Loaded before htmx parses anything.
-delete Document.parseHTMLUnsafe;
-
-// In a block, so these consts stay out of the page's global scope.
+// In blocks, so these consts stay out of the page's global scope.
 {
-  // 2. Wake islands htmx swaps in, as Leptos's own router does.
+  // 1. Leptos's island loader waits for idle time with no timeout, and
+  //    Chrome 114 to 123 can stop giving any after many whole loads in one
+  //    tab: then no island starts. Every idle callback gets a 2 s timeout,
+  //    as Leptos's own hydration script has. A `defer` script before
+  //    <HydrationScripts/> runs before its loader, a module script.
+  //    Remove once a Leptos release passes its own (docs/decisions.md).
+  const idle = window.requestIdleCallback;
+  if (idle) {
+    window.requestIdleCallback = (callback, options) =>
+      idle.call(window, callback, { timeout: 2000, ...options });
+  }
+
+  // 2. Chrome 150 to 156 drops the comments Leptos hydrates by when
+  //    parseHTMLUnsafe gets one argument; with options it keeps them
+  //    (https://github.com/bigskysoftware/htmx/issues/4147, the htmx
+  //    maintainer's way). Remove once Chrome 157 is everywhere.
+  const parse = Document.parseHTMLUnsafe?.bind(Document);
+  if (parse) {
+    Document.parseHTMLUnsafe = (html, options) => parse(html, { ...options });
+  }
+}
+
+{
+  // 3. Wake islands htmx swaps in, as Leptos's own router does.
   //    Islands already on the page are Leptos's first pass: mark them.
   for (const el of document.querySelectorAll("leptos-island")) {
     el.$$hydrated = true;
@@ -26,7 +43,7 @@ delete Document.parseHTMLUnsafe;
   };
   document.addEventListener("htmx:after:swap", wake);
 
-  // 3. htmx 4 doesn't watch the page: process hx-* added later, and wake
+  // 4. htmx 4 doesn't watch the page: process hx-* added later, and wake
   //    islands added later (the swap event may fire on a removed element).
   const HX =
     "[hx-get],[hx-post],[hx-put],[hx-patch],[hx-delete],[hx-action],[hx-trigger]";

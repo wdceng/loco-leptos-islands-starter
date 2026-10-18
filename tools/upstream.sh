@@ -9,8 +9,9 @@
 #      names on every build. Workaround: the same patched cargo-leptos.
 #   3. leptos PR #4953: an island's state disposed when it leaves the page.
 #      Workaround: an island collector, until it is released.
-#   4. htmx #4147: Chrome's parseHTMLUnsafe drops the comments Leptos
-#      hydrates by. Workaround: `delete Document.parseHTMLUnsafe` before htmx.
+#   4. htmx #4147: Chrome 150 to 156's parseHTMLUnsafe drops the comments
+#      Leptos hydrates by. Workaround: always pass it options
+#      (public/js/htmx-islands.js), until Chrome 157 is everywhere.
 #
 # Exit 0: nothing to act on. Exit 2: something looks released or closed,
 # see "act:" lines. Exit 1: an API could not be read.
