@@ -106,6 +106,10 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 # the islands themselves, which Leptos already builds against. Only what an
 # island names is switched on.
 web-sys = { version = "0.3.106", features = [
+  # src/collect.rs: an island's node watched until it has left the page,
+  # its `<leptos-island>` marked awake in a debug build.
+  "Element",
+  "Node",
   # `Navigation`: the focus after a move, without scrolling.
   "FocusOptions",
   "HtmlAnchorElement",
@@ -210,7 +214,10 @@ name = "app"
 path = "src/bin/main.rs"
 required-features = ["ssr"]
 
-[dev-dependencies]
+# The server's test crates, native only: the island collector's browser
+# tests (wasm32, below) would build them for the browser too, where they
+# don't compile.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 loco-rs = { workspace = true, features = ["testing"] }
 serial_test = { version = "4.0.1" }
 rstest = { version = "0.27.0" }
@@ -220,6 +227,13 @@ insta = { version = "1.48.0", features = ["redactions", "yaml", "filters"] }
 # Both crates are already in the tree through loco-rs; same versions.
 tera = { version = "2.4.0" }
 serde_yaml = { version = "0.9.34" }
+
+# The island collector's tests, run in headless Chrome (src/collect.rs,
+# docs/testing.md, "The island collector"). It requires the exact
+# wasm-bindgen release Cargo.lock holds (0.3.79 pairs with 0.2.129): bump
+# the two together.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = { version = "0.3.79" }
 
 [package.metadata.leptos]
 # Name of the js/wasm/css files. Mandatory: Leptos's config loader has no

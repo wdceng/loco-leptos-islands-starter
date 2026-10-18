@@ -55,6 +55,7 @@ different, and a change reaches only one of them.
 | htmx's settings | `HTMX_CONFIG` | `src/views/layout.rs` |
 | A status shown as a page in the region | `PAGE_STATUSES` | `src/islands.rs` |
 | What a move needs beyond htmx: focus, announcement, Back's scroll, a newer build, a gateway's error | `Navigation` | `src/islands.rs` |
+| Free an island once it has left the page | its whole body inside `collected(move \|\| { … })` | `src/collect.rs` |
 | Wake islands htmx swaps in | `public/js/htmx-islands.js`, the one glue file | `public/js/` |
 | A library in the page | a vendored file in `public/vendor/`, its version in its name, loaded by `Scripts` | `src/views/layout.rs` |
 

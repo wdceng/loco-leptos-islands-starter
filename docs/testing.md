@@ -231,6 +231,33 @@ cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --featu
 It fails if a server-only dependency leaks out of the `ssr` gate, and it's
 the only pass that sees the islands.
 
+### The island collector
+
+`src/collect.rs` frees islands in the browser half only, so its tests run
+there, in headless Chrome. Both programs are already on your machine:
+cargo-leptos downloaded the test runner with wasm-bindgen, and chromedriver
+must match your Chrome.
+
+```bash
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=~/Library/Caches/cargo-leptos/wasm-bindgen-0.2.129/wasm-bindgen-0.2.129/wasm-bindgen-0.2.129-aarch64-apple-darwin/wasm-bindgen-test-runner CHROMEDRIVER=~/Library/Caches/chromedriver/chromedriver-mac-arm64/chromedriver cargo test --lib --target wasm32-unknown-unknown --no-default-features --features hydrate   # the collector's four tests
+```
+
+Freed after two sweeps off the page, kept while on it, one strike then
+back is kept, and through a debug build's type erasure.
+
+- **Lazy islands are plain in a test build.** The runner loads a plain
+  wasm, not cargo-leptos's split one, and a lazy island's import of
+  `__wasm_split_placeholder__` would stop the page from loading
+  (`IslandsCheck`, `cfg_attr(test, island)`).
+- **The server's test crates are native only** (`Cargo.toml`): built for
+  wasm32 they don't compile.
+- **`every_island_runs_through_collected`** (`src/islands.rs`, native)
+  refuses an island whose body skips `collected`.
+
+On a real page: swap `IslandsCheck` away (any link from the home page),
+wait two sweeps (2 s each in a debug build), and `data-islands-live` on
+`<html>` drops by one, the console saying `islands: 1 live, 1 freed`.
+
 ## Manual Testing
 
 ### Full build served locally

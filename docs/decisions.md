@@ -70,6 +70,16 @@ change of mind gets a new line, and the old one moves to
   announcement is read a tick after the swap: htmx 4 sets the title after
   `htmx:after:swap` (found in Chrome on 2026-10-18; the sister app read the
   old title).
+- 2026-10-18: **The island collector** (`src/collect.rs`, from the sister
+  app): every island's body through `collected`, so an island htmx swaps
+  out is freed instead of kept until the next full load. **Way back:**
+  once leptos PR #4953 is released (`tools/upstream.sh`), its `$$dispose`
+  on each island element can be called from `public/js/htmx-islands.js`
+  before a swap, and `collect.rs` with every `collected(…)` can go; the
+  memory tests prove the swap.
+- 2026-10-18: **Lazy islands are plain in a test build**
+  (`cfg_attr(test, island)`): the collector's browser tests run a plain
+  wasm, which can't load a lazy island's split import.
 
 ## Security
 

@@ -124,6 +124,19 @@ a child view, whose `<!>` marker showed in the tab in dev builds. Checked
 in Chrome on 2026-10-18: swaps, a lazy island swapped in, focus and
 announcement, Back's scroll, a 404, a deploy, a refused form, a 502.
 
+**The island collector** - Leptos never frees an island: its `#[island]`
+macro forgets the island's view and owner once hydrated. A full page load
+hides that; a swap doesn't, so every island htmx swaps out would stay in
+the tab's memory until the next full load. Every island's body therefore
+runs through `collected` (`src/collect.rs`, from the sister app, where
+it's proven): the island's state and owner go into a registry, and a sweep
+every 30 s (2 s in a debug build) frees an island whose element has been
+off the page at two sweeps in a row, its `on_cleanup` included. A test
+refuses an island that skips it. A stopgap until Leptos frees islands
+itself (PR #4953, `tools/upstream.sh`). Checked in Chrome on 2026-10-18:
+`IslandsCheck` swapped out and freed, `Navigation` kept; and its four
+browser tests (`testing.md`, "The island collector").
+
 cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
 every file there itself, at compile time: a hash of each file's bytes
 (FNV-1a, no new crate), written as one Rust constant per file in modules

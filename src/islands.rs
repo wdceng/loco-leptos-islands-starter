@@ -32,6 +32,11 @@
 //! small state in the page (open or closed, focus, keys), an island only
 //! for what neither can (Rust shared with the server, a browser API Alpine
 //! can't reach, state that must outlive the server's answers).
+//!
+//! **Every island's body runs through `collected`** (src/collect.rs):
+//! Leptos never frees an island htmx swaps out, so without it each one
+//! stays in the tab's memory until the next full load. A test below refuses
+//! an island that doesn't.
 
 use std::{cell::RefCell, time::Duration};
 
@@ -43,6 +48,8 @@ use web_sys::{
     ScrollBehavior, ScrollRestoration, ScrollToOptions,
     js_sys::{Function, Object, Reflect},
 };
+
+use crate::collect::collected;
 
 /// The page's region, the part a move between pages replaces (the shell's
 /// `#page`, views/layout.rs), by its id.
@@ -113,64 +120,66 @@ thread_local! {
 /// The listeners are removed with the island's owner.
 #[island]
 pub fn Navigation() -> impl IntoView {
-    // Effects run in the browser only, after hydration.
-    Effect::new(move |_| {
-        take_scroll_over();
-        REGION.set(document().get_element_by_id(PAGE_REGION));
-        BUILD.set(
-            document()
-                .query_selector(&format!("meta[name={BUILD_META}]"))
-                .ok()
-                .flatten()
-                .and_then(|meta| meta.get_attribute("content")),
-        );
-    });
-    let fresher = window_event_listener_untyped("htmx:before:response", |ev| {
-        if let Some(page) = newer_build(&ev) {
-            ev.prevent_default();
-            let _ = window().location().assign(&page);
-        }
-    });
-    let swapped = window_event_listener_untyped("htmx:after:swap", |_| {
-        if moved() {
-            arrive();
-        }
-    });
-    // Back's swap keeps the region's element, so it is no move to `moved`:
-    // the scroll is put back once htmx has settled the swap.
-    let settled = window_event_listener_untyped("htmx:after:settle", |_| restored());
-    // The entry Back or Forward brings back is the current one by now: its
-    // scroll is read before htmx asks for its page.
-    let restoring = window_event_listener_untyped("htmx:before:history:restore", |_| {
-        RESTORING.set(Some(kept_scroll().unwrap_or(0.0)));
-    });
-    // The entry a move leaves keeps where its page stood, before the move
-    // pushes the next one; not while a page is being brought back.
-    let leaving = window_event_listener_untyped("htmx:before:request", |_| {
-        if RESTORING.with_borrow(Option::is_none) {
-            keep_scroll();
-        }
-    });
-    let resting = StoredValue::new(None::<TimeoutHandle>);
-    let scrolled = window_event_listener_untyped("scroll", move |_| {
-        if let Some(queued) = resting.get_value() {
-            queued.clear();
-        }
-        resting.set_value(set_timeout_with_handle(keep_scroll, SCROLL_REST).ok());
-    });
-    let refused = window_event_listener_untyped("htmx:response:error", load_plainly);
-    on_cleanup(move || {
-        fresher.remove();
-        swapped.remove();
-        settled.remove();
-        restoring.remove();
-        leaving.remove();
-        scrolled.remove();
-        refused.remove();
-        if let Some(queued) = resting.get_value() {
-            queued.clear();
-        }
-    });
+    collected(|| {
+        // Effects run in the browser only, after hydration.
+        Effect::new(move |_| {
+            take_scroll_over();
+            REGION.set(document().get_element_by_id(PAGE_REGION));
+            BUILD.set(
+                document()
+                    .query_selector(&format!("meta[name={BUILD_META}]"))
+                    .ok()
+                    .flatten()
+                    .and_then(|meta| meta.get_attribute("content")),
+            );
+        });
+        let fresher = window_event_listener_untyped("htmx:before:response", |ev| {
+            if let Some(page) = newer_build(&ev) {
+                ev.prevent_default();
+                let _ = window().location().assign(&page);
+            }
+        });
+        let swapped = window_event_listener_untyped("htmx:after:swap", |_| {
+            if moved() {
+                arrive();
+            }
+        });
+        // Back's swap keeps the region's element, so it is no move to
+        // `moved`: the scroll is put back once htmx has settled the swap.
+        let settled = window_event_listener_untyped("htmx:after:settle", |_| restored());
+        // The entry Back or Forward brings back is the current one by now:
+        // its scroll is read before htmx asks for its page.
+        let restoring = window_event_listener_untyped("htmx:before:history:restore", |_| {
+            RESTORING.set(Some(kept_scroll().unwrap_or(0.0)));
+        });
+        // The entry a move leaves keeps where its page stood, before the
+        // move pushes the next one; not while a page is being brought back.
+        let leaving = window_event_listener_untyped("htmx:before:request", |_| {
+            if RESTORING.with_borrow(Option::is_none) {
+                keep_scroll();
+            }
+        });
+        let resting = StoredValue::new(None::<TimeoutHandle>);
+        let scrolled = window_event_listener_untyped("scroll", move |_| {
+            if let Some(queued) = resting.get_value() {
+                queued.clear();
+            }
+            resting.set_value(set_timeout_with_handle(keep_scroll, SCROLL_REST).ok());
+        });
+        let refused = window_event_listener_untyped("htmx:response:error", load_plainly);
+        on_cleanup(move || {
+            fresher.remove();
+            swapped.remove();
+            settled.remove();
+            restoring.remove();
+            leaving.remove();
+            scrolled.remove();
+            refused.remove();
+            if let Some(queued) = resting.get_value() {
+                queued.clear();
+            }
+        });
+    })
 }
 
 /// Whether a swap brought a new page's region: the region is another
@@ -338,20 +347,72 @@ fn newer_build(ev: &web_sys::Event) -> Option<String> {
 /// Shows whether the browser half runs: the server renders "not running",
 /// and the island switches to "running" once its chunk has loaded and
 /// hydrated. Lazy, so it also proves the split build works. Home page only.
-#[island(lazy)]
+// Lazy everywhere but a test build: the browser tests (src/collect.rs) run
+// a plain wasm, not cargo-leptos's split one, and a lazy island's import of
+// `__wasm_split_placeholder__` would stop the test page from loading.
+#[cfg_attr(not(test), island(lazy))]
+#[cfg_attr(test, island)]
 pub fn IslandsCheck() -> impl IntoView {
-    let (running, set_running) = signal(false);
-    // Effects run in the browser only, after hydration.
-    Effect::new(move |_| set_running.set(true));
-    view! {
-        <p class="mt-8 text-sm text-ink-muted">
-            {move || {
-                if running.get() {
-                    "Islands: running. This line is a lazy island, loaded on its own."
-                } else {
-                    "Islands: not running."
-                }
-            }}
-        </p>
+    collected(|| {
+        let (running, set_running) = signal(false);
+        // Effects run in the browser only, after hydration.
+        Effect::new(move |_| set_running.set(true));
+        view! {
+            <p class="mt-8 text-sm text-ink-muted">
+                {move || {
+                    if running.get() {
+                        "Islands: running. This line is a lazy island, loaded on its own."
+                    } else {
+                        "Islands: not running."
+                    }
+                }}
+            </p>
+        }
+    })
+}
+
+/// Reads the source, so native only: the browser tests build for wasm32.
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use std::{fs, path::Path};
+
+    /// Every island's body runs through `collected` (src/collect.rs): its
+    /// first statement is the call. One that doesn't would stay in the
+    /// tab's memory after htmx swaps it out, which no other test sees.
+    #[test]
+    fn every_island_runs_through_collected() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/islands.rs");
+        let source = fs::read_to_string(&path).expect("src/islands.rs");
+        let lines: Vec<&str> = source.lines().collect();
+        let mut islands = 0;
+        for (at, line) in lines.iter().enumerate() {
+            if !line.starts_with("pub fn ") {
+                continue;
+            }
+            // An island: an attribute right above it names `island`, plain or
+            // inside a `cfg_attr`.
+            let island = lines[..at]
+                .iter()
+                .rev()
+                .take_while(|above| above.starts_with("#["))
+                .any(|attribute| attribute.contains("island"));
+            if !island {
+                continue;
+            }
+            islands += 1;
+            let first = lines[at + 1..]
+                .iter()
+                .map(|line| line.trim())
+                .find(|line| !line.is_empty() && !line.starts_with("//"))
+                .expect("the island's first statement");
+            assert!(
+                first.starts_with("collected("),
+                "{line}\n  its body must go through `collected`, starts with: {first}"
+            );
+        }
+        assert_eq!(
+            islands, 2,
+            "Navigation and IslandsCheck: has the file changed?"
+        );
     }
 }
