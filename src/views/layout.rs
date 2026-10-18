@@ -1,14 +1,105 @@
 //! The HTML document every page is rendered into.
 //!
 //! Loco controllers own the routes; each one renders a page component inside
-//! this shell. The shell is plain server-rendered HTML except for the two
-//! Leptos helpers in `<head>`: the hydration scripts that load the islands
-//! bundle, and the dev-only auto-reload hook.
+//! this shell. The shell is server-rendered HTML with htmx and Alpine in its
+//! `<head>` ([`Scripts`]), and the two Leptos helpers: the hydration scripts
+//! that load the islands bundle, and the dev-only auto-reload hook.
+//!
+//! Moves between pages happen in place: every link and form in the page's
+//! region (`#page`) is boosted, so htmx fetches the next page and swaps its
+//! region in, and the `Navigation` island (src/islands.rs) does what a
+//! swap needs beyond that. Without htmx (blocked, not loaded yet) every
+//! link and form still works as a plain one.
 
 use chrono::Datelike;
-use leptos::prelude::*;
+use leptos::{
+    attr::{
+        any_attribute::{AnyAttribute, IntoAnyAttribute},
+        custom::custom_attribute,
+    },
+    prelude::*,
+};
 
-use crate::paths;
+use crate::{
+    assets::Assets,
+    islands::{BUILD_META, Navigation, PAGE_ANNOUNCE, PAGE_REGION, PAGE_STATUSES},
+    paths::{
+        self,
+        assets::{js, vendor},
+    },
+};
+
+/// htmx's settings, its `htmx-config` meta: no indicator styles of its own
+/// (they'd be inline, which the CSP refuses); no swap of a 4xx or 5xx
+/// unless the element names the status (the region names every status the
+/// app answers with a page, [`PAGE_STATUSES`]); the Alpine and preload
+/// extensions, the preload's own boost mode off (it would fetch a page for
+/// every scroll a phone starts on a link); Back and Forward in place
+/// (`history`), htmx fetching the earlier page again into the region
+/// (`hx-history-elt`); a morph leaves islands alone; swaps go in at once, no
+/// view transition.
+pub const HTMX_CONFIG: &str = r#"{"includeIndicatorCSS":false,"noSwap":[204,304,"4xx","5xx"],"extensions":"alpine-compat,preload","preload":{"autoBoost":false},"history":true,"morphSkip":"[hx-morph-skip], leptos-island","transitions":false}"#;
+
+/// When a page a link leads to starts loading: at a mouse's press, the
+/// click a moment later taking the answer already on its way (100 to 150 ms
+/// saved per move). Never at a hover, which would fetch every link the
+/// pointer crosses, nor at a touch, which starts most scrolls on a phone.
+/// A POST is never fetched ahead.
+pub const PRELOAD: &str = "mousedown";
+
+/// How a move goes in: the answer's region in place of the page's own, the
+/// page at its top. Carried by `hx-boost` it applies to boosted links and
+/// forms alone, so an element with its own `hx-*` keeps its own target;
+/// carried by a status, an error page from any request in the region shows
+/// in the region.
+const TO_REGION: &str =
+    r##"{"target":"#page","select":"#page","swap":"outerHTML show:top showTarget:body"}"##;
+
+/// The page's region's attributes, the part a move replaces: every link and
+/// form in it boosted ([`TO_REGION`]), a GET started at a press
+/// ([`PRELOAD`]), and every status the app answers with a page of its own
+/// shown in it ([`PAGE_STATUSES`]), so a link to a missing page shows the
+/// not-found page instead of doing nothing. htmx 4 inherits only what says
+/// `:inherited`.
+fn region_attributes() -> Vec<AnyAttribute> {
+    [
+        custom_attribute("hx-boost:inherited", TO_REGION).into_any_attr(),
+        custom_attribute("hx-preload:inherited", PRELOAD).into_any_attr(),
+    ]
+    .into_iter()
+    .chain(PAGE_STATUSES.iter().map(|status| {
+        custom_attribute(format!("hx-status:{status}:inherited"), TO_REGION).into_any_attr()
+    }))
+    .collect()
+}
+
+/// `text` escaped for a `<title>`, which the shell writes as raw content
+/// (`inner_html`): the parser ends a title at `</title>` and decodes
+/// character references in it, so `&`, `<` and `>` are written as
+/// references and show exactly as typed.
+fn title_text(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// htmx's settings ([`HTMX_CONFIG`]), htmx, its Alpine and preload
+/// extensions, the glue that wakes islands htmx swaps in
+/// (`public/js/htmx-islands.js`) and Alpine's CSP build: all `defer`, so
+/// they run in the order they stand, the extensions and the glue after
+/// htmx, Alpine last. Files from `script-src 'self'`, so no nonce. Alpine's
+/// CSP build reads its attributes without `eval`, which the CSP refuses.
+#[component]
+fn Scripts() -> impl IntoView {
+    view! {
+        <meta name="htmx-config" content=HTMX_CONFIG/>
+        <script src=vendor::HTMX_4_0_0_MIN_JS defer></script>
+        <script src=vendor::HX_ALPINE_COMPAT_4_0_0_MIN_JS defer></script>
+        <script src=vendor::HX_PRELOAD_4_0_0_MIN_JS defer></script>
+        <script src=js::HTMX_ISLANDS_JS defer></script>
+        <script src=vendor::ALPINEJS_CSP_3_17_4_MIN_JS defer></script>
+    }
+}
 
 /// Shown in the header, the footer, the browser tab and under the icon on a
 /// phone's home screen (the web manifest). One place to change when the
@@ -53,12 +144,12 @@ pub struct PageMeta {
 
 /// Wraps `page` in the full document. `options` comes from
 /// `[package.metadata.leptos]` (or the env vars cargo-leptos sets) and
-/// tells the hydration scripts where the bundle lives. `stylesheet` is the
-/// URL path resolved at boot (`src/assets.rs`): hashed in a release build,
-/// plain otherwise.
+/// tells the hydration scripts where the bundle lives. `assets` was resolved
+/// at boot (`src/assets.rs`): the stylesheet's address, hashed in a release
+/// build, and the build's name.
 pub fn shell(
     options: LeptosOptions,
-    stylesheet: String,
+    assets: Assets,
     meta: PageMeta,
     page: impl IntoView,
 ) -> impl IntoView {
@@ -77,7 +168,11 @@ pub fn shell(
                 // padding, which WebKit sometimes updates only on the next
                 // scroll after rotating, leaving the page off-centre.
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <title>{meta.title}</title>
+                // The title as the element's own escaped text, never a child
+                // view: a title holds characters alone, so the marker a dev
+                // build's erased view leaves after its content (`<!>`)
+                // showed in every tab, and htmx copies it on every swap.
+                <title inner_html=title_text(&meta.title)></title>
                 <meta name="description" content=meta.description/>
                 {meta.robots.map(|content| view! { <meta name="robots" content=content/> })}
                 // Icons live in public/favicon, which cargo-leptos copies to
@@ -110,10 +205,15 @@ pub fn shell(
                 // tag below; Android takes the manifest's.
                 <meta name="mobile-web-app-capable" content="yes"/>
                 <meta name="apple-mobile-web-app-title" content=APP_NAME/>
-                <link rel="stylesheet" href=stylesheet/>
+                <link rel="stylesheet" href=assets.stylesheet/>
+                // The build this page loaded, which a move's answer is
+                // compared with (`X-Build`, the `Navigation` island):
+                // another after a deploy, and the move is a full load.
+                <meta name=BUILD_META content=assets.build/>
                 // Live reload while `cargo leptos watch` runs; renders
                 // nothing in production.
                 <AutoReload options=options.clone()/>
+                <Scripts/>
                 // Loads the WASM bundle and calls our `hydrate()`, which
                 // wakes up only the `#[island]` components on the page.
                 <HydrationScripts options islands=true/>
@@ -130,16 +230,44 @@ pub fn shell(
                 // The landmarks live here, once. Pages supply only what goes
                 // inside <main>. All three share the prose column for now;
                 // header and footer can take a wider frame later.
-                <header class=format!("{COLUMN} py-6")>
-                    <a href="/" class="font-semibold">{APP_NAME}</a>
-                </header>
-                <main id="content" class=format!("{COLUMN} py-16")>
-                    {page}
-                </main>
-                <footer class=format!("{COLUMN} py-6 text-sm text-ink-muted")>
-                    {format!("© {year} {APP_NAME}")}
-                </footer>
+                //
+                // The page's region: what a move replaces, and where Back
+                // and Forward put the earlier page (`hx-history-elt`). Out of
+                // the layout (`contents`), so the body still lays out the
+                // header, `<main>` and the footer. `<main>` takes the focus
+                // after a move (`Navigation`), out of the Tab order.
+                <div id=PAGE_REGION class="contents" hx-history-elt="" {..region_attributes()}>
+                    <header class=format!("{COLUMN} py-6")>
+                        <a href="/" class="font-semibold">{APP_NAME}</a>
+                    </header>
+                    <main id="content" tabindex="-1" class=format!("{COLUMN} py-16 outline-hidden")>
+                        {page}
+                    </main>
+                    <footer class=format!("{COLUMN} py-6 text-sm text-ink-muted")>
+                        {format!("© {year} {APP_NAME}")}
+                    </footer>
+                </div>
+                // The new page's title, read out after a move in place, which
+                // a screen reader doesn't announce as a page load.
+                <p id=PAGE_ANNOUNCE role="status" class="sr-only"></p>
+                // What a move needs beyond htmx, for the whole visit: outside
+                // the region, so a move never replaces it (src/islands.rs).
+                <Navigation/>
             </body>
         </html>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_title_shows_exactly_as_written() {
+        assert_eq!(title_text("Reset · App"), "Reset · App");
+        assert_eq!(
+            title_text("A & B </title><script>x</script>"),
+            "A &amp; B &lt;/title&gt;&lt;script&gt;x&lt;/script&gt;"
+        );
     }
 }

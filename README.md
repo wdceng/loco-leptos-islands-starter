@@ -51,6 +51,10 @@ folder.
 - **Interactive parts when you want them.** A component marked `#[island]`
   runs in the browser as WebAssembly. Only islands go to the browser,
   everything else stays plain HTML.
+- **An app's feel without a client router.** htmx swaps each page in
+  without a reload, Alpine handles small things like a menu, and every link
+  still works as a plain link. Focus, Back's scroll and a deploy while a
+  tab is open are taken care of.
 - **Tailwind CSS.** You write class names, the build makes the stylesheet.
 - **A SQLite database** with migrations, through Sea-ORM. One file next to
   your code, nothing to install or run.

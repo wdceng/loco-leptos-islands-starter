@@ -53,18 +53,22 @@ touches it. A rule a test can check becomes a test, not a line here.
 | Environments `development`, `test`, `production` (`LOCO_ENV`, default `development`) | The same three, plus **`dev-server`** and **`staging`**, which Loco reads as `Environment::Any`. `config/dev-server.yaml` must stay staging's copy apart from its defaults (`tests/config.rs`): change both together. Check "is this local?" with `settings::is_local` |
 | Static files from `assets/static` | Files live in `public/` and are **linked only through `paths::assets`** (versioned constants from `build.rs`). A plain `"/favicon/..."` string fails the links test |
 
-## Islands
+## Islands, htmx and Alpine
 
+- **htmx for what needs the server, Alpine's CSP build for small page
+  state, an island only for what neither can.** Links and forms stay
+  plain (`href`, `action`); the shell's `#page` boosts them.
+- **No `hx-on`, no full Alpine:** both need `'unsafe-eval'`, which the CSP
+  refuses (`tests/config.rs`). No project JavaScript beyond
+  `public/js/htmx-islands.js` (`src/paths.rs` tests it).
 - **Islands live in `src/islands.rs`**, the one module both halves
   compile. An island anywhere else renders but never runs.
 - **`--split` on every cargo-leptos command:** watch, build, deploys, CI.
   Without it no island runs; the server refuses to boot that build.
 - **Lazy (`#[island(lazy)]`) when only some pages use an island,** and
   render every island only where it's needed: rendered means fetched.
-- **cargo-leptos is the patched build** from `tools/cargo-leptos/`
-  (`check.sh` says whether it's installed). Never a plain
-  `cargo install cargo-leptos` until `docs/decisions.md` says the fixes
-  are released.
+- **cargo-leptos is the patched build** (`tools/cargo-leptos/`,
+  `check.sh`) until `docs/decisions.md` says its fixes are released.
 - **Thin islands:** content passed in as `children`, props plain data.
 
 ## Rules the compiler or tests can't enforce

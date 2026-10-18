@@ -50,6 +50,13 @@ async fn the_reset_page_changes_the_password_once() {
             .form(&serde_json::json!({ "token": token, "password": "short" }))
             .await;
         assert_eq!(refused.status_code(), 400);
+        // A page answered to a post keeps the address the browser is at:
+        // htmx would otherwise push `/reset` as a POST's (src/render.rs).
+        assert_eq!(refused.header("hx-push-url"), "false");
+        assert!(
+            page.maybe_header("hx-push-url").is_none(),
+            "a GET's page pushes as usual"
+        );
         let body = refused.text();
         assert!(body.contains("must be 8 to 128 characters"), "{body}");
         assert!(body.contains(&format!(r#"value="{token}""#)), "{body}");

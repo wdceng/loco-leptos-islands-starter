@@ -34,6 +34,12 @@ use loco_rs::{Error, Result, environment::Environment};
 pub struct Assets {
     /// Absolute URL path of the stylesheet, hashed or plain.
     pub stylesheet: String,
+    /// The build's name ([`build_id`]): another after a deploy that changed
+    /// what a page loads. Every page sends it (`X-Build`, src/render.rs) and
+    /// names it in its head, so a tab open since an older build loads the
+    /// next page whole instead of swapping it in (`Navigation`,
+    /// src/islands.rs).
+    pub build: String,
 }
 
 /// Looks for the hash file next to the running binary and resolves the
@@ -58,9 +64,12 @@ pub fn detect(options: &mut LeptosOptions, env: &Environment) -> Result<Assets> 
     let check_disk = !matches!(env, Environment::Test);
     // The main script, hashed like the stylesheet or plain.
     let mut script = format!("{name}.js");
+    // The hash file's lines, part of the build's name; none in a dev build.
+    let mut hashes = String::new();
 
     let file = match std::fs::read_to_string(&hash_path) {
         Ok(contents) => {
+            hashes.clone_from(&contents);
             let hash = hash_line(&contents, "css").ok_or_else(|| {
                 Error::Message(format!("{}: no `css:` line", hash_path.display()))
             })?;
@@ -108,7 +117,33 @@ pub fn detect(options: &mut LeptosOptions, env: &Environment) -> Result<Assets> 
 
     Ok(Assets {
         stylesheet: format!("/{pkg}/{file}"),
+        build: build_id(&hashes, crate::paths::assets::ALL),
     })
+}
+
+/// The build's name: an FNV-1a hash, as `build.rs` versions files with, of
+/// what a page loads: the bundle's, the script's and the stylesheet's
+/// hashes (`hashes`, the hash file; empty in a dev build, whose watch loop
+/// reloads the page itself) and every file under `public/` at its versioned
+/// address (htmx, Alpine, the glue script, the icons). A deploy that
+/// changes none of them keeps the name, so a server-only deploy makes no
+/// open tab load its next page whole.
+fn build_id(hashes: &str, files: &[(&str, &str)]) -> String {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    let mut hash = OFFSET;
+    let mut feed = |bytes: &[u8]| {
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(PRIME);
+        }
+    };
+    feed(hashes.as_bytes());
+    for (_, address) in files {
+        feed(b"\n");
+        feed(address.as_bytes());
+    }
+    format!("{hash:016x}")
 }
 
 /// What the main script imports in place of the split loader when it was
@@ -222,6 +257,30 @@ mod tests {
         assert_eq!(
             split_problem("export function hydrate() {}", |_| false),
             None
+        );
+    }
+
+    #[test]
+    fn the_build_name_follows_what_a_page_loads() {
+        let hashes = "js: 1a\nwasm: 2b\ncss: 3c\n";
+        let files = [("/vendor/htmx.js", "/vendor/htmx.js?v=aaaa")];
+        let name = build_id(hashes, &files);
+        assert_eq!(name.len(), 16, "{name}");
+        assert_eq!(
+            name,
+            build_id(hashes, &files),
+            "the same build, another name"
+        );
+        assert_ne!(
+            name,
+            build_id("js: 1a\nwasm: 9z\ncss: 3c\n", &files),
+            "a new bundle, the same name"
+        );
+        let changed = [("/vendor/htmx.js", "/vendor/htmx.js?v=bbbb")];
+        assert_ne!(
+            name,
+            build_id(hashes, &changed),
+            "a new script, the same name"
         );
     }
 }

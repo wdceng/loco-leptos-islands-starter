@@ -102,6 +102,21 @@ leptos_axum = { version = "0.8.10", optional = true }
 any_spawner = { version = "0.3.0", features = ["tokio"], optional = true }
 wasm-bindgen = { version = "0.2.129", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
+# The browser's API for the islands (src/islands.rs), in both halves like
+# the islands themselves, which Leptos already builds against. Only what an
+# island names is switched on.
+web-sys = { version = "0.3.106", features = [
+  # `Navigation`: the focus after a move, without scrolling.
+  "FocusOptions",
+  "HtmlAnchorElement",
+  "HtmlElement",
+  # `Navigation`: Back's scroll kept in the history entry and put back.
+  "History",
+  "Response",
+  "ScrollBehavior",
+  "ScrollRestoration",
+  "ScrollToOptions",
+] }
 
 # ---------------------------------------------------------------------------
 # Other: crates this project adds on its own (rate limiting, ...).

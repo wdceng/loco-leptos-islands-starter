@@ -97,6 +97,33 @@ machine and CI build the patched one in `tools/cargo-leptos/`
 (`development.md`, "Lazy islands"). The home page's `IslandsCheck` keeps
 the split path in use, so CI builds and checks it.
 
+**Moves in place (htmx 4, Alpine)** - The shell's `#page` region boosts
+every link and form in it (`hx-boost`), so htmx fetches the next page and
+swaps its region in: no reload, the islands bundle stays loaded. Every
+status the app answers with a page (400, 404, 405, 408, 413, 415, 500)
+shows in the region too. htmx, its preload and Alpine extensions, and
+Alpine's CSP build are vendored byte for byte in `public/vendor/`, versioned
+like every public file. Two glues: `public/js/htmx-islands.js` wakes the
+islands htmx swaps in (and drops Chrome's `parseHTMLUnsafe`, which loses
+the comments Leptos hydrates by, htmx #4147), and htmx's Alpine extension
+does the same for Alpine. What a swap needs beyond htmx is the
+`Navigation` island, ported from the project this template shares its
+stack with:
+
+- the focus on `<main>` and the new title read out by a live region (htmx
+  sets the title only after `htmx:after:swap`, so it's read a tick later);
+- the scroll on Back and Forward, kept in each history entry;
+- a newer build (`X-Build` against the page's `<meta name="build">`)
+  loads the page plainly, so an old wasm never meets a new page's islands;
+- a status the app never sends as a page (a gateway's 502, the 429) loads
+  plainly, so a click never does nothing.
+
+A page answered to a post keeps the browser's address (`HX-Push-Url:
+false`, `src/render.rs`). The page title is written as escaped text, never
+a child view, whose `<!>` marker showed in the tab in dev builds. Checked
+in Chrome on 2026-10-18: swaps, a lazy island swapped in, focus and
+announcement, Back's scroll, a 404, a deploy, a refused form, a 502.
+
 cargo-leptos doesn't hash anything in `public/`, so `build.rs` versions
 every file there itself, at compile time: a hash of each file's bytes
 (FNV-1a, no new crate), written as one Rust constant per file in modules

@@ -54,6 +54,22 @@ change of mind gets a new line, and the old one moves to
   `cargo install --locked cargo-leptos@<version>` in the README,
   `prerequisites.md` and CI, delete `tools/cargo-leptos/` and the
   `check.sh` gates in the deploy chains, and add a line here.
+- 2026-10-18: **Moves in place with htmx 4 and Alpine's CSP build**, as
+  the apps built on the template already did on their own: one tested
+  version here instead of one per app. htmx for what needs the server,
+  Alpine for small page state, an island for what neither can. Vendored
+  byte for byte from npm (`htmx.org` 4.0.0, `@alpinejs/csp` 3.17.4), each
+  checked against the package before it came in.
+- 2026-10-18: **The `parseHTMLUnsafe` workaround** in
+  `public/js/htmx-islands.js` (htmx #4147: Chrome 155 drops the comments
+  Leptos hydrates by). **Way back:** once `tools/upstream.sh` reports
+  #4147 closed with a fix in a release, read how, then drop the line.
+- 2026-10-18: **The `Navigation` island** ports four behaviours from the
+  sister app's `Chores`: focus and announcement, Back's scroll, a newer
+  build loading plainly, a gateway's error loading plainly. Its
+  announcement is read a tick after the swap: htmx 4 sets the title after
+  `htmx:after:swap` (found in Chrome on 2026-10-18; the sister app read the
+  old title).
 
 ## Security
 

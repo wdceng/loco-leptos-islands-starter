@@ -12,6 +12,7 @@ updates it in the same commit.
 | Threat | Defence | Where | Test |
 |---|---|---|---|
 | Script injection (XSS) | Leptos escapes every value; a CSP with a nonce per page, no `'unsafe-inline'`, no `'unsafe-eval'` | `src/render.rs`, `config/*.yaml` | `tests/config.rs`, `tests/requests/security_headers.rs` |
+| Script gadgets (injected HTML turned into code by a library that reads attributes) | htmx without `hx-on`, Alpine's CSP build only, so no attribute is ever `eval`ed; no project JavaScript but the one glue file; the libraries vendored byte for byte from npm, checked before they came in | `src/views/layout.rs`, `public/vendor/` | `tests/config.rs`, `src/paths.rs` |
 | SQL injection | `query!` and Sea-ORM, parameters only | `src/sql.rs`, `src/models/` | the compiler, `.sqlx/` |
 | Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` | `config/*.yaml` | `tests/config.rs` |
 | Downgrade, sniffing | HSTS with preload, `nosniff` | `config/*.yaml` | `tests/config.rs` |
@@ -70,9 +71,11 @@ Each of these brings its own risks. The template has none of them yet.
   session store, `HttpOnly`, `Secure`, `SameSite=Lax` cookies, and **CSRF
   protection** on every form, an origin check at least. ecs has both.
 - **A second factor:** passkeys or an authenticator app, recovery codes.
-- **htmx and Alpine:** no `hx-on`; Alpine's CSP build only; addresses,
-  selectors and expressions as named constants; `'unsafe-eval'` stays out
-  of the CSP (`tests/config.rs` holds that).
+- **Your own htmx and Alpine attributes:** the libraries are in the
+  template; what you write with them is yours. Addresses from `paths`,
+  selectors and Alpine expressions as named constants, each Alpine
+  expression proven in a browser under the CSP. A form that changes
+  something needs CSRF protection once cookies are in (above).
 - **Breached passwords:** the Have I Been Pwned range API, if the app wants
   NIST's full advice. An outbound call and a dependency: the app's choice.
 - **A slowdown per account** for valuable accounts: a growing delay after

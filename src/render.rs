@@ -13,10 +13,13 @@
 //! adds a header only when the response does not already carry it, so this
 //! CSP wins on pages and the config's fallback CSP (a `secure_headers`
 //! override) applies elsewhere.
+//!
+//! Every page also names the build it comes from (`X-Build`), which an open
+//! tab compares before swapping a page in (`Navigation`, src/islands.rs).
 
 use axum::{
     extract::Request,
-    http::{HeaderValue, header::CONTENT_SECURITY_POLICY},
+    http::{HeaderName, HeaderValue, Method, header::CONTENT_SECURITY_POLICY},
 };
 use leptos::{
     config::LeptosOptions,
@@ -28,9 +31,18 @@ use loco_rs::prelude::*;
 use crate::{
     app::stored,
     assets::Assets,
+    islands,
     settings::{NONCE_PLACEHOLDER, Settings},
     views::layout::{PageMeta, shell},
 };
+
+/// The header every page names its build in ([`Assets::build`]), by the
+/// name both halves share (`islands::BUILD_HEADER`).
+pub const BUILD_HEADER: HeaderName = HeaderName::from_static(islands::BUILD_HEADER);
+
+/// htmx's answer header for the address a swap leaves: `false` on a page
+/// answered to a post keeps the address the page is at.
+pub const PUSH_URL_HEADER: HeaderName = HeaderName::from_static("hx-push-url");
 
 /// Renders `page` inside the document shell and returns the HTTP response,
 /// streaming, with the nonce CSP attached.
@@ -55,20 +67,26 @@ where
 
     let nonce = Nonce::new();
     let csp = csp_header(&settings.security.content_security_policy, &nonce)?;
+    let build = HeaderValue::from_str(&assets.build)
+        .map_err(|e| Error::Message(format!("x-build header: {e}")))?;
 
     let render = leptos_axum::render_app_to_stream_with_context(
         move || provide_context(nonce.clone()),
-        move || {
-            shell(
-                options.clone(),
-                assets.stylesheet.clone(),
-                meta.clone(),
-                page(),
-            )
-        },
+        move || shell(options.clone(), assets.clone(), meta.clone(), page()),
     );
+    // A page answered to a post is the page the form was on, sent back with
+    // what it refused, or the page it led to: its address stays the one the
+    // browser is at. htmx would push the form's own, an address that may
+    // answer only a post, so a reload there or Back would fail. A form that
+    // redirects leads to a GET's page, which pushes as usual.
+    let posted = !matches!(*req.method(), Method::GET | Method::HEAD);
     let mut res = render(req).await;
-    res.headers_mut().insert(CONTENT_SECURITY_POLICY, csp);
+    let headers = res.headers_mut();
+    headers.insert(CONTENT_SECURITY_POLICY, csp);
+    headers.insert(BUILD_HEADER, build);
+    if posted {
+        headers.insert(PUSH_URL_HEADER, HeaderValue::from_static("false"));
+    }
     Ok(res)
 }
 

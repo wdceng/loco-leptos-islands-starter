@@ -72,6 +72,26 @@ mod tests {
         }
     }
 
+    /// No JavaScript of the project's own: the libraries in `public/vendor/`,
+    /// each with its version in its name, and the one glue file between
+    /// htmx and the islands. Behaviour goes in an island (Rust), in htmx's
+    /// attributes or in Alpine's (CLAUDE.md, "Islands").
+    #[test]
+    fn the_only_javascript_is_the_libraries_and_the_glue() {
+        for (plain, _) in assets::ALL {
+            if !plain.ends_with(".js") {
+                continue;
+            }
+            let vendored = plain.starts_with("/vendor/")
+                && plain.ends_with(".min.js")
+                && plain.chars().any(|c| c.is_ascii_digit());
+            assert!(
+                vendored || *plain == "/js/htmx-islands.js",
+                "{plain}: project JavaScript; put the behaviour in an island, htmx or Alpine"
+            );
+        }
+    }
+
     /// Every `url(/...)` in the stylesheet must be the current versioned URL
     /// of its `public/` file; the failure names the value to write. None
     /// today: Tailwind's defaults name no file.

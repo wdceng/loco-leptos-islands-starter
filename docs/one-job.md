@@ -44,12 +44,19 @@ different, and a change reaches only one of them.
 | Link a file in `public/` | its constant in `paths::assets` (generated, versioned) | `src/paths.rs`, `build.rs` |
 | The icons and the manifest | `paths::FAVICON*`, `APPLE_TOUCH_ICON`, `MANIFEST` | `src/paths.rs` |
 | The stylesheet's address, hashed or plain | `Assets::stylesheet` | `src/assets.rs` |
+| The build's name, in the head and every page's `X-Build` | `Assets::build`, `BUILD_META`, `BUILD_HEADER` | `src/assets.rs`, `src/islands.rs`, `src/render.rs` |
 
 ## Browser
 
 | Job | Use | Where |
 |---|---|---|
 | Show whether islands run (example lazy island) | `IslandsCheck` | `src/islands.rs` |
+| Move between pages without a reload | a plain link or form inside the shell's `#page`, which boosts it; never a hand-written `hx-get` for a page | `src/views/layout.rs` |
+| htmx's settings | `HTMX_CONFIG` | `src/views/layout.rs` |
+| A status shown as a page in the region | `PAGE_STATUSES` | `src/islands.rs` |
+| What a move needs beyond htmx: focus, announcement, Back's scroll, a newer build, a gateway's error | `Navigation` | `src/islands.rs` |
+| Wake islands htmx swaps in | `public/js/htmx-islands.js`, the one glue file | `public/js/` |
+| A library in the page | a vendored file in `public/vendor/`, its version in its name, loaded by `Scripts` | `src/views/layout.rs` |
 
 ## Server
 

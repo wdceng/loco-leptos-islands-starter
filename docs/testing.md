@@ -268,6 +268,25 @@ whole chain works: server markers, bundle load, the split chunk,
 **Missing island function?** The island is in `views/`. Move it to
 `src/islands.rs`.
 
+### Moves in place
+
+Start on `/reset?token=x`, console and network tab open, then:
+
+1. Click the app's name: the home page swaps in, no reload (the network
+   tab shows one document request marked by htmx, not a navigation), the
+   tab's title changes, and "Islands: running" appears.
+2. Scroll a little, click a link, then Back: the page comes back where it
+   was scrolled.
+3. Send the reset form with a short password: the form comes back with
+   the reason, and the address stays `/reset?token=x`.
+
+Expected: no console errors, no CSP violations. With a screen reader the
+new title is read after each move. The request tests check the shell's
+markup (`the_shell_moves_between_pages_in_place`); a swap, the focus and
+the scroll need a browser. A deploy and a gateway's 502 were checked with
+DevTools rewriting the answer on 2026-10-18 (`architecture.md`, "Moves in
+place").
+
 ### Rate limiting
 
 Development allows a burst of 300 route requests per IP, refilling one per

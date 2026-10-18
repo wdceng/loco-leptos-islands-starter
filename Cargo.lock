@@ -171,6 +171,7 @@ dependencies = [
  "uuid",
  "validator",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

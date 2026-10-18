@@ -96,3 +96,77 @@ async fn home_renders_the_lazy_islands_check() {
     })
     .await;
 }
+
+/// The shell moves between pages in place (src/views/layout.rs): htmx's
+/// settings and the scripts in the order they must run, the page's region
+/// boosted with every page status, the live region, the `Navigation`
+/// island outside the region, and the build's name in the head and the
+/// header alike.
+#[tokio::test]
+#[serial]
+async fn the_shell_moves_between_pages_in_place() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let res = request.get("/").await;
+        let build = res.header("x-build").to_str().expect("ascii").to_string();
+        assert_eq!(build.len(), 16, "x-build: {build}");
+        let body = res.text();
+        assert!(
+            body.contains(&format!(r#"<meta name="build" content="{build}">"#)),
+            "the head's build differs from the header's:\n{body}"
+        );
+        assert!(body.contains(r#"<meta name="htmx-config""#), "{body}");
+
+        // htmx first, its extensions and the glue after it, Alpine last.
+        let order = [
+            "/vendor/htmx-4.0.0.min.js",
+            "/vendor/hx-alpine-compat-4.0.0.min.js",
+            "/vendor/hx-preload-4.0.0.min.js",
+            "/js/htmx-islands.js",
+            "/vendor/alpinejs-csp-3.17.4.min.js",
+        ];
+        let at: Vec<usize> = order
+            .iter()
+            .map(|script| {
+                body.find(&format!(r#"<script src="{script}?v="#))
+                    .unwrap_or_else(|| panic!("{script} not loaded:\n{body}"))
+            })
+            .collect();
+        assert!(at.is_sorted(), "scripts out of order: {order:?} at {at:?}");
+        assert!(
+            body.matches(" defer></script>").count() >= order.len(),
+            "every script defer:\n{body}"
+        );
+
+        let region = body
+            .find(r#"<div id="page""#)
+            .map(|start| {
+                &body[start
+                    ..body[start..]
+                        .find('>')
+                        .map_or(body.len(), |end| start + end)]
+            })
+            .unwrap_or_else(|| panic!("no page region:\n{body}"));
+        assert!(region.contains("hx-boost:inherited"), "{region}");
+        assert!(region.contains("hx-history-elt"), "{region}");
+        for status in [400, 404, 405, 408, 413, 415, 500] {
+            assert!(
+                region.contains(&format!("hx-status:{status}:inherited")),
+                "{status} is not shown in the region: {region}"
+            );
+        }
+        assert!(
+            body.contains(r#"<main id="content" tabindex="-1""#),
+            "{body}"
+        );
+        assert!(
+            body.contains(r#"<p id="page-announce" role="status""#),
+            "{body}"
+        );
+        let navigation = body
+            .find(r#"data-component="Navigation"#)
+            .unwrap_or_else(|| panic!("no Navigation island:\n{body}"));
+        let region_end = body.rfind("</footer></div>").expect("the region closes");
+        assert!(navigation > region_end, "Navigation is inside the region");
+    })
+    .await;
+}
