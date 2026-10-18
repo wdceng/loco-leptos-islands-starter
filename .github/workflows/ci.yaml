@@ -8,6 +8,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # By hand: `gh workflow run CI --ref main`.
+  workflow_dispatch:
 
 permissions:
   contents: read
