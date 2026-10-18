@@ -110,6 +110,50 @@ jobs:
           loader="$(grep -oh '__wasm_split\.[A-Za-z0-9_-]*\.js' target/site-check/pkg/app.*.js | head -1)"
           test -n "$loader" && test -f "target/site-check/pkg/$loader"
 
+  browser:
+    # The browser tests in Chrome (docs/testing.md): the island collector's
+    # wasm tests, then e2e/run.sh, which builds the site with `--split` and
+    # runs the moves in place and the memory tests against it. The runner
+    # image ships Chrome with a matching chromedriver (CHROMEWEBDRIVER).
+    # What a failed test's page showed is kept as an artifact.
+    name: Browser tests (Chrome)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_LEPTOS_SRC: /home/runner/cargo-leptos-split
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      # The same cache as the leptos job's.
+      - id: cargo-leptos
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-leptos
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+            /home/runner/cargo-leptos-split
+          key: cargo-leptos-${{ runner.os }}-${{ hashFiles('tools/cargo-leptos/**') }}
+      - if: steps.cargo-leptos.outputs.cache-hit != 'true'
+        run: tools/cargo-leptos/install.sh
+      - uses: Swatinem/rust-cache@v2
+      - uses: cargo-bins/cargo-binstall@v1.23.0
+      # The test runner of the exact wasm-bindgen release Cargo.lock holds.
+      - run: cargo binstall -y wasm-bindgen-cli@0.2.129
+      - name: Island collector
+        run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+        env:
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+      - name: Moves in place and memory
+        run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" bash e2e/run.sh
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-tests
+          path: target/e2e/run/
+          if-no-files-found: ignore
+
   sqlx:
     # The `.sqlx/` cache must match the queries and the migrated schema:
     # a migration or a changed `query!` without `cargo sqlx prepare` fails

@@ -1,4 +1,4 @@
-//! Config canary. The five `config/<env>.yaml` files are the security policy
+//! Config canary. The six `config/<env>.yaml` files are the security policy
 //! (headers, timeout, rate limit, caching, what the visitor IP is read from),
 //! and nothing else reads them before a deploy. These tests load each file
 //! through Loco's own loader and assert the baseline every environment must
@@ -71,6 +71,12 @@ fn dev_server() -> Environment {
     Environment::Any("dev-server".into())
 }
 
+/// The browser tests' environment (config/e2e.yaml, e2e/run.sh): local
+/// like development, on its own port, folder and database.
+fn e2e() -> Environment {
+    Environment::Any(app::settings::E2E.into())
+}
+
 /// Loco's configs use YAML-safe `<%= expr %>` tags, which its loader turns
 /// into Tera's `{{ expr }}` before rendering. That translation is private
 /// to Loco; ours only needs the interpolation form, so a statement or
@@ -132,6 +138,7 @@ fn dev_server_is_staging_on_its_own_host() {
 #[case::development(Environment::Development)]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
+#[case::e2e(e2e())]
 #[case::dev_server(dev_server())]
 #[case::staging(staging())]
 #[case::production(Environment::Production)]
@@ -263,6 +270,7 @@ fn every_environment_keeps_the_security_baseline(#[case] env: Environment) {
 
 #[rstest]
 #[case::development(Environment::Development, "no-cache", "target/site")]
+#[case::e2e(e2e(), "no-cache", "target/e2e/site")]
 #[case::dev_server(dev_server(), "public, max-age=60", "site")]
 #[case::staging(staging(), "public, max-age=60", "site")]
 #[case::production(Environment::Production, "public, max-age=31536000, immutable", "site")]
@@ -355,11 +363,42 @@ fn local_environments_key_on_the_peer_and_allow_live_reload(#[case] env: Environ
     );
 }
 
+/// The browser tests key on the peer like development, refuse to start
+/// without the site they test, have a bucket a whole run fits in, and build
+/// once, so no live-reload socket.
+#[test]
+fn the_browser_tests_run_locally_against_their_own_build() {
+    let config = load(&e2e());
+    let mw = &config.server.middlewares;
+    let remote_ip = mw.remote_ip.as_ref().expect("remote_ip block");
+    assert!(
+        matches!(remote_ip.source, ClientIpSource::ConnectInfo),
+        "e2e: no proxy locally, the TCP peer is the visitor"
+    );
+    let assets = mw.static_assets.as_ref().expect("static block");
+    assert!(assets.must_exist, "e2e: a run without its site must refuse");
+    let settings = Settings::from_config(&config).expect("settings");
+    assert!(
+        settings.rate_limit.burst >= 10_000,
+        "e2e: a whole run fits in the bucket"
+    );
+    assert!(
+        !settings.security.content_security_policy.contains("ws://"),
+        "e2e: no live-reload socket"
+    );
+    let raw = std::fs::read_to_string(config_path(&e2e())).expect("e2e.yaml");
+    assert!(
+        !raw.contains(r#"name="DATABASE_URL""#),
+        "e2e: never the shell's DATABASE_URL"
+    );
+}
+
 #[test]
 fn only_the_online_test_copies_hide_from_search_engines() {
     for env in [
         Environment::Development,
         Environment::Test,
+        e2e(),
         dev_server(),
         staging(),
         Environment::Production,
@@ -393,6 +432,7 @@ fn only_the_online_test_copies_hide_from_search_engines() {
 #[rstest]
 #[case::development(Environment::Development, false)]
 #[case::test_env(Environment::Test, false)]
+#[case::e2e(e2e(), false)]
 #[case::dev_server(dev_server(), true)]
 #[case::staging(staging(), true)]
 #[case::production(Environment::Production, true)]
@@ -412,6 +452,7 @@ fn nightly_restart_runs_only_when_deployed(#[case] env: Environment, #[case] ena
 #[rstest]
 #[case::development(Environment::Development, false)]
 #[case::test_env(Environment::Test, false)]
+#[case::e2e(e2e(), false)]
 #[case::dev_server(dev_server(), true)]
 #[case::staging(staging(), true)]
 #[case::production(Environment::Production, true)]
@@ -433,6 +474,7 @@ fn static_files_are_limited_only_when_deployed(#[case] env: Environment, #[case]
 #[rstest]
 #[case::development(Environment::Development, "SaaS Starter <noreply@example.com>")]
 #[case::test_env(Environment::Test, "SaaS Starter <noreply@example.com>")]
+#[case::e2e(e2e(), "SaaS Starter <noreply@example.com>")]
 #[case::dev_server(dev_server(), "SaaS Starter <canary@example.test>")]
 #[case::staging(staging(), "SaaS Starter <canary@example.test>")]
 #[case::production(Environment::Production, "SaaS Starter <canary@example.test>")]
@@ -447,6 +489,7 @@ fn every_environment_names_the_mail_sender(#[case] env: Environment, #[case] fro
 #[case::development(Environment::Development)]
 // `case::test` would make rstest drop the function without a warning.
 #[case::test_env(Environment::Test)]
+#[case::e2e(e2e())]
 #[case::dev_server(dev_server())]
 #[case::staging(staging())]
 #[case::production(Environment::Production)]

@@ -338,6 +338,7 @@ cache policy and page CSP shape.
 |------------|----------|---------|--------------|--------|
 | `development` | `app_development.sqlite` in the repo | defaults in the file | `target/site`, `no-cache` | `development.md` |
 | `test` | `app_test.sqlite`, recreated per run | defaults in the file | none | `testing.md` |
+| `e2e` | `target/e2e/run/app_e2e.sqlite`, fresh per run | defaults in the file | `target/e2e/site`, `no-cache`, must exist | `testing.md`, "Browser tests" |
 | `dev-server` | `/var/lib/app-dev/app_dev-server.sqlite` (`StateDirectory`) | as staging | as staging | `dev-server.md` |
 | `staging` | `/var/lib/app-stg/app_staging.sqlite` (`StateDirectory`) | placeholder defaults, the environment may override | `site/`, 60 s, adds `X-Robots-Tag: noindex, nofollow` | `staging.md` |
 | `production` | `/var/lib/app-prod/app_production.sqlite` (`StateDirectory`) | required from the environment | `site/`, one year, immutable (needs the `LEPTOS_HASH_FILES=true` build) | `production.md` |

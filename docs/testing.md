@@ -212,6 +212,8 @@ requests. Same list as the pre-deploy checks in `staging.md` and `production.md`
 - `cargo audit`
 - the `.sqlx/` cache check: a fresh test database, migrated, then
   `cargo sqlx prepare --check -- --all-targets`
+- the browser tests in Chrome: the island collector's, then `e2e/run.sh`
+  (below). A failed run keeps `target/e2e/run/` as an artifact
 
 Every job builds with `SQLX_OFFLINE=true`, from the committed cache, like
 `cross`.
@@ -257,6 +259,48 @@ back is kept, and through a debug build's type erasure.
 On a real page: swap `IslandsCheck` away (any link from the home page),
 wait two sweeps (2 s each in a debug build), and `data-islands-live` on
 `<html>` drops by one, the console saying `islands: 1 live, 1 freed`.
+
+### Browser tests
+
+`e2e/` drives headless Chrome over WebDriver (thirtyfour) against a real
+build: the moves in place and the memory tests. A crate of its own, so
+`cargo test` in the root runs none of it.
+
+```bash
+e2e/run.sh                      # all ten
+e2e/run.sh memory               # only the memory tests (cargo test's filter)
+E2E_HEADED=1 e2e/run.sh moves   # with Chrome's window
+```
+
+It uses the chromedriver in `~/Library/Caches/chromedriver` (the
+collector's, above), or `CHROMEDRIVER`, or the one on the `PATH`.
+
+The script builds the site into `target/e2e` with `--split`, starts it on
+port 5160 (`LOCO_ENV=e2e`, `config/e2e.yaml`, a fresh SQLite file) and
+chromedriver on 9515, runs the tests one at a time, and stops both. It
+never touches the watch loop's `target/site`, port 5150 or database, so it
+runs beside `cargo leptos watch`.
+
+- **Moves** (`e2e/tests/moves.rs`): the lazy island wakes; a link moves in
+  place with its title, the focus on `<main>` and the title read out; Back
+  restores the scroll; a 404 shows in the region; a refused form swaps in
+  and keeps the address; a newer build and a gateway's 502 load plainly.
+  DevTools changes those two answers on their way in.
+- **Memory** (`e2e/tests/memory.rs`): an island that leaves is freed; twenty
+  moves and twenty Back and Forward steps keep the documents, detached
+  nodes, listeners, JS heap and WASM memory flat, measured three times.
+- **Every test fails on a page error**: an exception, a console error or
+  warning, a CSP refusal. A test that causes one on purpose names it
+  (`page.allow`).
+
+What a failed test's page showed (screenshot, HTML, the server log's tail)
+is in `target/e2e/run/failures/`.
+
+- **The memory tests turn DevTools' log off.** It keeps every element a
+  log entry names, and Chrome notes the reset form on each visit, which
+  looked like a leak of one `<main>` per Back.
+- **Clicks are the page's own, never the driver's.** chromedriver keeps
+  each element it hands a test, and that holds the old page in memory.
 
 ## Manual Testing
 
@@ -309,10 +353,8 @@ Start on `/reset?token=x`, console and network tab open, then:
 
 Expected: no console errors, no CSP violations. With a screen reader the
 new title is read after each move. The request tests check the shell's
-markup (`the_shell_moves_between_pages_in_place`); a swap, the focus and
-the scroll need a browser. A deploy and a gateway's 502 were checked with
-DevTools rewriting the answer on 2026-10-18 (`architecture.md`, "Moves in
-place").
+markup (`the_shell_moves_between_pages_in_place`); the browser tests
+above check the swap, the focus, the scroll, a deploy and a gateway's 502.
 
 ### Rate limiting
 

@@ -20,15 +20,24 @@ use serde::{Deserialize, Serialize};
 /// per request by `render_page` (src/render.rs).
 pub const NONCE_PLACEHOLDER: &str = "{nonce}";
 
+/// The browser tests' environment (`config/e2e.yaml`, `e2e/run.sh`): the
+/// site built and served on the developer's machine for headless Chrome.
+pub const E2E: &str = "e2e";
+
 /// Whether `env` runs on a developer's machine (`development`, Loco's
-/// default when `LOCO_ENV` is unset) or in the tests, never deployed: the
-/// nightly restart and the SMTP login check skip it, and the rate limiter
-/// keys on the connection's own address. Loco reads a name it doesn't know
-/// as `Environment::Any`, which is how `staging` and `dev-server` arrive, so
-/// everything else counts as deployed.
+/// default when `LOCO_ENV` is unset, and the browser tests' `e2e`) or in
+/// the tests, never deployed: the nightly restart and the SMTP login check
+/// skip it, and the rate limiter keys on the connection's own address. Loco
+/// reads a name it doesn't know as `Environment::Any`, which is how
+/// `staging`, `dev-server` and `e2e` arrive, so every other name counts as
+/// deployed.
 #[must_use]
 pub fn is_local(env: &Environment) -> bool {
-    matches!(env, Environment::Development | Environment::Test)
+    match env {
+        Environment::Development | Environment::Test => true,
+        Environment::Any(name) => name == E2E,
+        Environment::Production => false,
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -519,6 +528,7 @@ mod tests {
     fn only_development_and_the_tests_are_local() {
         assert!(is_local(&Environment::Development));
         assert!(is_local(&Environment::Test));
+        assert!(is_local(&Environment::Any(E2E.into())));
         assert!(!is_local(&Environment::Production));
         assert!(!is_local(&Environment::Any("staging".into())));
         assert!(!is_local(&Environment::Any("dev-server".into())));

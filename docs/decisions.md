@@ -80,6 +80,17 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-18: **Lazy islands are plain in a test build**
   (`cfg_attr(test, island)`): the collector's browser tests run a plain
   wasm, which can't load a lazy island's split import.
+- 2026-10-18: **Browser tests in a crate of their own** (`e2e/`,
+  thirtyfour, Chrome only), the sister app's harness cut down to one lane:
+  the moves in place and the memory tests against a real `--split` build,
+  in CI too. Their own environment `e2e` (port 5160, `target/e2e`), so a
+  run never touches the watch loop. DevTools' own socket (`cdp-events`)
+  hears the page's errors and changes an answer in flight; chromedriver
+  passes no events on.
+- 2026-10-18: **The memory tests turn DevTools' log off** while they
+  measure: it keeps every element an entry names, and Chrome's notice
+  about the reset form kept one old `<main>` per Back. Without DevTools,
+  Chrome kept none (a probe).
 
 ## Security
 

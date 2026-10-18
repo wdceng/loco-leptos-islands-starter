@@ -58,13 +58,15 @@ different, and a change reaches only one of them.
 | Free an island once it has left the page | its whole body inside `collected(move \|\| { … })` | `src/collect.rs` |
 | Wake islands htmx swaps in | `public/js/htmx-islands.js`, the one glue file | `public/js/` |
 | A library in the page | a vendored file in `public/vendor/`, its version in its name, loaded by `Scripts` | `src/views/layout.rs` |
+| A browser test: a Chrome session, its page, waits, clicks, memory | `browse`, `Page` (`open`, `until`, `press`, `move_to`, `held`) | `e2e/src/` |
+| An answer of htmx's changed in a browser test (a deploy, a gateway's error) | `Page::answers` with an `Answer` | `e2e/src/devtools.rs` |
 
 ## Server
 
 | Job | Use | Where |
 |---|---|---|
 | A query of the app's own | `sqlx::query!` on `sql::pool(&ctx)` | `src/sql.rs` |
-| "Is this a developer's machine or the tests?" | `settings::is_local` | `src/settings.rs` |
+| "Is this a developer's machine or the tests?" (development, test, e2e) | `settings::is_local` | `src/settings.rs` |
 | The app's typed settings | `Settings` | `src/settings.rs` |
 | A rate-limit bucket | `site_bucket`, `auth_bucket`, `files_bucket` | `src/middleware/rate_limit.rs` |
 | A visitor's address, behind the proxy or not | `VisitorIp`, `key_source` | `src/middleware/rate_limit.rs` |

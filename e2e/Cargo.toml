@@ -1,0 +1,37 @@
+# The browser tests (docs/testing.md, "Browser tests"): headless Chrome,
+# driven over WebDriver, against the site `e2e/run.sh` builds and serves
+# (config/e2e.yaml). A crate of its own, in its own workspace (the empty
+# table below): thirtyfour and its tree stay out of the site's lock and
+# builds, and `cargo test` in the repo root runs none of these. The harness
+# is the library (src/lib.rs), the tests are under tests/.
+[workspace]
+
+[package]
+name = "app-e2e"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+# One test binary (tests/main.rs, each file of tests/ a module): thirtyfour
+# linked once, the build faster.
+autotests = false
+
+[[test]]
+name = "e2e"
+path = "tests/main.rs"
+
+[dependencies]
+# WebDriver, with Chrome's DevTools: `cdp-events` opens DevTools' own
+# socket, so a test hears the page's errors and can change an answer on its
+# way in (src/devtools.rs). Without the defaults' driver download: run.sh
+# starts chromedriver itself.
+thirtyfour = { version = "0.37.7", default-features = false, features = [
+  "reqwest",
+  "rustls",
+  "cdp",
+  "cdp-events",
+] }
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time", "sync"] }
+serde_json = { version = "1.0.151" }
+# DevTools' events as a stream. In the tree through thirtyfour.
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }

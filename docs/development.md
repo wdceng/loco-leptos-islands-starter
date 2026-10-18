@@ -207,6 +207,7 @@ from environment variables.
 |---|---|---|---|---|
 | `development` | your machine (default) | `target/site` | rechecks every time | `http://localhost:5150` |
 | `test` | `cargo test` | none | none | `http://localhost:5150` |
+| `e2e` | the browser tests (`e2e/run.sh`) | `target/e2e/site` | rechecks every time | `http://localhost:5160` |
 | `dev-server` | development copy online, staging's twin | `site/` | 60 s | `server.host` in the config |
 | `staging` | test copy online | `site/` | 60 s | `server.host` in the config |
 | `production` | live site | `site/` | one year | `server.host` in the config |

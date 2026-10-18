@@ -1,0 +1,117 @@
+# The browser tests' environment, `LOCO_ENV=e2e` (e2e/run.sh,
+# docs/testing.md, "Browser tests"): the site as development runs it, built
+# into its own folder and served on its own port with its own database, so a
+# run never touches the watch loop, its database or its port. Local like
+# development (settings::is_local). The reasons behind each block are in
+# config/development.yaml; only the differences are explained here.
+
+logger:
+  enable: true
+  pretty_backtrace: true
+  # Into target/e2e/run/server.log (e2e/run.sh).
+  level: <%= get_env(name="LOG_LEVEL", default="info") %>
+  format: compact
+
+server:
+  # Beside the watch loop's 5150, so both run at once.
+  port: <%= get_env(name="E2E_PORT", default="5160") %>
+  binding: localhost
+  host: http://localhost:<%= get_env(name="E2E_PORT", default="5160") %>
+  ident: ""
+  middlewares:
+    remote_ip:
+      enable: true
+      source: ConnectInfo
+    timeout_request:
+      enable: true
+      timeout: 15000
+    limit_payload:
+      body_limit: 64kb
+    secure_headers:
+      enable: true
+      preset: github
+      overrides:
+        Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+        X-Frame-Options: DENY
+        Referrer-Policy: strict-origin-when-cross-origin
+        Permissions-Policy: camera=(), microphone=(), geolocation=()
+        Cross-Origin-Opener-Policy: same-origin
+        Cross-Origin-Resource-Policy: same-origin
+        Cross-Origin-Embedder-Policy: require-corp
+        Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+    fallback:
+      enable: false
+    # The site e2e/run.sh builds (LEPTOS_SITE_ROOT): a run without it would
+    # test nothing, so the start refuses.
+    static:
+      enable: true
+      must_exist: true
+      folder:
+        uri: "/"
+        path: "target/e2e/site"
+      cache_control: "no-cache"
+
+settings:
+  # A run is a few hundred pages from one address in a minute or two:
+  # development's 300 could run dry. The auth API keeps a person's bucket.
+  rate_limit:
+    enable: true
+    per_second: 1
+    burst: 10000
+    auth:
+      per_second: 1
+      burst: 30
+  file_rate_limit:
+    enable: false
+  security:
+    contact: "mailto:security@example.com"
+    # Development's, without the live-reload socket: the run builds once.
+    content_security_policy: >-
+      default-src 'none';
+      script-src 'self' 'nonce-{nonce}' 'wasm-unsafe-eval';
+      style-src 'self';
+      img-src 'self' data:;
+      font-src 'self';
+      manifest-src 'self';
+      connect-src 'self';
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none'
+  mail:
+    from: SaaS Starter <noreply@example.com>
+  nightly_restart:
+    enable: false
+    hour: 3
+    zone: UTC
+
+workers:
+  mode: BackgroundAsync
+
+# No mail leaves a run: the stub mailer keeps it in memory.
+mailer:
+  stub: true
+  smtp:
+    enable: true
+    host: localhost
+    port: 1025
+    secure: false
+
+# A fresh file every run (e2e/run.sh). Never DATABASE_URL, which may point
+# at a database worth keeping.
+database:
+  uri: sqlite://target/e2e/run/app_e2e.sqlite?mode=rwc
+  enable_logging: false
+  connect_timeout: 500
+  idle_timeout: 500
+  min_connections: 1
+  max_connections: 1
+  auto_migrate: true
+  dangerously_truncate: false
+  dangerously_recreate: false
+
+auth:
+  jwt:
+    # Local only, like development's.
+    secret: e2e-only-not-a-secret
+    expiration: 86400 # 1 day

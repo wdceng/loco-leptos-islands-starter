@@ -55,5 +55,15 @@ pub mod workers;
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
     console_error_panic_hook::set_once();
+    // The WASM's memory, which the browser tests' leak checks read
+    // (e2e/tests/memory.rs). Never in a release build.
+    #[cfg(debug_assertions)]
+    {
+        let _ = web_sys::js_sys::Reflect::set(
+            &leptos::prelude::window(),
+            &"__wasmMemory".into(),
+            &wasm_bindgen::memory(),
+        );
+    }
     leptos::mount::hydrate_islands();
 }
