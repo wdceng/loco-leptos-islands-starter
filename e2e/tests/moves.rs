@@ -76,6 +76,35 @@ async fn a_link_moves_in_place_with_its_title_the_focus_and_the_announcement() {
     .await;
 }
 
+/// htmx gives the focus back to an element with the same `id` in the new
+/// page; `Navigation` blurs before a move's swap, so no field takes the
+/// focus on the way to `<main>`, where a field styled on its focus would
+/// open and close over the new page.
+#[tokio::test]
+async fn a_move_focuses_no_field_on_its_way() {
+    browse(|page| async move {
+        page.open(RESET).await?;
+        page.mark().await?;
+        let again = format!("{RESET}&again=1");
+        page.add_link(&again).await?;
+        page.eval(
+            "window.__focused = [];
+             addEventListener('focusin', e => __focused.push(e.target.id || e.target.tagName), true);
+             document.getElementById('password').focus()",
+        )
+        .await?;
+        page.move_to("#e2e-link", &again).await?;
+        assert!(page.in_place().await?, "no full load");
+        assert_eq!(
+            page.eval("return __focused").await?,
+            serde_json::json!(["password", "content"]),
+            "the field focused by the test, then <main> alone"
+        );
+        Ok(())
+    })
+    .await;
+}
+
 #[tokio::test]
 async fn back_comes_back_in_place_where_it_was_scrolled() {
     browse(|page| async move {
@@ -138,9 +167,11 @@ async fn a_refused_form_swaps_in_and_keeps_the_address() {
         page.allow_failed_load(400, "/reset");
         page.open(RESET).await?;
         page.mark().await?;
+        // As Enter in the field sends it: the focus in the field.
         page.eval(
-            "document.getElementById('password').value = 'short';
-             document.querySelector('main form button').click()",
+            "const field = document.getElementById('password');
+             field.value = 'short'; field.focus();
+             field.form.requestSubmit()",
         )
         .await?;
         page.until(
@@ -150,6 +181,12 @@ async fn a_refused_form_swaps_in_and_keeps_the_address() {
         .await?;
         assert!(page.in_place().await?, "no full load");
         assert_eq!(page.path().await?, RESET, "the address stays the page's");
+        page.settled().await?;
+        assert_eq!(
+            page.eval("return document.activeElement?.id").await?,
+            Value::from("password"),
+            "the focus in the field for the next try, not on <main>"
+        );
         Ok(())
     })
     .await;

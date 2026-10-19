@@ -43,6 +43,7 @@ async fn the_reset_page_changes_the_password_once() {
             body.contains(r#"name="robots" content="noindex""#),
             "{body}"
         );
+        assert!(!body.contains("autofocus"), "a first visit takes no focus");
 
         // Too short: the form again, with the reason and the same token.
         let refused = request
@@ -60,6 +61,11 @@ async fn the_reset_page_changes_the_password_once() {
         let body = refused.text();
         assert!(body.contains("must be 8 to 128 characters"), "{body}");
         assert!(body.contains(&format!(r#"value="{token}""#)), "{body}");
+        // The field keeps the focus for the next try.
+        assert!(
+            body.contains(r#"id="password""#) && body.contains("autofocus"),
+            "{body}"
+        );
 
         // The new password: done, and it's the one that signs in now.
         let done = request

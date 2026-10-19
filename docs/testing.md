@@ -284,9 +284,11 @@ never touches the watch loop's `target/site`, port 5150 or database, so it
 runs beside `cargo leptos watch`.
 
 - **Moves** (`e2e/tests/moves.rs`): the lazy island wakes; a link moves in
-  place with its title, the focus on `<main>` and the title read out; Back
-  restores the scroll; a 404 shows in the region; a refused form swaps in
-  and keeps the address; a newer build and a gateway's 502 load plainly.
+  place with its title, the focus on `<main>` and the title read out; no
+  field takes the focus on the way (htmx's refocus by `id`, blurred
+  first); Back restores the scroll; a 404 shows in the region; a refused
+  form swaps in, keeps the address and keeps the focus in its field; a
+  newer build and a gateway's 502 load plainly.
   DevTools changes those two answers on their way in.
 - **Memory** (`e2e/tests/memory.rs`): an island that leaves is freed; twenty
   moves and twenty Back and Forward steps keep the documents, detached

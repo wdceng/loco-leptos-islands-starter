@@ -10,9 +10,13 @@ use crate::{
 };
 
 /// The form: the token from the mail's link in a hidden field, and the new
-/// password. `problem` is what the server refused last time, if anything.
+/// password. `problem` is what the server refused last time, if anything;
+/// then the field is `autofocus`, so the focus stays in it for the next
+/// try: htmx focuses it in the swapped-in page, and `Navigation` leaves an
+/// `autofocus` field alone instead of focusing `<main>`.
 #[component]
 pub fn ResetForm(token: String, problem: Option<String>) -> impl IntoView {
+    let refused = problem.is_some();
     view! {
         <h1 class="text-4xl font-bold tracking-tight">"Choose a new password"</h1>
         <p class="mt-4 text-lg text-ink-muted">
@@ -27,6 +31,7 @@ pub fn ResetForm(token: String, problem: Option<String>) -> impl IntoView {
                 name="password"
                 type="password"
                 autocomplete="new-password"
+                autofocus=refused
                 required
                 minlength=PASSWORD_MIN
                 maxlength=PASSWORD_MAX

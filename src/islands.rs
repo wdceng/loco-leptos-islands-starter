@@ -102,9 +102,10 @@ thread_local! {
 /// where each part was found and proven by its browser tests:
 ///
 /// - **The focus and the screen reader.** A swap is no page load to a
-///   screen reader. Once htmx has put a new region in, the focus goes to
-///   `<main>` (or stays on a field the new page focuses, `autofocus`), and
-///   the new title is read out by a live region ([`PAGE_ANNOUNCE`]).
+///   screen reader. Nothing keeps the focus into the swap, so htmx brings
+///   none back; once the new region is in, the focus goes to `<main>` (or
+///   stays on a field the new page focuses, `autofocus`), and the new title
+///   is read out by a live region ([`PAGE_ANNOUNCE`]).
 /// - **The scroll on Back and Forward.** htmx 4 swaps the earlier page back
 ///   with no scroll of its own, and the browser's restoration ran on the
 ///   page still showing. So the browser's is off, each history entry keeps
@@ -166,6 +167,16 @@ pub fn Navigation() -> impl IntoView {
             }
             resting.set_value(set_timeout_with_handle(keep_scroll, SCROLL_REST).ok());
         });
+        // htmx gives the focus back to the element with the same `id` in
+        // the new page, and `arrive` then moves it to `<main>`: a field
+        // styled on its focus (a search that opens) would open and close
+        // over the new page. Nothing is focused before a move's swap; a
+        // field the new page marks `autofocus` still gets the focus.
+        let unfocused = window_event_listener_untyped("htmx:before:swap", |ev| {
+            if into_region(&ev) {
+                blur_focused();
+            }
+        });
         let refused = window_event_listener_untyped("htmx:response:error", load_plainly);
         on_cleanup(move || {
             fresher.remove();
@@ -174,6 +185,7 @@ pub fn Navigation() -> impl IntoView {
             restoring.remove();
             leaving.remove();
             scrolled.remove();
+            unfocused.remove();
             refused.remove();
             if let Some(queued) = resting.get_value() {
                 queued.clear();
@@ -331,17 +343,39 @@ fn newer_build(ev: &web_sys::Event) -> Option<String> {
     if theirs == ours {
         return None;
     }
-    let target = field(&ctx, "target")?;
-    let region = format!("#{PAGE_REGION}");
-    let to_region = target
-        .dyn_ref::<web_sys::Element>()
-        .is_some_and(|target| target.id() == PAGE_REGION)
-        || target.as_string().is_some_and(|target| target == region);
     let raw: web_sys::Response = field(&response, "raw")?.dyn_into().ok()?;
     let method = field(&field(&ctx, "request")?, "method")?
         .as_string()
         .unwrap_or_default();
-    (to_region && (method.eq_ignore_ascii_case("get") || raw.redirected())).then(|| raw.url())
+    (into_region(ev) && (method.eq_ignore_ascii_case("get") || raw.redirected())).then(|| raw.url())
+}
+
+/// Whether htmx's event `ev` is about a swap into the page's region: its
+/// `detail.ctx.target`, the element or its `#id` selector.
+fn into_region(ev: &web_sys::Event) -> bool {
+    let field = |of: &JsValue, name: &str| Reflect::get(of, &JsValue::from_str(name)).ok();
+    let Some(target) = field(ev.as_ref(), "detail")
+        .and_then(|detail| field(&detail, "ctx"))
+        .and_then(|ctx| field(&ctx, "target"))
+    else {
+        return false;
+    };
+    target
+        .dyn_ref::<web_sys::Element>()
+        .is_some_and(|target| target.id() == PAGE_REGION)
+        || target
+            .as_string()
+            .is_some_and(|target| target == format!("#{PAGE_REGION}"))
+}
+
+/// Nothing focused: whatever has the focus loses it.
+fn blur_focused() {
+    if let Some(focused) = document()
+        .active_element()
+        .and_then(|focused| focused.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        let _ = focused.blur();
+    }
 }
 
 /// Shows whether the browser half runs: the server renders "not running",
