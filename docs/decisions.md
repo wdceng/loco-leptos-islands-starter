@@ -68,7 +68,8 @@ change of mind gets a new line, and the old one moves to
   called with one argument. #4147 closed without a change in htmx.
   **Way back:** once Chrome 157 is everywhere, drop it.
 - 2026-10-19: **Every idle callback gets a 2 s timeout**
-  (`public/js/htmx-islands.js`). Leptos 0.8's island loader waits for idle
+  (`public/js/island-loader-timeout.js`, a file of its own: it's Leptos
+  and Chrome, not htmx, so it stays out of the htmx glue). Leptos 0.8's island loader waits for idle
   time with none, and Chrome 114 to 123 can stop giving it after many whole
   loads in one tab, found in an islands app: then no island starts.
   Leptos's own hydration script already passes one. Not a pinned Leptos

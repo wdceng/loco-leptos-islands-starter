@@ -59,8 +59,8 @@ touches it. A rule a test can check becomes a test, not a line here.
   state, an island only for what neither can.** Links and forms stay
   plain (`href`, `action`); the shell's `#page` boosts them.
 - **No `hx-on`, no full Alpine:** both need `'unsafe-eval'`, which the CSP
-  refuses (`tests/config.rs`). No project JavaScript beyond
-  `public/js/htmx-islands.js` (`src/paths.rs` tests it).
+  refuses (`tests/config.rs`). No project JavaScript beyond the two
+  files in `public/js/` (`src/paths.rs` tests it).
 - **Islands live in `src/islands.rs`**, the one module both halves
   compile. An island anywhere else renders but never runs.
 - **`--split` on every cargo-leptos command:** watch, build, deploys, CI.

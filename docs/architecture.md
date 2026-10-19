@@ -103,10 +103,12 @@ swaps its region in: no reload, the islands bundle stays loaded. Every
 status the app answers with a page (400, 404, 405, 408, 413, 415, 500)
 shows in the region too. htmx, its preload and Alpine extensions, and
 Alpine's CSP build are vendored byte for byte in `public/vendor/`, versioned
-like every public file. Two glues: `public/js/htmx-islands.js` wakes the
-islands htmx swaps in (and works around two Chrome bugs: `parseHTMLUnsafe`
-losing the comments Leptos hydrates by, htmx #4147, and idle time that
-stops, which Leptos's island loader waits for), and htmx's Alpine extension
+like every public file. `public/js/island-loader-timeout.js`, loaded
+first, gives Leptos's island loader a timeout for when Chrome gives no
+idle time. Two
+glues: `public/js/htmx-islands.js` wakes the islands htmx swaps in (and
+works around Chrome's `parseHTMLUnsafe` losing the comments Leptos
+hydrates by, htmx #4147), and htmx's Alpine extension
 does the same for Alpine. What a swap needs beyond htmx is the
 `Navigation` island, ported from the project this template shares its
 stack with:

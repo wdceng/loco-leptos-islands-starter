@@ -56,7 +56,8 @@ different, and a change reaches only one of them.
 | A status shown as a page in the region | `PAGE_STATUSES` | `src/islands.rs` |
 | What a move needs beyond htmx: focus, announcement, Back's scroll, a newer build, a gateway's error | `Navigation` | `src/islands.rs` |
 | Free an island once it has left the page | its whole body inside `collected(move \|\| { … })` | `src/collect.rs` |
-| Wake islands htmx swaps in | `public/js/htmx-islands.js`, the one glue file | `public/js/` |
+| Wake islands htmx swaps in, and htmx's Chrome workaround | `public/js/htmx-islands.js`, the glue | `public/js/` |
+| Make Leptos's island loader start when Chrome gives no idle time | `public/js/island-loader-timeout.js`, loaded first | `public/js/` |
 | A library in the page | a vendored file in `public/vendor/`, its version in its name, loaded by `Scripts` | `src/views/layout.rs` |
 | A browser test: a Chrome session, its page, waits, clicks, memory | `browse`, `Page` (`open`, `until`, `press`, `move_to`, `held`) | `e2e/src/` |
 | An answer of htmx's changed in a browser test (a deploy, a gateway's error) | `Page::answers` with an `Answer` | `e2e/src/devtools.rs` |

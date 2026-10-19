@@ -116,8 +116,10 @@ async fn the_shell_moves_between_pages_in_place() {
         );
         assert!(body.contains(r#"<meta name="htmx-config""#), "{body}");
 
-        // htmx first, its extensions and the glue after it, Alpine last.
+        // The idle timeout first, htmx, its extensions and the glue after it,
+        // Alpine last.
         let order = [
+            "/js/island-loader-timeout.js",
             "/vendor/htmx-4.0.0.min.js",
             "/vendor/hx-alpine-compat-4.0.0.min.js",
             "/vendor/hx-preload-4.0.0.min.js",
@@ -135,6 +137,15 @@ async fn the_shell_moves_between_pages_in_place() {
         assert!(
             body.matches(" defer></script>").count() >= order.len(),
             "every script defer:\n{body}"
+        );
+        // The idle timeout before Leptos's island loader, a module script,
+        // which waits for idle time (public/js/island-loader-timeout.js).
+        let loader = body
+            .find(r#"<script type="module""#)
+            .unwrap_or_else(|| panic!("no island loader:\n{body}"));
+        assert!(
+            at[0] < loader,
+            "island-loader-timeout.js after the island loader"
         );
 
         let region = body
