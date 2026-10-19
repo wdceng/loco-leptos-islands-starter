@@ -252,6 +252,14 @@ to bottom.
 - **`as` and `type` are keywords.** In `view!`, write `r#as` and `r#type`.
 - **Islands go in `src/islands.rs`.** One in `src/views/` renders, but never
   runs in the browser.
+- **Nothing visible after the page region.** A toast, loading bar or
+  back-to-top button at the end of `<body>` becomes Chrome's and Firefox's
+  scroll anchor, and a move flashes the new page's footer before it goes
+  to the top (Safari has no anchoring). Then add `[overflow-anchor:none]`
+  to `<html>`, keep images' space reserved, and test it by recording every
+  `scroll` event during a move: the page must never go below where it
+  stood. With `scroll-behavior: smooth` the flash becomes a glide, so the
+  top is scrolled by the `Navigation` island, instantly, not `show:top`.
 - **`leptos` comes from a fork, pinned by commit** (`[patch.crates-io]` in
   `Cargo.toml`): 0.8.22 with the island loader's idle timeout. On a Leptos
   upgrade, drop the block if the release has the timeout, else move the
