@@ -522,6 +522,79 @@ Expected: `status=408 seconds=15.0…`, `latency=15002 ms status=408` in the
 server log, and `/` still answering in milliseconds. Remove the handler
 afterwards.
 
+## The Low Bar (not built yet)
+
+An islands app on this stack added browser lanes for the oldest browsers
+it supports, about 30 months back. Its findings, kept for when this
+template or an app built on it does the same. Only the Chrome 114 timeout
+is in the template today (`public/js/island-loader-timeout.js`).
+
+| Browser | Low bar | Why that version |
+|---|---|---|
+| desktop Chrome | 114 (May 2023) | first with popovers |
+| Firefox | 128 (Jul 2024) | Tailwind v4's floor |
+| iOS | 17.5 (May 2024) | last iOS 17 |
+| Android | 15, Chrome 124 (Apr 2024) | Android 14's Chrome is 113, before popovers |
+
+Getting the browsers (macOS):
+
+```bash
+# Chrome for Testing 114 and its driver (CfT's own drivers start at 115)
+curl -O https://storage.googleapis.com/chrome-for-testing-public/114.0.5735.90/mac-arm64/chrome-mac-arm64.zip
+curl -O https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_mac_arm64.zip
+ditto -x -k chrome-mac-arm64.zip ~/Library/Caches/e2e-floor/chrome-114   # not unzip: the app holds links
+```
+
+- Firefox 128.0.3 from `ftp.mozilla.org`, geckodriver 0.34 or newer.
+- iOS 17.5: the `.dmg` from developer.apple.com/download/all, then
+  `xcrun simctl runtime add <dmg>`. A disk image, not a cryptex, or
+  safaridriver opens no session.
+- Android 15: `system-images;android-35;google_apis_playstore;arm64-v8a`,
+  chromedriver 124.
+
+Traps that looked like site bugs and weren't:
+
+- **macOS freezes each new Chrome for Testing version** on a Bluetooth or
+  local-network prompt until someone clicks Allow on that Mac. Every test
+  just times out.
+- **Chrome 117 to 121 don't start on macOS 27.** 114 to 116 and 122 and up do.
+- **Boot emulators cold (`-no-snapshot`).** A snapshot a broken run saved
+  lost Chrome's connection and every `adb` forward.
+- **Not all low lanes at once,** even on 64 GB: run them in two batches.
+- **iOS 17.5 opens new tabs empty:** no cookies, no `localStorage`. A
+  second-tab test checks first and skips with the reason.
+- **`checkVisibility` before Chrome 121** knows only the old option names:
+  pass `{ visibilityProperty: true, checkVisibilityCSS: true,
+  opacityProperty: true, checkOpacity: true }`.
+- **`scrollIntoView({ behavior: 'instant' })` still glides in Chrome 114**
+  under `scroll-behavior: smooth`: set `scrollBehavior = 'auto'` on
+  `<html>` around it.
+- **Chrome 114's DevTools has no `DOM.getDetachedDomNodes`:** the memory
+  tests skip there, asked of the browser, not by version.
+- **A retried test reuses names** unless each try makes its own.
+
+Site bugs it found, for when an app uses these features:
+
+- **Firefox 128's click has no `pointerType`.** A hover-opened panel took
+  it for not-a-mouse and closed: keep a hovered flag from `pointerenter`
+  and `pointerleave` instead.
+- **No popovers (below the bar):** a notice shown by CSS alone,
+  `hidden [@supports_not_selector(:popover-open)]:block`, and every
+  `[popover]` and `[popovertarget]` hidden, or the buttons do nothing.
+- **No anchor positioning (Chrome before 125, Firefox 128, Safari before
+  26):** a fallback placing dropdowns under the header.
+- **Ask for the property you use: `@supports not (position-area: bottom)`.**
+  Chrome 125 to 128 have `anchor-name` but only the old `inset-area`.
+- **No subgrid in Chrome 114 to 116:** `grid-cols-subgrid` lists stack
+  every value on its own line.
+- **Chrome 114 to 123 stop starting islands** after 9 to 14 whole loads
+  in one tab (idle time starved). Light pages never get there. The
+  template's 2 s timeout covers it.
+
+Probe before fixing: a small test that prints what the page saw, on the
+failing lane and on its current twin. Rerun a failure alone before
+believing it.
+
 ## Tests to Add With the Features They Cover
 
 - **Each new page:** a request test for status, `lang` and one distinctive
