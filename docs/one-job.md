@@ -35,6 +35,7 @@ different, and a change reaches only one of them.
 |---|---|---|
 | A colour in a view | the role tokens `primary`, `surface`, `ink`, `ink-muted`, never a scale step | `style/tailwind.css` |
 | A colour where CSS can't reach (`theme-color`, the manifest) | `SURFACE_HEX`, `BRAND_HEX` | `src/views/layout.rs` |
+| A form's submit button while htmx sends it | the `busy:` variant, delayed 200 ms (`busy:delay-200`), never `disabled`; the form `hx-sync="this:drop"` and `aria-busy` through Alpine, as `ResetForm` | `style/tailwind.css`, `src/views/reset.rs` |
 | Room at the screen's edges in the home-screen app (a control under the clock or by the home indicator) | the `standalone:` variant, on a phone: `standalone:max-md:pt-6` | `style/tailwind.css` |
 
 ## Files and addresses

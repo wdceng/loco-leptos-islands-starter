@@ -78,6 +78,14 @@ change of mind gets a new line, and the old one moves to
   loader. **Way back:** once a Leptos release's loader passes a timeout
   (leptos #4959, `tools/upstream.sh`), drop the block; a newer Leptos
   makes Cargo warn the patch went unused.
+- 2026-10-20: **A form drops a second press and looks busy while sent.**
+  htmx 4's default without `hx-sync` queues one more request: two presses
+  on the reset form sent two posts (a browser test proved it), the second
+  with a token the first used up. `hx-sync="this:drop"` on the form, not
+  the region: a second link press should win, not be dropped. The look,
+  from an islands app: the `busy:` variant on htmx's request class, after
+  200 ms, `aria-busy` through Alpine; no `disabled`, which drops the
+  button's name and value from the post.
 - 2026-10-19: **No htmx settle** (`"defaultSettleDelay":0` in
   `HTMX_CONFIG`). Its default gives each new element whose `id` matches an
   old one the old one's attributes for a frame, which only serves CSS

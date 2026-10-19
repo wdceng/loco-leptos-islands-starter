@@ -14,6 +14,12 @@ use crate::{
 /// then the field is `autofocus`, so the focus stays in it for the next
 /// try: htmx focuses it in the swapped-in page, and `Navigation` leaves an
 /// `autofocus` field alone instead of focusing `<main>`.
+///
+/// While it's on its way: a second press sends nothing (`hx-sync`; htmx's
+/// default would queue one more post, which finds the token used up and
+/// swaps "expired" over "changed"), the form is `aria-busy`, and the
+/// button takes the `busy:` look after 200 ms, so a fast answer never
+/// shows it. Not `disabled`, the same words: the look alone.
 #[component]
 pub fn ResetForm(token: String, problem: Option<String>) -> impl IntoView {
     let refused = problem.is_some();
@@ -23,7 +29,17 @@ pub fn ResetForm(token: String, problem: Option<String>) -> impl IntoView {
             {format!("{PASSWORD_MIN} to {PASSWORD_MAX} characters. Any characters work.")}
         </p>
         {problem.map(|problem| view! { <p role="alert" class="mt-6 font-semibold">{problem}</p> })}
-        <form method="post" action=PATH class="mt-8 max-w-sm">
+        // Alpine's CSP build takes one expression per attribute.
+        <form
+            method="post"
+            action=PATH
+            class="mt-8 max-w-sm"
+            hx-sync="this:drop"
+            x-data="{ sending: false }"
+            x-on:htmx:before:request="sending = true"
+            x-on:htmx:finally:request="sending = false"
+            x-bind:aria-busy="sending"
+        >
             <input type="hidden" name="token" value=token />
             <label for="password" class="block font-semibold">"New password"</label>
             <input
@@ -39,7 +55,7 @@ pub fn ResetForm(token: String, problem: Option<String>) -> impl IntoView {
             />
             <button
                 type="submit"
-                class="mt-6 rounded-md bg-primary px-4 py-2 font-semibold text-white"
+                class="mt-6 rounded-md bg-primary px-4 py-2 font-semibold text-white transition-opacity busy:pointer-events-none busy:opacity-60 busy:delay-200"
             >
                 "Save the new password"
             </button>

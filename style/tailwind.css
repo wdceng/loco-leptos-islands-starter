@@ -40,6 +40,18 @@
   }
 }
 
+/* `busy:`, a form's submit button while htmx sends the form: htmx puts its
+   request class on the form until the answer, errors included. Every form
+   in the template goes through htmx. Written with `:is`, which carries the
+   selector's weight, so a busy class wins over a button's own hover and
+   transition classes. Not the disabled state: a disabled button drops its
+   name and value from the post. */
+@custom-variant busy {
+  &:is(form.htmx-request [type="submit"]) {
+    @slot;
+  }
+}
+
 /* What the template needs on top of Tailwind's reset (Preflight). */
 @layer base {
   /* Leptos wraps an island in <leptos-island> and its server-rendered

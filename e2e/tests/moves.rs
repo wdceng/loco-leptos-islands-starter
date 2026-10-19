@@ -7,7 +7,7 @@
 //! src/islands.rs).
 
 use app_e2e::{Answer, HOME_LINK, Page, RESET, WebDriverResult, browse};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 /// The home page's title, from a full load.
 async fn home_title(page: &Page) -> WebDriverResult<String> {
@@ -97,7 +97,7 @@ async fn a_move_focuses_no_field_on_its_way() {
         assert!(page.in_place().await?, "no full load");
         assert_eq!(
             page.eval("return __focused").await?,
-            serde_json::json!(["password", "content"]),
+            json!(["password", "content"]),
             "the field focused by the test, then <main> alone"
         );
         Ok(())
@@ -186,6 +186,101 @@ async fn a_refused_form_swaps_in_and_keeps_the_address() {
             page.eval("return document.activeElement?.id").await?,
             Value::from("password"),
             "the focus in the field for the next try, not on <main>"
+        );
+        Ok(())
+    })
+    .await;
+}
+
+/// A second press while the form is on its way sends nothing: htmx 4's
+/// default queues one more request (`queue first`), which would post the
+/// reset again with a token the first post used up, and swap "expired"
+/// over "changed". The form drops it (`hx-sync`).
+#[tokio::test]
+async fn a_second_press_sends_no_second_post() {
+    browse(|page| async move {
+        // The e2e token is no real one: the post is refused as expired.
+        page.allow_failed_load(400, "/reset");
+        page.open(RESET).await?;
+        page.mark().await?;
+        // Every POST htmx sends, counted where it leaves: htmx binds
+        // `window.fetch` per request, a queued one too.
+        page.eval(
+            "window.__posts = 0;
+             const fetchFirst = window.fetch;
+             window.fetch = (...args) => {
+                 const method = (args[1]?.method ?? args[0]?.method ?? 'GET').toUpperCase();
+                 if (method === 'POST') window.__posts++;
+                 return fetchFirst(...args);
+             };
+             const field = document.getElementById('password');
+             field.value = 'long enough to pass';
+             field.form.requestSubmit();
+             field.form.requestSubmit()",
+        )
+        .await?;
+        page.until(
+            "the answer in the region",
+            "return !document.querySelector('main form')",
+        )
+        .await?;
+        page.settled().await?;
+        // Long enough for a queued second post to have gone out.
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        assert_eq!(
+            page.eval("return window.__posts").await?,
+            Value::from(1),
+            "one press, one post"
+        );
+        Ok(())
+    })
+    .await;
+}
+
+/// While the form is on its way, slower than 200 ms, it's `aria-busy` and
+/// its button takes the `busy:` look; the answer's page holds neither.
+#[tokio::test]
+async fn a_sent_form_looks_busy_until_its_answer() {
+    browse(|page| async move {
+        // The e2e token is no real one: the post is refused as expired.
+        page.allow_failed_load(400, "/reset");
+        page.open(RESET).await?;
+        let button = "document.querySelector('main form [type=submit]')";
+        let idle = page
+            .text(&format!("return getComputedStyle({button}).opacity"))
+            .await?;
+        // A slow network: the answer takes longer than the look's delay.
+        page.devtools("Network.enable", json!({})).await?;
+        page.devtools(
+            "Network.emulateNetworkConditions",
+            json!({ "offline": false, "latency": 1500, "downloadThroughput": -1, "uploadThroughput": -1 }),
+        )
+        .await?;
+        page.eval(
+            "const field = document.getElementById('password');
+             field.value = 'long enough to pass';
+             field.form.requestSubmit()",
+        )
+        .await?;
+        page.until(
+            "the form busy and its button's look changed",
+            &format!(
+                "return document.querySelector('main form')?.getAttribute('aria-busy') === 'true'
+                     && getComputedStyle({button}).opacity !== {idle:?}"
+            ),
+        )
+        .await?;
+        page.until(
+            "the answer in the region",
+            "return !document.querySelector('main form')",
+        )
+        .await?;
+        page.settled().await?;
+        assert_eq!(
+            page.eval("return !!document.querySelector('[aria-busy=true], .htmx-request')")
+                .await?,
+            Value::Bool(false),
+            "nothing busy left after the answer"
         );
         Ok(())
     })

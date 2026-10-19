@@ -44,6 +44,19 @@ async fn the_reset_page_changes_the_password_once() {
             "{body}"
         );
         assert!(!body.contains("autofocus"), "a first visit takes no focus");
+        // On its way: a second press dropped, the form busy, the button's
+        // busy look after 200 ms.
+        for wanted in [
+            r#"hx-sync="this:drop""#,
+            r#"x-data="{ sending: false }""#,
+            r#"x-on:htmx:before:request="sending = true""#,
+            r#"x-on:htmx:finally:request="sending = false""#,
+            r#"x-bind:aria-busy="sending""#,
+            "busy:opacity-60",
+            "busy:delay-200",
+        ] {
+            assert!(body.contains(wanted), "{wanted}: {body}");
+        }
 
         // Too short: the form again, with the reason and the same token.
         let refused = request

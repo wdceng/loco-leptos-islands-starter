@@ -288,7 +288,8 @@ runs beside `cargo leptos watch`.
   field takes the focus on the way (htmx's refocus by `id`, blurred
   first); Back restores the scroll; a 404 shows in the region; a refused
   form swaps in, keeps the address and keeps the focus in its field; a
-  newer build and a gateway's 502 load plainly.
+  second press sends no second post; a sent form looks busy until its
+  answer (a slow network); a newer build and a gateway's 502 load plainly.
   DevTools changes those two answers on their way in.
 - **Memory** (`e2e/tests/memory.rs`): an island that leaves is freed; twenty
   moves and twenty Back and Forward steps keep the documents, detached
