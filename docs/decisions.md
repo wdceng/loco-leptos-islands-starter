@@ -75,8 +75,9 @@ change of mind gets a new line, and the old one moves to
   island starts. The same fix as that app's, in the loader itself, not a
   wrapper of every idle callback on the page (`tried-and-dropped.md`).
   `the_islands_loader_waits_for_idle_two_seconds_at_most` checks the
-  loader. **Way back:** once a Leptos release's loader passes a timeout,
-  drop the block; a newer Leptos makes Cargo warn the patch went unused.
+  loader. **Way back:** once a Leptos release's loader passes a timeout
+  (leptos #4959, `tools/upstream.sh`), drop the block; a newer Leptos
+  makes Cargo warn the patch went unused.
 - 2026-10-19: **No htmx settle** (`"defaultSettleDelay":0` in
   `HTMX_CONFIG`). Its default gives each new element whose `id` matches an
   old one the old one's attributes for a frame, which only serves CSS

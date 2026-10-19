@@ -29,9 +29,9 @@ loco-rs = { version = "1.2.0" }
 # timeout no island starts. The branch `leptos-0.8.22-idle-timeout` of the
 # fork; only `leptos` comes from it, the other Leptos crates from
 # crates.io. Built in at compile time, nothing at run time. Drop this block
-# once a Leptos release has the timeout (the loader test in
-# tests/requests/home.rs); a newer Leptos makes Cargo warn that the patch
-# was not used.
+# once a Leptos release has the timeout (leptos-rs/leptos#4959,
+# tools/upstream.sh; the loader test in tests/requests/home.rs); a newer
+# Leptos makes Cargo warn that the patch was not used.
 [patch.crates-io]
 leptos = { git = "https://github.com/wdceng/leptos", rev = "edce065baeb60c9cb4ba99ff6f3ff780ae1694e1" }
 

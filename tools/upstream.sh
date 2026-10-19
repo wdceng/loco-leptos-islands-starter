@@ -12,6 +12,9 @@
 #   4. htmx #4147: Chrome 150 to 156's parseHTMLUnsafe drops the comments
 #      Leptos hydrates by. Workaround: always pass it options
 #      (public/js/htmx-islands.js), until Chrome 157 is everywhere.
+#   5. leptos #4959: the islands loader waits for idle time with no timeout,
+#      so Chrome 114 to 123 can start no island. Workaround: Leptos from a
+#      fork with the timeout ([patch.crates-io] in Cargo.toml).
 #
 # Exit 0: nothing to act on. Exit 2: something looks released or closed,
 # see "act:" lines. Exit 1: an API could not be read.
@@ -62,6 +65,15 @@ echo "3. leptos #4953           $l_state, merged=$l_merged${l_merged_at:+ ($l_me
 h_state="$(get https://api.github.com/repos/bigskysoftware/htmx/issues/4147 | field state)"
 h_tag="$(get https://api.github.com/repos/bigskysoftware/htmx/releases/latest | field tag_name)"
 echo "4. htmx #4147             issue $h_state, latest release $h_tag"
+
+# 5. leptos #4959: an issue, closed by the fix; released once a leptos
+# release came out after it closed.
+idle="$(get https://api.github.com/repos/leptos-rs/leptos/issues/4959)"
+i_state="$(printf '%s' "$idle" | field state)"
+i_closed_at="$(nonull "$(printf '%s' "$idle" | field closed_at)")"
+fix5=no
+if [ "$i_state" = "closed" ] && [[ "$l_published" > "$i_closed_at" ]]; then fix5=yes; fi
+echo "5. leptos #4959           issue $i_state${i_closed_at:+ ($i_closed_at)}, latest release $l_tag: released=$fix5"
 echo
 
 if [ "$fix1" = yes ] && [ "$fix2" = yes ]; then
@@ -79,6 +91,10 @@ fi
 if [ "$fix3" = yes ]; then
   act=1
   echo "act: leptos $l_tag disposes islands (#4953): the island collector can give way to \$\$dispose (docs/decisions.md)."
+fi
+if [ "$fix5" = yes ]; then
+  act=1
+  echo "act: leptos $l_tag came out after #4959 closed: read how it was fixed; if its islands loader passes a timeout, drop the fork pin in Cargo.toml (docs/decisions.md)."
 fi
 if [ "$h_state" = "closed" ]; then
   act=1
