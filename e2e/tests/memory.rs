@@ -70,6 +70,10 @@ where
     F: Fn() -> Fut,
     Fut: Future<Output = WebDriverResult<()>>,
 {
+    if !page.can_count_detached().await? {
+        eprintln!("{what}: skipped, this Chrome's DevTools can't list detached nodes");
+        return Ok(());
+    }
     page.devtools("Log.disable", serde_json::json!({})).await?;
     page.driver
         .cdp()

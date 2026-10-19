@@ -98,6 +98,11 @@ change of mind gets a new line, and the old one moves to
   run never touches the watch loop. DevTools' own socket (`cdp-events`)
   hears the page's errors and changes an answer in flight; chromedriver
   passes no events on.
+- 2026-10-19: **A low-bar lane in Chrome 114** (`e2e/run.sh low`), the
+  oldest Chrome the template supports, about 30 months back: the same
+  tests, local only. Firefox 128, iOS 17.5 and Android 15 are left to the
+  apps (`docs/testing.md`, "The Low Bar"): the harness rests on Chrome's
+  DevTools.
 - 2026-10-18: **The memory tests turn DevTools' log off** while they
   measure: it keeps every element an entry names, and Chrome's notice
   about the reset form kept one old `<main>` per Back. Without DevTools,

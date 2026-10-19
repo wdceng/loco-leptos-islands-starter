@@ -522,12 +522,24 @@ Expected: `status=408 seconds=15.0…`, `latency=15002 ms status=408` in the
 server log, and `/` still answering in milliseconds. Remove the handler
 afterwards.
 
-## The Low Bar (not built yet)
+## The Low Bar
 
-An islands app on this stack added browser lanes for the oldest browsers
-it supports, about 30 months back. Its findings, kept for when this
-template or an app built on it does the same. Only the Chrome 114 timeout
-is in the template today (`public/js/island-loader-timeout.js`).
+The oldest browsers the template supports, about 30 months back. Chrome
+114 has a lane here; the rest are findings from an islands app on this
+stack, kept for when an app adds them.
+
+```bash
+e2e/run.sh low          # the same ten tests in Chrome for Testing 114
+e2e/run.sh low moves    # cargo test's filter, as on the top lane
+```
+
+It uses Chrome for Testing 114 and chromedriver 114 from
+`~/Library/Caches/e2e-floor/` (below), or `E2E_BINARY` and `CHROMEDRIVER`.
+Local only: CI's runner has no Chrome 114. The two leak tests skip there,
+saying why (no `DOM.getDetachedDomNodes`); the other eight run.
+
+- **htmx's `fetch()` is resource type `XHR` in Chrome 114,** `Fetch` in
+  155: the harness pauses both, or a changed answer never reaches the page.
 
 | Browser | Low bar | Why that version |
 |---|---|---|
@@ -542,7 +554,8 @@ Getting the browsers (macOS):
 # Chrome for Testing 114 and its driver (CfT's own drivers start at 115)
 curl -O https://storage.googleapis.com/chrome-for-testing-public/114.0.5735.90/mac-arm64/chrome-mac-arm64.zip
 curl -O https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_mac_arm64.zip
-ditto -x -k chrome-mac-arm64.zip ~/Library/Caches/e2e-floor/chrome-114   # not unzip: the app holds links
+ditto -x -k chrome-mac-arm64.zip ~/Library/Caches/e2e-floor/chrome-114             # not unzip: the app holds links
+ditto -x -k chromedriver_mac_arm64.zip ~/Library/Caches/e2e-floor/chromedriver-114  # where run.sh looks
 ```
 
 - Firefox 128.0.3 from `ftp.mozilla.org`, geckodriver 0.34 or newer.

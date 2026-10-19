@@ -109,13 +109,14 @@ impl Page {
         if answer == Answer::Plain {
             return self.devtools("Fetch.disable", json!({})).await.map(drop);
         }
+        // htmx's `fetch()` is resource type `Fetch` in Chrome 155 and `XHR`
+        // in Chrome 114, the low bar (a probe, 2026-10-19).
         self.devtools(
             "Fetch.enable",
-            json!({ "patterns": [{
-                "urlPattern": "*",
-                "resourceType": "Fetch",
-                "requestStage": "Response",
-            }] }),
+            json!({ "patterns": [
+                { "urlPattern": "*", "resourceType": "Fetch", "requestStage": "Response" },
+                { "urlPattern": "*", "resourceType": "XHR", "requestStage": "Response" },
+            ] }),
         )
         .await
         .map(drop)
@@ -129,6 +130,19 @@ impl Page {
         )
         .await
         .map(drop)
+    }
+
+    /// Whether this Chrome's DevTools can list detached DOM nodes, which
+    /// [`Page::held`] needs: Chrome 114's can't (the low bar). Asked of the
+    /// browser, not by version.
+    pub async fn can_count_detached(&self) -> WebDriverResult<bool> {
+        self.devtools("DOM.enable", json!({})).await?;
+        self.devtools("DOM.getDocument", json!({ "depth": 0 }))
+            .await?;
+        Ok(self
+            .devtools("DOM.getDetachedDomNodes", json!({}))
+            .await
+            .is_ok())
     }
 
     /// What the page holds once the garbage is collected.

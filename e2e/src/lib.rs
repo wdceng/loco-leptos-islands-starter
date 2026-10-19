@@ -33,6 +33,9 @@ struct Run {
     driver: String,
     dir: String,
     headed: bool,
+    /// Another Chrome than the installed one, the low bar's
+    /// (`e2e/run.sh low`, `E2E_BINARY`).
+    binary: Option<String>,
 }
 
 impl Run {
@@ -49,6 +52,7 @@ impl Run {
             driver: var("E2E_DRIVER"),
             dir: var("E2E_DIR"),
             headed: std::env::var_os("E2E_HEADED").is_some(),
+            binary: std::env::var("E2E_BINARY").ok().filter(|b| !b.is_empty()),
         }
     }
 }
@@ -122,9 +126,12 @@ where
 }
 
 /// A Chrome session, headless unless `E2E_HEADED` is set, its window a
-/// desktop's.
+/// desktop's, in the low bar's Chrome when `E2E_BINARY` names one.
 async fn open(run: &Run) -> WebDriverResult<WebDriver> {
     let mut caps = DesiredCapabilities::chrome();
+    if let Some(binary) = &run.binary {
+        caps.set_binary(binary)?;
+    }
     if !run.headed {
         caps.add_arg("--headless=new")?;
     }

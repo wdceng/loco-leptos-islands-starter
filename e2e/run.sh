@@ -2,6 +2,11 @@
 # The browser tests (docs/testing.md, "Browser tests"):
 #
 #   e2e/run.sh [cargo test's filter and flags]
+#   e2e/run.sh low [cargo test's filter and flags]
+#
+# `low` runs the same tests in the low bar's Chrome, 114 (docs/testing.md,
+# "The low bar"): Chrome for Testing and its driver from
+# ~/Library/Caches/e2e-floor/, or E2E_BINARY and CHROMEDRIVER. Local only.
 #
 # Builds the site into target/e2e (its own target folder and site, so the
 # watch loop's binary and target/site are never touched), starts it on port
@@ -24,6 +29,16 @@ site=5160
 driver_port=9515
 dir="$root/target/e2e/run"
 cached="$HOME/Library/Caches/chromedriver/chromedriver-mac-arm64/chromedriver"
+if [[ ${1:-} == low ]]; then
+  shift
+  floor="$HOME/Library/Caches/e2e-floor"
+  export E2E_BINARY=${E2E_BINARY:-"$floor/chrome-114/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"}
+  cached="$floor/chromedriver-114/chromedriver"
+  if [[ ! -x $E2E_BINARY ]]; then
+    echo "no low-bar Chrome at $E2E_BINARY (docs/testing.md, \"The low bar\")" >&2
+    exit 1
+  fi
+fi
 if [[ -n ${CHROMEDRIVER:-} ]]; then
   chromedriver=$CHROMEDRIVER
 elif [[ -x $cached ]]; then
