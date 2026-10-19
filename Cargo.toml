@@ -233,7 +233,7 @@ required-features = ["ssr"]
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 loco-rs = { workspace = true, features = ["testing"] }
 serial_test = { version = "4.0.1" }
-rstest = { version = "0.27.0" }
+rstest = { version = "0.28.0" }
 insta = { version = "1.49.0", features = ["redactions", "yaml", "filters"] }
 # The config canary (tests/config.rs) renders the staging and production
 # YAML with placeholder secrets instead of touching the process environment.

@@ -25,13 +25,13 @@ path = "tests/main.rs"
 # socket, so a test hears the page's errors and can change an answer on its
 # way in (src/devtools.rs). Without the defaults' driver download: run.sh
 # starts chromedriver itself.
-thirtyfour = { version = "0.37.7", default-features = false, features = [
+thirtyfour = { version = "0.37.8", default-features = false, features = [
   "reqwest",
   "rustls",
   "cdp",
   "cdp-events",
 ] }
-tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "time"] }
-serde_json = { version = "1.0.151" }
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread", "time"] }
+serde_json = { version = "1.0.154" }
 # DevTools' events as a stream. In the tree through thirtyfour.
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
