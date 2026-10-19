@@ -37,8 +37,11 @@ use crate::{
 /// every scroll a phone starts on a link); Back and Forward in place
 /// (`history`), htmx fetching the earlier page again into the region
 /// (`hx-history-elt`); a morph leaves islands alone; swaps go in at once, no
-/// view transition.
-pub const HTMX_CONFIG: &str = r#"{"includeIndicatorCSS":false,"noSwap":[204,304,"4xx","5xx"],"extensions":"alpine-compat,preload","preload":{"autoBoost":false},"history":true,"morphSkip":"[hx-morph-skip], leptos-island","transitions":false}"#;
+/// view transition, and no settle: htmx's default gives each new element
+/// whose `id` matches an old one the old one's attributes for a frame, so
+/// a menu with the same `id` on every page would arrive open and fade shut
+/// over the new page (`defaultSettleDelay`; found in an islands app).
+pub const HTMX_CONFIG: &str = r#"{"includeIndicatorCSS":false,"noSwap":[204,304,"4xx","5xx"],"extensions":"alpine-compat,preload","preload":{"autoBoost":false},"history":true,"morphSkip":"[hx-morph-skip], leptos-island","transitions":false,"defaultSettleDelay":0}"#;
 
 /// When a page a link leads to starts loading: at a mouse's press, the
 /// click a moment later taking the answer already on its way (100 to 150 ms

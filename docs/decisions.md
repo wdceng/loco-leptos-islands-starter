@@ -77,6 +77,12 @@ change of mind gets a new line, and the old one moves to
   `the_islands_loader_waits_for_idle_two_seconds_at_most` checks the
   loader. **Way back:** once a Leptos release's loader passes a timeout,
   drop the block; a newer Leptos makes Cargo warn the patch went unused.
+- 2026-10-19: **No htmx settle** (`"defaultSettleDelay":0` in
+  `HTMX_CONFIG`). Its default gives each new element whose `id` matches an
+  old one the old one's attributes for a frame, which only serves CSS
+  transitions from old to new, and `transitions` is off. An islands app's
+  menu, same `id` on every page, arrived open and faded shut after each
+  move. The template has no such element yet; the first app's would.
 - 2026-10-18: **The `Navigation` island** ports four behaviours from the
   sister app's `Chores`: focus and announcement, Back's scroll, a newer
   build loading plainly, a gateway's error loading plainly. Its
