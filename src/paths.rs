@@ -73,10 +73,9 @@ mod tests {
     }
 
     /// No JavaScript of the project's own: the libraries in `public/vendor/`,
-    /// each with its version in its name, the glue between htmx and the
-    /// islands, and the idle timeout for Leptos's island loader. Behaviour
-    /// goes in an island (Rust), in htmx's attributes or in Alpine's
-    /// (CLAUDE.md, "Islands, htmx and Alpine").
+    /// each with its version in its name, and the one glue file between
+    /// htmx and the islands. Behaviour goes in an island (Rust), in htmx's
+    /// attributes or in Alpine's (CLAUDE.md, "Islands, htmx and Alpine").
     #[test]
     fn the_only_javascript_is_the_libraries_and_the_glue() {
         for (plain, _) in assets::ALL {
@@ -87,7 +86,7 @@ mod tests {
                 && plain.ends_with(".min.js")
                 && plain.chars().any(|c| c.is_ascii_digit());
             assert!(
-                vendored || ["/js/htmx-islands.js", "/js/island-loader-timeout.js"].contains(plain),
+                vendored || *plain == "/js/htmx-islands.js",
                 "{plain}: project JavaScript; put the behaviour in an island, htmx or Alpine"
             );
         }

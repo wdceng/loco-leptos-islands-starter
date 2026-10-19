@@ -116,10 +116,8 @@ async fn the_shell_moves_between_pages_in_place() {
         );
         assert!(body.contains(r#"<meta name="htmx-config""#), "{body}");
 
-        // The idle timeout first, htmx, its extensions and the glue after it,
-        // Alpine last.
+        // htmx first, its extensions and the glue after it, Alpine last.
         let order = [
-            "/js/island-loader-timeout.js",
             "/vendor/htmx-4.0.0.min.js",
             "/vendor/hx-alpine-compat-4.0.0.min.js",
             "/vendor/hx-preload-4.0.0.min.js",
@@ -137,15 +135,6 @@ async fn the_shell_moves_between_pages_in_place() {
         assert!(
             body.matches(" defer></script>").count() >= order.len(),
             "every script defer:\n{body}"
-        );
-        // The idle timeout before Leptos's island loader, a module script,
-        // which waits for idle time (public/js/island-loader-timeout.js).
-        let loader = body
-            .find(r#"<script type="module""#)
-            .unwrap_or_else(|| panic!("no island loader:\n{body}"));
-        assert!(
-            at[0] < loader,
-            "island-loader-timeout.js after the island loader"
         );
 
         let region = body
@@ -178,6 +167,27 @@ async fn the_shell_moves_between_pages_in_place() {
             .unwrap_or_else(|| panic!("no Navigation island:\n{body}"));
         let region_end = body.rfind("</footer></div>").expect("the region closes");
         assert!(navigation > region_end, "Navigation is inside the region");
+    })
+    .await;
+}
+
+/// Leptos's islands loader, inline in every page, waits for the browser to
+/// be idle with a timeout, so a browser that never calls it idle still
+/// starts the islands (Chrome 114 to 123, fixed in 124, stopped after about
+/// 9 to 14 whole loads in one tab): the fork Cargo.toml's
+/// `[patch.crates-io]` builds in. Should this fail after a Leptos update,
+/// the release has its own way: drop the patch.
+#[tokio::test]
+#[serial]
+async fn the_islands_loader_waits_for_idle_two_seconds_at_most() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for path in ["/", "/reset?token=x"] {
+            let page = request.get(path).await.text();
+            assert!(
+                page.contains("window.requestIdleCallback(c, { timeout: 2000 });"),
+                "{path}: {page}"
+            );
+        }
     })
     .await;
 }

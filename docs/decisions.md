@@ -67,14 +67,16 @@ change of mind gets a new line, and the old one moves to
   htmx maintainer's way: Chrome 150 to 156 drops the comments only when
   called with one argument. #4147 closed without a change in htmx.
   **Way back:** once Chrome 157 is everywhere, drop it.
-- 2026-10-19: **Every idle callback gets a 2 s timeout**
-  (`public/js/island-loader-timeout.js`, a file of its own: it's Leptos
-  and Chrome, not htmx, so it stays out of the htmx glue). Leptos 0.8's island loader waits for idle
-  time with none, and Chrome 114 to 123 can stop giving it after many whole
-  loads in one tab, found in an islands app: then no island starts.
-  Leptos's own hydration script already passes one. Not a pinned Leptos
-  fork: others copy this template. **Way back:** once a Leptos release's
-  loader passes a timeout, drop it.
+- 2026-10-19: **Leptos from a fork, pinned by commit**
+  (`[patch.crates-io]` in `Cargo.toml`): 0.8.22 as published plus one
+  line, the islands loader's `requestIdleCallback` given a 2 s timeout, as
+  its own hydration script has. Chrome 114 to 123 can stop giving idle
+  time after many whole loads in one tab, found in an islands app: then no
+  island starts. The same fix as that app's, in the loader itself, not a
+  wrapper of every idle callback on the page (`tried-and-dropped.md`).
+  `the_islands_loader_waits_for_idle_two_seconds_at_most` checks the
+  loader. **Way back:** once a Leptos release's loader passes a timeout,
+  drop the block; a newer Leptos makes Cargo warn the patch went unused.
 - 2026-10-18: **The `Navigation` island** ports four behaviours from the
   sister app's `Chores`: focus and announcement, Back's scroll, a newer
   build loading plainly, a gateway's error loading plainly. Its
@@ -94,7 +96,8 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-18: **Browser tests in a crate of their own** (`e2e/`,
   thirtyfour, Chrome only), the sister app's harness cut down to one lane:
   the moves in place and the memory tests against a real `--split` build,
-  in CI too. Their own environment `e2e` (port 5160, `target/e2e`), so a
+  run locally (`ci.yaml` has a job for them, for projects that use
+  Actions; this repo doesn't). Their own environment `e2e` (port 5160, `target/e2e`), so a
   run never touches the watch loop. DevTools' own socket (`cdp-events`)
   hears the page's errors and changes an answer in flight; chromedriver
   passes no events on.

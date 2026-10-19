@@ -197,7 +197,9 @@ inputs.
 
 ### CI
 
-`.github/workflows/ci.yaml` runs on every push to `main` and on pull
+**This repo runs its checks locally; GitHub Actions is off.**
+`.github/workflows/ci.yaml` is kept for a project made from the template
+that uses Actions: with it on, it runs on every push to `main` and on pull
 requests. Same list as the pre-deploy checks in `staging.md` and `production.md`:
 
 - `cargo fmt --all -- --check`
@@ -535,7 +537,7 @@ e2e/run.sh low moves    # cargo test's filter, as on the top lane
 
 It uses Chrome for Testing 114 and chromedriver 114 from
 `~/Library/Caches/e2e-floor/` (below), or `E2E_BINARY` and `CHROMEDRIVER`.
-Local only: CI's runner has no Chrome 114. The two leak tests skip there,
+Local only, never in `ci.yaml`. The two leak tests skip there,
 saying why (no `DOM.getDetachedDomNodes`); the other eight run.
 
 - **htmx's `fetch()` is resource type `XHR` in Chrome 114,** `Fetch` in
@@ -602,7 +604,7 @@ Site bugs it found, for when an app uses these features:
   every value on its own line.
 - **Chrome 114 to 123 stop starting islands** after 9 to 14 whole loads
   in one tab (idle time starved). Light pages never get there. The
-  template's 2 s timeout covers it.
+  template's Leptos fork gives the loader a 2 s timeout.
 
 Probe before fixing: a small test that prints what the page saw, on the
 failing lane and on its current twin. Rerun a failure alone before

@@ -83,19 +83,15 @@ fn title_text(text: &str) -> String {
         .replace('>', "&gt;")
 }
 
-/// The idle timeout for Leptos's island loader
-/// (`public/js/island-loader-timeout.js`),
 /// htmx's settings ([`HTMX_CONFIG`]), htmx, its Alpine and preload
 /// extensions, the glue that wakes islands htmx swaps in
 /// (`public/js/htmx-islands.js`) and Alpine's CSP build: all `defer`, so
-/// they run in the order they stand, all of them before the loader that
-/// `HydrationScripts` adds after them, the idle timeout first, the
-/// extensions and the glue after htmx, Alpine last. Files from `script-src 'self'`, so no nonce. Alpine's
+/// they run in the order they stand, the extensions and the glue after
+/// htmx, Alpine last. Files from `script-src 'self'`, so no nonce. Alpine's
 /// CSP build reads its attributes without `eval`, which the CSP refuses.
 #[component]
 fn Scripts() -> impl IntoView {
     view! {
-        <script src=js::ISLAND_LOADER_TIMEOUT_JS defer></script>
         <meta name="htmx-config" content=HTMX_CONFIG/>
         <script src=vendor::HTMX_4_0_0_MIN_JS defer></script>
         <script src=vendor::HX_ALPINE_COMPAT_4_0_0_MIN_JS defer></script>

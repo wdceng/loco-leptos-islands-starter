@@ -3,6 +3,12 @@
 What was tried and reverted, and why. Nothing here is suggested again
 without a new reason.
 
+- **A wrapper giving every idle callback a 2 s timeout**
+  (`public/js/island-loader-timeout.js`, 2026-10-19, dropped the same
+  day). It worked, loaded before Leptos's loader, but capped every
+  `requestIdleCallback` on the page, htmx's and Alpine's too, and leaned
+  on script order. The fork pin fixes the loader alone, as the islands
+  app on this stack does (`decisions.md`).
 - **A local environment named `dev-local`** (2026-10-06, back 2026-10-07).
   Loco falls back to `development` when `LOCO_ENV` is unset, so the new
   name needed `export LOCO_ENV=dev-local` in every shell for a name alone.

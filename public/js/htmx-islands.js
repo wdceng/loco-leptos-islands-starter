@@ -1,7 +1,7 @@
 // For htmx 4 only (htmx 2 names its events differently: htmx:afterSwap).
-// Keeps Leptos islands alive in HTML htmx swaps in. One of the template's
-// two hand-written scripts, with island-loader-timeout.js: plumbing, no
-// page logic (CLAUDE.md, "Islands, htmx and Alpine").
+// Keeps Leptos islands alive in HTML htmx swaps in. The one hand-written
+// script in the template: plumbing, no page logic (CLAUDE.md, "Islands,
+// htmx and Alpine").
 
 // In blocks, so these consts stay out of the page's global scope.
 {

@@ -22,6 +22,19 @@ crate-type = ["cdylib", "rlib"]
 [workspace.dependencies]
 loco-rs = { version = "1.2.0" }
 
+# Leptos 0.8.22 as published, with one line more: the islands loader's
+# `requestIdleCallback` given a timeout, as Leptos's `hydration_script.js`
+# has (PR #4889). Chrome 114 to 123 (fixed in 124, April 2024) can stop
+# calling it after about 9 to 14 whole loads in one tab, and without the
+# timeout no island starts. The branch `leptos-0.8.22-idle-timeout` of the
+# fork; only `leptos` comes from it, the other Leptos crates from
+# crates.io. Built in at compile time, nothing at run time. Drop this block
+# once a Leptos release has the timeout (the loader test in
+# tests/requests/home.rs); a newer Leptos makes Cargo warn that the patch
+# was not used.
+[patch.crates-io]
+leptos = { git = "https://github.com/wdceng/leptos", rev = "edce065baeb60c9cb4ba99ff6f3ff780ae1694e1" }
+
 [dependencies]
 # ---------------------------------------------------------------------------
 # Loco: everything the Rest API starter declared (`loco new`, "Rest API

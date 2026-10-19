@@ -252,6 +252,11 @@ to bottom.
 - **`as` and `type` are keywords.** In `view!`, write `r#as` and `r#type`.
 - **Islands go in `src/islands.rs`.** One in `src/views/` renders, but never
   runs in the browser.
+- **`leptos` comes from a fork, pinned by commit** (`[patch.crates-io]` in
+  `Cargo.toml`): 0.8.22 with the island loader's idle timeout. On a Leptos
+  upgrade, drop the block if the release has the timeout, else move the
+  fork to the new version; `the_islands_loader_waits_for_idle_two_seconds_at_most`
+  checks the loader either way.
 - **Staging and production restart every night.** Development never does,
   so a watch loop left on overnight is still running in the morning.
 - **The home-screen app reaches the glass.** Opened from a phone's home
