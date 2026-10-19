@@ -292,11 +292,12 @@ runs beside `cargo leptos watch`.
   moves and twenty Back and Forward steps keep the documents, detached
   nodes, listeners, JS heap and WASM memory flat, measured three times.
 - **Every test fails on a page error**: an exception, a console error or
-  warning, a CSP refusal. A test that causes one on purpose names it
-  (`page.allow`).
+  warning, a CSP refusal. A test that causes a failed load on purpose
+  names its status and page (`page.allow_failed_load(404, "/no-such-page")`);
+  any other line still fails it.
 
-What a failed test's page showed (screenshot, HTML, the server log's tail)
-is in `target/e2e/run/failures/`.
+What a failed test's page showed (screenshot, HTML, the server log's tail,
+and every line the page logged) is in `target/e2e/run/failures/`.
 
 - **The memory tests turn DevTools' log off.** It keeps every element a
   log entry names, and Chrome notes the reset form on each visit, which

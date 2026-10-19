@@ -1,6 +1,5 @@
 # Loco + Leptos Islands Starter
 
-[![CI](https://github.com/wdceng/loco-leptos-islands-starter/actions/workflows/ci.yaml/badge.svg)](https://github.com/wdceng/loco-leptos-islands-starter/actions/workflows/ci.yaml)
 [![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue)](#license)
 [![Rust 1.94+](https://img.shields.io/badge/rust-1.94%2B-orange)](docs/prerequisites.md)
 

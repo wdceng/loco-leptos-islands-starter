@@ -38,6 +38,10 @@ if [[ ${1:-} == low ]]; then
     echo "no low-bar Chrome at $E2E_BINARY (docs/testing.md, \"The low bar\")" >&2
     exit 1
   fi
+else
+  # A value left in the shell would pair the low bar's Chrome with the
+  # current driver, which refuses it.
+  unset E2E_BINARY
 fi
 if [[ -n ${CHROMEDRIVER:-} ]]; then
   chromedriver=$CHROMEDRIVER

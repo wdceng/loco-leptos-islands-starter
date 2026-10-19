@@ -18,7 +18,8 @@
 
 use std::time::Duration;
 
-use app_e2e::{Held, Page, WebDriverResult, browse};
+use app_e2e::{Held, Page, RESET, WebDriverResult, browse};
+use serde_json::json;
 
 /// How many times each round is repeated.
 const ROUNDS: usize = 20;
@@ -38,8 +39,6 @@ const ONE_REGION: usize = 1_000;
 /// How much the WASM's memory may grow over the second half: one 64 KiB
 /// page, the allocator's own step.
 const WASM_SLOPE: u64 = 64 * 1024;
-
-const RESET: &str = "/reset?token=e2e";
 
 /// What the page holds once the collector has swept twice.
 async fn settled_memory(page: &Page) -> WebDriverResult<Held> {
@@ -74,11 +73,8 @@ where
         eprintln!("{what}: skipped, this Chrome's DevTools can't list detached nodes");
         return Ok(());
     }
-    page.devtools("Log.disable", serde_json::json!({})).await?;
-    page.driver
-        .cdp()
-        .send_raw("Log.disable", serde_json::json!({}))
-        .await?;
+    page.devtools("Log.disable", json!({})).await?;
+    page.driver.cdp().send_raw("Log.disable", json!({})).await?;
     for _ in 0..2 {
         round().await?;
     }

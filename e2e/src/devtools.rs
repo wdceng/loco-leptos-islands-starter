@@ -48,7 +48,9 @@ pub struct Held {
 #[derive(Debug, Default)]
 pub(crate) struct Heard {
     problems: Vec<String>,
-    allowed: Vec<String>,
+    /// Failed loads a test causes on purpose: the status, and the full
+    /// address Chrome's line ends with ([`Page::allow_failed_load`]).
+    allowed: Vec<(u16, String)>,
     answer: Answer,
 }
 
@@ -75,8 +77,15 @@ impl Page {
             heard,
             watcher,
         };
-        page.devtools("Runtime.enable", json!({})).await?;
-        page.devtools("Log.enable", json!({})).await?;
+        // Once a session: `held` collects and reads with them.
+        for domain in [
+            "Runtime.enable",
+            "Log.enable",
+            "HeapProfiler.enable",
+            "Performance.enable",
+        ] {
+            page.devtools(domain, json!({})).await?;
+        }
         Ok(page)
     }
 
@@ -91,15 +100,22 @@ impl Page {
         heard
             .problems
             .iter()
-            .filter(|problem| !heard.allowed.iter().any(|a| problem.contains(a.as_str())))
+            .filter(|problem| {
+                !heard.allowed.iter().any(|(status, url)| {
+                    problem.contains(&format!("status of {status} "))
+                        && problem.ends_with(&format!(" {url}"))
+                })
+            })
             .cloned()
             .collect()
     }
 
-    /// A problem the test causes on purpose, a 404 asked for, not counted:
-    /// any logged line containing `words`.
-    pub fn allow(&self, words: &str) {
-        lock(&self.heard).allowed.push(words.to_owned());
+    /// A failed load the test causes on purpose, not counted: Chrome's
+    /// "status of `status`" line for `path` on the run's site, that page
+    /// alone, a 404 asked for or a 502 faked.
+    pub fn allow_failed_load(&self, status: u16, path: &str) {
+        let url = self.url(path);
+        lock(&self.heard).allowed.push((status, url));
     }
 
     /// htmx's answers from now on, changed as `answer` says. Only requests
@@ -136,31 +152,34 @@ impl Page {
     /// [`Page::held`] needs: Chrome 114's can't (the low bar). Asked of the
     /// browser, not by version.
     pub async fn can_count_detached(&self) -> WebDriverResult<bool> {
-        self.devtools("DOM.enable", json!({})).await?;
-        self.devtools("DOM.getDocument", json!({ "depth": 0 }))
-            .await?;
+        self.dom_ready().await?;
         Ok(self
             .devtools("DOM.getDetachedDomNodes", json!({}))
             .await
             .is_ok())
     }
 
+    /// The DOM domain on, with the current document requested: what
+    /// `DOM.getDetachedDomNodes` needs before it answers.
+    async fn dom_ready(&self) -> WebDriverResult<()> {
+        self.devtools("DOM.enable", json!({})).await?;
+        self.devtools("DOM.getDocument", json!({ "depth": 0 }))
+            .await
+            .map(drop)
+    }
+
     /// What the page holds once the garbage is collected.
     pub async fn held(&self) -> WebDriverResult<Held> {
-        self.devtools("HeapProfiler.enable", json!({})).await?;
         self.devtools("HeapProfiler.collectGarbage", json!({}))
             .await?;
         let counters = self.devtools("Memory.getDOMCounters", json!({})).await?;
-        self.devtools("Performance.enable", json!({})).await?;
         let metrics = self.devtools("Performance.getMetrics", json!({})).await?;
         let heap = metrics["metrics"]
             .as_array()
             .and_then(|all| all.iter().find(|m| m["name"] == "JSHeapUsedSize"))
             .and_then(|m| m["value"].as_f64())
             .unwrap_or_default();
-        self.devtools("DOM.enable", json!({})).await?;
-        self.devtools("DOM.getDocument", json!({ "depth": 0 }))
-            .await?;
+        self.dom_ready().await?;
         let found = self.devtools("DOM.getDetachedDomNodes", json!({})).await?;
         // Elements only (node type 1). With chromedriver attached, Chrome
         // keeps a swapped-out region's attribute nodes for a while: forty

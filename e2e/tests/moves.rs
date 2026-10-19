@@ -6,20 +6,30 @@
 //! gateway's error load the page plainly instead (`Navigation`,
 //! src/islands.rs).
 
-use app_e2e::{Answer, Page, WebDriverResult, browse};
+use app_e2e::{Answer, HOME_LINK, Page, RESET, WebDriverResult, browse};
 use serde_json::Value;
-
-/// The reset page with a token: a page without the lazy island, with a
-/// form, long enough to scroll in a short window.
-const RESET: &str = "/reset?token=e2e";
-
-/// The header's link home, on every page.
-const HOME_LINK: &str = "header a[href='/']";
 
 /// The home page's title, from a full load.
 async fn home_title(page: &Page) -> WebDriverResult<String> {
     page.open("/").await?;
     page.driver.title().await
+}
+
+/// From the reset page, the header's link home with htmx's answer changed
+/// as `answer` says: the home page must load whole, not swap in.
+async fn loads_plainly(page: &Page, answer: Answer) -> WebDriverResult<()> {
+    page.open(RESET).await?;
+    page.mark().await?;
+    page.answers(answer).await?;
+    page.press(HOME_LINK).await?;
+    page.until(
+        "the home page loaded whole",
+        "return window.__e2eMark !== true && location.pathname === '/'
+             && document.readyState === 'complete'",
+    )
+    .await?;
+    page.answers(Answer::Plain).await?;
+    page.ready().await
 }
 
 #[tokio::test]
@@ -100,7 +110,7 @@ async fn back_comes_back_in_place_where_it_was_scrolled() {
 async fn a_missing_page_shows_in_the_region() {
     browse(|page| async move {
         // The 404 asked for, which Chrome logs.
-        page.allow("/no-such-page");
+        page.allow_failed_load(404, "/no-such-page");
         page.open("/").await?;
         page.mark().await?;
         page.add_link("/no-such-page").await?;
@@ -118,28 +128,14 @@ async fn a_missing_page_shows_in_the_region() {
 
 #[tokio::test]
 async fn a_newer_build_loads_the_next_page_plainly() {
-    browse(|page| async move {
-        page.open(RESET).await?;
-        page.mark().await?;
-        page.answers(Answer::NewerBuild).await?;
-        page.press(HOME_LINK).await?;
-        page.until(
-            "the home page loaded whole",
-            "return window.__e2eMark !== true && location.pathname === '/'
-                 && document.readyState === 'complete'",
-        )
-        .await?;
-        page.answers(Answer::Plain).await?;
-        page.ready().await
-    })
-    .await;
+    browse(|page| async move { loads_plainly(&page, Answer::NewerBuild).await }).await;
 }
 
 #[tokio::test]
 async fn a_refused_form_swaps_in_and_keeps_the_address() {
     browse(|page| async move {
         // The refusal's 400, which Chrome logs.
-        page.allow("status of 400");
+        page.allow_failed_load(400, "/reset");
         page.open(RESET).await?;
         page.mark().await?;
         page.eval(
@@ -163,19 +159,8 @@ async fn a_refused_form_swaps_in_and_keeps_the_address() {
 async fn a_gateway_error_loads_the_link_plainly() {
     browse(|page| async move {
         // The faked 502, which Chrome logs.
-        page.allow("502");
-        page.open(RESET).await?;
-        page.mark().await?;
-        page.answers(Answer::Status(502)).await?;
-        page.press(HOME_LINK).await?;
-        page.until(
-            "the link loaded whole",
-            "return window.__e2eMark !== true && location.pathname === '/'
-                 && document.readyState === 'complete'",
-        )
-        .await?;
-        page.answers(Answer::Plain).await?;
-        page.ready().await
+        page.allow_failed_load(502, "/");
+        loads_plainly(&page, Answer::Status(502)).await
     })
     .await;
 }

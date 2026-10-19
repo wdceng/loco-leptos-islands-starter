@@ -27,6 +27,13 @@ pub(crate) const POLL: Duration = Duration::from_millis(100);
 /// How long one test may run; the memory tests take about half a minute.
 const TEST_WITHIN: Duration = Duration::from_secs(180);
 
+/// The reset page with a token: a page without the lazy island, with a
+/// form, long enough to scroll in a short window.
+pub const RESET: &str = "/reset?token=e2e";
+
+/// The header's link home, on every page.
+pub const HOME_LINK: &str = "header a[href='/']";
+
 /// Where the run's parts listen, from `e2e/run.sh`.
 struct Run {
     base: String,
@@ -60,7 +67,9 @@ impl Run {
 /// Open a Chrome session, run `test` with its page, and close the session
 /// whatever happened: a failure or a panic is passed on after the session
 /// is gone. A test that passed still fails when its page logged an error,
-/// a warning or a refused resource ([`Page::allow`] names the expected).
+/// a warning or a refused resource ([`Page::allow_failed_load`] names the
+/// expected), and a failure of either kind keeps what the page showed with
+/// the lines it logged.
 pub async fn browse<F, Fut>(test: F)
 where
     F: FnOnce(Page) -> Fut,
@@ -92,7 +101,7 @@ where
         }
     };
     // What failed, said; a panic's payload kept to be passed on.
-    let failed = match outcome {
+    let mut failed = match outcome {
         Ok(Ok(())) => None,
         Ok(Err(e)) => Some((e.to_string(), None)),
         Err(join) => {
@@ -105,24 +114,32 @@ where
             Some((said, Some(payload)))
         }
     };
+    // The page's own errors fail the test too, and join a failure's words:
+    // a console error is often why the test failed.
+    let problems = page.problems();
+    if !problems.is_empty() {
+        let logged = format!("the page logged:\n{}", problems.join("\n"));
+        failed = Some(match failed {
+            None => (logged, None),
+            Some((said, payload)) => (format!("{said}\n\n{logged}"), payload),
+        });
+    }
     if let Some((said, _)) = &failed {
         evidence(&driver, &run.dir, &name, said).await;
     }
-    let problems = page.problems();
     page.stop();
     if let Err(e) = driver.quit().await {
         eprintln!("closing the session: {e}");
     }
     match failed {
         None => {}
-        Some((_, Some(payload))) => panic::resume_unwind(payload),
+        // The panic's own message is in its payload; the rest said here.
+        Some((said, Some(payload))) => {
+            eprintln!("{said}");
+            panic::resume_unwind(payload)
+        }
         Some((said, None)) => panic!("{said}"),
     }
-    assert!(
-        problems.is_empty(),
-        "the page logged:\n{}",
-        problems.join("\n")
-    );
 }
 
 /// A Chrome session, headless unless `E2E_HEADED` is set, its window a

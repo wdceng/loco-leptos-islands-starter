@@ -60,6 +60,8 @@ different, and a change reaches only one of them.
 | Make Leptos's island loader start when Chrome gives no idle time | the Leptos fork's loader (`[patch.crates-io]`) | `Cargo.toml` |
 | A library in the page | a vendored file in `public/vendor/`, its version in its name, loaded by `Scripts` | `src/views/layout.rs` |
 | A browser test: a Chrome session, its page, waits, clicks, memory | `browse`, `Page` (`open`, `until`, `press`, `move_to`, `held`) | `e2e/src/` |
+| The pages and links browser tests share | `RESET`, `HOME_LINK` | `e2e/src/lib.rs` |
+| A failed load a browser test causes on purpose | `Page::allow_failed_load` | `e2e/src/devtools.rs` |
 | An answer of htmx's changed in a browser test (a deploy, a gateway's error) | `Page::answers` with an `Answer` | `e2e/src/devtools.rs` |
 
 ## Server
