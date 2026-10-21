@@ -55,9 +55,9 @@ LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```bash
 test -f secrets.dev-server.env && tools/cargo-leptos/check.sh &&
 LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only &&
-cross build --profile staging --target x86_64-unknown-linux-gnu &&
+CARGO_TARGET_DIR=target/zig cargo zigbuild --profile dev-server --target x86_64-unknown-linux-gnu.2.31 &&
 rm -rf dist && mkdir dist &&
-cp target/x86_64-unknown-linux-gnu/staging/app dist/app &&
+cp target/zig/x86_64-unknown-linux-gnu/dev-server/app dist/app &&
 cp target/release/hash.txt dist/hash.txt &&
 cp -r target/site-release dist/site &&
 ssh <server> "mkdir -p /srv/app/dev/config" &&
@@ -80,8 +80,11 @@ ssh <server> "journalctl -u app-dev -f"
 - **No patched cargo-leptos, no deploy.** `tools/cargo-leptos/check.sh` stops
   the chain when this machine's cargo-leptos lacks the split fixes
   (`development.md`, "Lazy islands").
-- The `staging` profile is faster to rebuild than `--release` and keeps
-  line numbers in backtraces. The dev server shares it.
+- The `dev-server` profile is faster to rebuild than `--release`. It's
+  stripped, so backtraces have no names or line numbers.
+- `.2.31` is the oldest glibc the binary needs (Step 0 in
+  `docs/production.md`). `target/zig` keeps this build apart from the
+  Mac's own.
 - `hash.txt` must travel with the binary and match `site/`, or the app
   won't start.
 - The old `site/` is deleted first, so files you removed locally don't
@@ -93,8 +96,8 @@ To run production's exact binary here, same chain, two lines changed
 (always both together):
 
 ```bash
-cross build --release --target x86_64-unknown-linux-gnu &&
-cp target/x86_64-unknown-linux-gnu/release/app dist/app &&
+CARGO_TARGET_DIR=target/zig cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31 &&
+cp target/zig/x86_64-unknown-linux-gnu/release/app dist/app &&
 ```
 
 ### Smoke test
@@ -264,7 +267,7 @@ ssh <server> "systemctl daemon-reload && systemctl enable --now app-dev && syste
 | `settings.mail.from is not a sender` | `MAILER_FROM` must read `Name <address>` |
 | `invalid settings: block: failed to parse timezone` | `nightly_restart.zone` isn't an IANA name (`UTC`, `Europe/Zagreb`) |
 | `unable to open database file` | `StateDirectory=` or `DATABASE_URL=` missing |
-| `version GLIBC_2.39 not found` | server too old, see Step 0 |
+| `version GLIBC_2.31 not found` | server too old, see Step 0 |
 
 ### Step 4: Caddy
 

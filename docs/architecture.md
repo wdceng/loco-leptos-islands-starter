@@ -207,7 +207,7 @@ Rules:
 - **A new table or column:** a migration, `cargo loco db migrate`, then
   `cargo sqlx prepare -- --all-targets` (`development.md`). Only then does
   `query!` see it. `.sqlx/` is committed, so builds without a database
-  (CI, `cross`) check the queries offline. Always `-- --all-targets`: the
+  (CI, the server build) check the queries offline. Always `-- --all-targets`: the
   plain form drops the tests' queries from the cache.
 - **SQLite reports few types for expressions.** `COUNT(*)`, `MAX(...)`,
   `CASE` and `json_each` columns come back nullable or loosely typed, so
@@ -402,7 +402,7 @@ code. `cargo audit` runs too. The advisories ignored on purpose, each with
 its reason, are in `.cargo/audit.toml`.
 
 Every job builds with `SQLX_OFFLINE=true`, from the committed `.sqlx/`
-cache, as `cross` does. A separate job migrates a fresh test database and
+cache, as the server build does. A separate job migrates a fresh test database and
 runs `cargo sqlx prepare --check -- --all-targets`, so a stale cache fails
 in CI, not on the next deploy.
 

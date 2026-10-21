@@ -82,7 +82,7 @@ The app's own queries are SQLx `query!` macros, checked at compile time
 against the schema (`architecture.md`, "Sea-ORM and SQLx"). Every build
 reads that schema from the committed `.sqlx/` cache, never a database:
 `SQLX_OFFLINE = "true"` in `.cargo/config.toml` makes sure of it, on every
-machine and in `cross`. The one step that touches the database is
+machine and in the server build. The one step that touches the database is
 `cargo sqlx prepare`, so after a schema or query change, refresh the cache:
 
 ```bash
@@ -135,17 +135,26 @@ cost much less, and a lazy one only on the pages that render it.
 
 ### For a Linux server
 
-Your Mac can't build a Linux binary directly, so the server part is built
-with `cross`, inside a Linux container:
+The server part is built natively with `cargo zigbuild`: Zig links it for
+Linux, no container.
 
 ```bash
 LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only   # site files and hash.txt
-cross build --release --target x86_64-unknown-linux-gnu                                                           # target/x86_64-unknown-linux-gnu/release/app
+CARGO_TARGET_DIR=target/zig cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31                       # target/zig/x86_64-unknown-linux-gnu/release/app
 ```
 
-For staging, use `--profile staging` instead of `--release` on the second
-line: it builds faster and keeps readable backtraces. The first `cross`
-build on Apple Silicon takes a few minutes. Full steps in `staging.md` and `production.md`.
+- `.2.31` is the oldest glibc the binary needs (Step 0 in `production.md`).
+- `target/zig` keeps this build apart from the Mac's own, so neither
+  rebuilds the other.
+- For the dev server, `--profile dev-server` instead of `--release`: it
+  builds faster. Staging and production build `--release`.
+- Full steps in `dev-server.md`, `staging.md` and `production.md`.
+
+**Keep `strip = true` on every profile you deploy.** Zig's linker doesn't
+merge debug strings: line tables made a sister app's binary 2 GB.
+
+**`ignoring deprecated linker optimization setting "1"` is harmless.**
+rustc passes `-O1`, Zig's linker ignores it.
 
 ## Lazy islands
 

@@ -22,20 +22,13 @@ Install commands are each tool's own. Your package manager works too.
 |-----|------|---------|---------|
 | 2.1 | **cargo-watch** | Only for `cargo loco watch`, which reloads just the server. The usual loop is `cargo leptos watch --split -- start` | `cargo install --locked cargo-watch` |
 | 2.2 | **cargo-audit** | Scans `Cargo.lock` for known vulnerabilities. CI runs 0.22.2. `.cargo/audit.toml` lists ignored advisories | `cargo install --locked cargo-audit@0.22.2` |
-| 2.3 | **cross** | Builds a Linux x86_64 server binary on another platform (`staging.md`, `production.md`). Needs Docker. `Cross.toml` pins the image | `cargo install --locked cross` |
+| 2.3 | **cargo-zigbuild**, with Zig and the Linux target | Builds the Linux x86_64 server binary natively, Zig as its linker (`dev-server.md`, `staging.md`, `production.md`) | `brew install zig` (or https://ziglang.org/download/), then `cargo install --locked cargo-zigbuild && rustup target add x86_64-unknown-linux-gnu` |
 | 2.4 | **cargo-binstall** | Installs prebuilt cargo tools instead of compiling them. CI uses it for cargo-audit | `cargo install --locked cargo-binstall` |
 | 2.5 | **loco** | The Loco CLI, only for `loco new` and generators. Not needed here: `cargo loco` is a cargo alias in `.cargo/config.toml` that runs the app binary | `cargo install --locked loco` |
 | 2.6 | **cargo-nextest** | One process per test (`cargo nextest run`). `.config/nextest.toml` keeps app-booting tests on one thread | `cargo install --locked cargo-nextest` |
-| 2.7 | **cargo-sweep** | Clears old native, wasm32 and cross builds out of `target/` | `cargo install --locked cargo-sweep` |
+| 2.7 | **cargo-sweep** | Clears old native, wasm32 and Linux builds out of `target/` | `cargo install --locked cargo-sweep` |
 | 2.8 | **sea-orm-cli** | Only for `cargo loco db entities`, which regenerates `src/models/_entities/`. `cargo loco doctor` flags it if missing | `cargo install --locked sea-orm-cli` |
 | 2.9 | **sqlx-cli** | `cargo sqlx prepare` refreshes the `.sqlx/` query cache after a migration or a new query (`development.md`). Same version as the `sqlx` crate, 0.9.0 | `cargo install --locked sqlx-cli@0.9.0 --no-default-features --features sqlite` |
-
-On arm64, like Apple Silicon, `cross` emulates x86_64 and the default image
-tag has no arm64 manifest. Pull the pinned image once:
-
-```bash
-docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu@sha256:c75170d35dd295c280755aaf58682fa7c0984f1e2512742eb2495b3b197338e3
-```
 
 ## 3. Local Services
 
@@ -58,8 +51,7 @@ Nothing to install. They land in `~/.cache/cargo-leptos` on the first build.
 
 | # | Tool | Purpose |
 |-----|------|---------|
-| 5.1 | **Docker** | `cross` (2.3) needs it on the build machine. Nothing else does |
-| 5.2 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`staging.md`, `production.md`). Not needed locally |
+| 5.1 | **Caddy** | Reverse proxy with automatic HTTPS in front of Loco (`staging.md`, `production.md`). Not needed locally |
 
 ## 6. Editor (VS Code)
 

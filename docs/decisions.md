@@ -36,9 +36,16 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-08: **Deploys start with a check that their secrets file
   exists**, before anything is built: a missing file would fail the upload
   with the service already stopped.
-- 2026-10-21: **The cross image is pinned by digest**, the 2026-10-09
-  `main` build (`Cross.toml`), so the toolchain that builds the server
-  binary cannot change under a moving tag. ecs and wdc use the same one.
+- 2026-10-21: **The Linux server binary is built with `cargo zigbuild`**,
+  natively on the Mac, with Zig as the linker. No Docker, no emulated
+  image; in a sister app the fast profile took 2m 48s against cross's
+  9m 39s, and the release binaries matched within 1 MB. The target names
+  glibc 2.31 (`x86_64-unknown-linux-gnu.2.31`), so Debian 11 and Ubuntu
+  20.04 or newer run it.
+- 2026-10-21: **Staging and production build `--release`**, so staging runs
+  production's exact binary. Only the dev server uses the fast profile,
+  renamed `dev-server` from `staging`. Every deployed profile is fully
+  stripped: with Zig's linker, line tables made a 2 GB binary.
 
 ## Islands
 

@@ -15,9 +15,9 @@ LEPTOS_OUTPUT_NAME = "app"
 
 # The app's queries (`sqlx::query!`) are checked against the committed
 # .sqlx/ cache, never a live database: no connection on every rebuild, and
-# the same answer on every machine, in CI and in `cross`. Not `force`d, so
-# `cargo sqlx prepare` (which sets SQLX_OFFLINE=false itself) and a
-# `SQLX_OFFLINE=false cargo check` still reach the database.
+# the same answer on every machine, in CI and in the server build. Not
+# `force`d, so `cargo sqlx prepare` (which sets SQLX_OFFLINE=false itself)
+# and a `SQLX_OFFLINE=false cargo check` still reach the database.
 SQLX_OFFLINE = "true"
 
 # https://github.com/rust-lang/rust/issues/141626

@@ -218,7 +218,7 @@ requests. Same list as the pre-deploy checks in `staging.md` and `production.md`
   (below). A failed run keeps `target/e2e/run/` as an artifact
 
 Every job builds with `SQLX_OFFLINE=true`, from the committed cache, like
-`cross`.
+the server build.
 
 `cargo audit` fails on vulnerabilities. Advisories ignored on purpose are
 in `.cargo/audit.toml`, each with its reason.

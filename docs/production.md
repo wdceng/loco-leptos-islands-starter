@@ -56,9 +56,9 @@ cargo audit && ! grep -n "example\.com\|SaaS Starter" config/production.yaml src
 test -s secrets.production.env && ! grep -q "replace-me" secrets.production.env && tools/cargo-leptos/check.sh &&
 cargo clippy --all-targets && cargo test &&
 LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only &&
-cross build --release --target x86_64-unknown-linux-gnu &&
+CARGO_TARGET_DIR=target/zig cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31 &&
 rm -rf dist && mkdir dist &&
-cp target/x86_64-unknown-linux-gnu/release/app dist/app &&
+cp target/zig/x86_64-unknown-linux-gnu/release/app dist/app &&
 cp target/release/hash.txt dist/hash.txt &&
 cp -r target/site-release dist/site &&
 ssh <server> "mkdir -p /srv/app/prod/config" &&
@@ -83,7 +83,9 @@ ssh <server> "journalctl -u app-prod -f"
   the chain when this machine's cargo-leptos lacks the split fixes
   (`development.md`, "Lazy islands").
 - A failing step stops the chain. A failed build never touches the server.
-- `--release` is a full, slow build every time.
+- `--release` is a full, slow build every time. `.2.31` is the oldest glibc
+  the binary needs (Step 0); `target/zig` keeps this build apart from the
+  Mac's own.
 - The previous deploy is kept as `*.prev` for the rollback below.
 - `hash.txt` must travel with the binary and match `site/`, or the app
   won't start.
@@ -138,7 +140,7 @@ ssh <server> "systemctl enable --now app-prod"     # back
 
 ## Server
 
-- Debian 13 or Ubuntu 24.04 or newer (see the glibc check in Step 0).
+- Debian 11 or Ubuntu 20.04 or newer (see the glibc check in Step 0).
 - Caddy installed on the box, shared by every site on it.
 - Cloudflare in front, proxied, SSL/TLS mode Full (strict).
 - The firewall lets in only Cloudflare's addresses, and the origin key
@@ -221,9 +223,9 @@ ssh <server> "ldd --version | head -1"
 A different port goes in two places only: `PORT=` in the unit and
 `reverse_proxy` in Caddy.
 
-The server's glibc must be at least the one the binary needs. With the
-`:main` image in `Cross.toml` that's 2.39 today: Debian 13 and Ubuntu 24.04
-work, Debian 12 and Ubuntu 22.04 fail with `version GLIBC_2.39 not found`.
+The server's glibc must be at least the one the binary needs. The build
+names it: `.2.31` on the target in every deploy chain, so Debian 11 and
+Ubuntu 20.04 or newer work. An older server needs a lower number there.
 Once `dist/` is built, this prints what the binary needs:
 
 ```bash
@@ -309,7 +311,7 @@ ssh <server> "systemctl daemon-reload && systemctl enable --now app-prod && syst
 | `invalid settings: block: failed to parse timezone` | `nightly_restart.zone` isn't an IANA name (`UTC`, `Europe/Zagreb`) |
 | `settings.nightly_restart.hour must be 0 to 23` | restart hour out of range |
 | `unable to open database file` | `StateDirectory=` or `DATABASE_URL=` missing |
-| `version GLIBC_2.39 not found` | server too old, see Step 0 |
+| `version GLIBC_2.31 not found` | server too old, see Step 0 |
 
 ### Step 4: Caddy
 

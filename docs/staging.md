@@ -19,7 +19,7 @@ Staging is production's twin. The differences:
 
 | | staging | production |
 |---|---|---|
-| Binary profile | `staging`: faster rebuilds, readable backtraces | `release`: fully optimised, slow build |
+| Binary profile | `release`: production's exact binary | `release` |
 | Secrets | placeholder defaults, so an empty file boots | no defaults, a missing one stops the boot |
 | Static cache | 60 s | one year |
 | Search engines | `Disallow: /` and `X-Robots-Tag: noindex, nofollow` | `Allow: /` |
@@ -53,9 +53,9 @@ LEPTOS_SITE_ROOT=target/site-release PORT=5151 ./target/release/app start
 ```bash
 test -f secrets.staging.env && tools/cargo-leptos/check.sh &&
 LEPTOS_HASH_FILES=true LEPTOS_SITE_ROOT=target/site-release cargo leptos build --release --split --frontend-only &&
-cross build --profile staging --target x86_64-unknown-linux-gnu &&
+CARGO_TARGET_DIR=target/zig cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.31 &&
 rm -rf dist && mkdir dist &&
-cp target/x86_64-unknown-linux-gnu/staging/app dist/app &&
+cp target/zig/x86_64-unknown-linux-gnu/release/app dist/app &&
 cp target/release/hash.txt dist/hash.txt &&
 cp -r target/site-release dist/site &&
 ssh <server> "mkdir -p /srv/app/stg/config" &&
@@ -78,22 +78,15 @@ ssh <server> "journalctl -u app-stg -f"
 - **No patched cargo-leptos, no deploy.** `tools/cargo-leptos/check.sh` stops
   the chain when this machine's cargo-leptos lacks the split fixes
   (`development.md`, "Lazy islands").
-- The `staging` profile is faster to rebuild than `--release` and keeps
-  line numbers in backtraces.
+- `--release`, as production: staging runs the binary production will.
+  Work in progress goes to the dev server, which builds faster.
+- `.2.31` is the oldest glibc the binary needs (Step 0 in
+  `docs/production.md`). `target/zig` keeps this build apart from the
+  Mac's own.
 - `hash.txt` must travel with the binary and match `site/`, or the app
   won't start.
 - The old `site/` is deleted first, so files you removed locally don't
   linger.
-
-### Production build on staging
-
-Before a production deploy, run production's exact binary on staging. Same
-chain, two lines changed (always both together):
-
-```bash
-cross build --release --target x86_64-unknown-linux-gnu &&
-cp target/x86_64-unknown-linux-gnu/release/app dist/app &&
-```
 
 ### Smoke test
 
@@ -263,7 +256,7 @@ ssh <server> "systemctl daemon-reload && systemctl enable --now app-stg && syste
 | `settings.mail.from is not a sender` | `MAILER_FROM` must read `Name <address>` |
 | `invalid settings: block: failed to parse timezone` | `nightly_restart.zone` isn't an IANA name (`UTC`, `Europe/Zagreb`) |
 | `unable to open database file` | `StateDirectory=` or `DATABASE_URL=` missing |
-| `version GLIBC_2.39 not found` | server too old, see Step 0 |
+| `version GLIBC_2.31 not found` | server too old, see Step 0 |
 
 ### Step 4: Caddy
 

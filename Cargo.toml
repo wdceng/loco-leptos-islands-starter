@@ -80,7 +80,7 @@ sea-orm = { version = "2.0.4", features = [
 # schema at compile time, on the pool Sea-ORM opened (src/sql.rs). Must be
 # the version Sea-ORM depends on: a second sqlx in the graph is a different
 # `SqlitePool` type and src/sql.rs stops compiling. Builds without a
-# database (CI, cross) read the committed `.sqlx/` cache.
+# database (CI, the server build) read the committed `.sqlx/` cache.
 sqlx = { version = "0.9.0", default-features = false, features = [
   "sqlite",
   "macros",
@@ -289,21 +289,20 @@ lto = true
 codegen-units = 1
 strip = true
 
-# Staging: the same optimisation class as production, because staging exists
-# to behave like it, but built to be redeployed often. A parallel thin-LTO
-# link replaces the single-threaded fat one, rebuilds are incremental, and
-# line tables are kept so `pretty_backtrace` on staging prints backtraces
-# with function names. The staging deploy (docs/staging.md) builds the server
-# binary with `cross build --profile staging`; production keeps `--release`.
+# Dev-server: work in progress, built to be redeployed often. A parallel
+# thin-LTO link replaces the single-threaded fat one, and rebuilds are
+# incremental. Stripped like release: Zig's linker doesn't merge debug
+# strings, so line tables made a sister app's binary 2 GB, and `strip =
+# "debuginfo"` drops the symbols too. The dev-server deploy
+# (docs/dev-server.md) builds with `--profile dev-server`; staging and
+# production build `--release`, so staging runs production's binary.
 # The WASM half is unaffected: it uses `wasm-release` below.
-[profile.staging]
+[profile.dev-server]
 inherits = "release"
 opt-level = 2
 lto = "thin"
 codegen-units = 16
 incremental = true
-strip = "none"
-debug = "line-tables-only"
 
 # Release profile for the browser (WASM) half, selected above via
 # `lib-profile-release`. Size beats speed for the islands bundle. `strip`

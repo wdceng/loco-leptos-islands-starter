@@ -9,6 +9,11 @@ without a new reason.
   `requestIdleCallback` on the page, htmx's and Alpine's too, and leaned
   on script order. The fork pin fixes the loader alone, as the islands
   app on this stack does (`decisions.md`).
+- **`cross` for the Linux server binary** (until 2026-10-21, its image
+  pinned by digest in `Cross.toml`). It needed Docker and a 2.69 GB amd64
+  image, emulated on Apple Silicon: 9m 39s for the fast profile where
+  `cargo zigbuild` takes 2m 48s, and the binary needed the image's glibc
+  (2.39). Replaced by `cargo zigbuild` (`decisions.md`).
 - **A local environment named `dev-local`** (2026-10-06, back 2026-10-07).
   Loco falls back to `development` when `LOCO_ENV` is unset, so the new
   name needed `export LOCO_ENV=dev-local` in every shell for a name alone.
