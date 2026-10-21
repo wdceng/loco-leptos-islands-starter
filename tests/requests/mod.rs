@@ -5,6 +5,7 @@ mod links;
 mod llms;
 mod not_found;
 mod prepare_data;
+mod races;
 mod rate_limit;
 mod reset;
 mod robots;

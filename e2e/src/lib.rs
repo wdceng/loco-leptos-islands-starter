@@ -24,6 +24,10 @@ pub(crate) const WAIT: Duration = Duration::from_secs(30);
 /// How often a wait asks again.
 pub(crate) const POLL: Duration = Duration::from_millis(100);
 
+/// How long a person's press holds the mouse's button down: long enough
+/// for the press to preload its page before the click (`Page::press`).
+pub(crate) const PRESS_HELD: Duration = Duration::from_millis(300);
+
 /// How long one test may run; the memory tests take about half a minute.
 const TEST_WITHIN: Duration = Duration::from_secs(180);
 

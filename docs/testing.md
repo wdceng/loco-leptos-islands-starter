@@ -269,7 +269,7 @@ build: the moves in place and the memory tests. A crate of its own, so
 `cargo test` in the root runs none of it.
 
 ```bash
-e2e/run.sh                      # all ten
+e2e/run.sh                      # all of them
 e2e/run.sh memory               # only the memory tests (cargo test's filter)
 E2E_HEADED=1 e2e/run.sh moves   # with Chrome's window
 ```
@@ -294,6 +294,12 @@ runs beside `cargo leptos watch`.
 - **Memory** (`e2e/tests/memory.rs`): an island that leaves is freed; twenty
   moves and twenty Back and Forward steps keep the documents, detached
   nodes, listeners, JS heap and WASM memory flat, measured three times.
+- **Health** (`e2e/tests/health.rs`), on one page of each kind (`PAGES`;
+  a new page goes in): no sideways scroll at 360 to 1440 px, every control
+  44px tall at a phone's width, nothing the accessibility audit (axe-core,
+  `e2e/vendor/`) finds, the Reduce Motion rule as the browser read it and
+  a transition stopped by it, twenty loads in one tab each with its
+  islands awake.
 - **Every test fails on a page error**: an exception, a console error or
   warning, a CSP refusal. A test that causes a failed load on purpose
   names its status and page (`page.allow_failed_load(404, "/no-such-page")`);
@@ -305,8 +311,13 @@ and every line the page logged) is in `target/e2e/run/failures/`.
 - **The memory tests turn DevTools' log off.** It keeps every element a
   log entry names, and Chrome notes the reset form on each visit, which
   looked like a leak of one `<main>` per Back.
-- **Clicks are the page's own, never the driver's.** chromedriver keeps
-  each element it hands a test, and that holds the old page in memory.
+- **A changed answer keeps DevTools pausing answers for the session.**
+  Turned off mid-test, Chrome 114 left a paused wasm fetch hanging, and
+  the next page's islands never started.
+- **A press is a mouse's, sent through DevTools** (`Page::press`): held
+  300 ms so it preloads, as a person's does. Never the driver's element:
+  chromedriver keeps each one it hands a test, and that holds the old page
+  in memory.
 
 ## Manual Testing
 
@@ -535,14 +546,14 @@ The oldest browsers the template supports, about 30 months back. Chrome
 stack, kept for when an app adds them.
 
 ```bash
-e2e/run.sh low          # the same ten tests in Chrome for Testing 114
+e2e/run.sh low          # the same tests in Chrome for Testing 114
 e2e/run.sh low moves    # cargo test's filter, as on the top lane
 ```
 
 It uses Chrome for Testing 114 and chromedriver 114 from
 `~/Library/Caches/e2e-floor/` (below), or `E2E_BINARY` and `CHROMEDRIVER`.
 Local only, never in `ci.yaml`. The two leak tests skip there,
-saying why (no `DOM.getDetachedDomNodes`); the other eight run.
+saying why (no `DOM.getDetachedDomNodes`); the rest run.
 
 - **htmx's `fetch()` is resource type `XHR` in Chrome 114,** `Fetch` in
   155: the harness pauses both, or a changed answer never reaches the page.

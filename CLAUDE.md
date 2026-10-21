@@ -8,6 +8,22 @@ where it deliberately differs.
 stays under 8 KB.** Knowledge goes in `docs/` and is read when a task
 touches it. A rule a test can check becomes a test, not a line here.
 
+## Rule no. 1: one job, one implementation
+
+The first check of every plan and every change. A visitor sees one way of
+doing one thing.
+
+- **Before planning,** look the job up in `docs/one-job.md`, then search
+  the code. Build from what already does it.
+- **A plan opens with it:** the rows it checked, then the component it
+  reuses, or the new job and its new row.
+- **A second mechanism only with a reason** the maintainer agrees to, and
+  it still looks and moves the same.
+- **A one-job break** (two ways for one job) found while working: say so,
+  with a plan to make them one. Never add a third.
+- **A break that could come back gets a guard** in `tests/one_job.rs`,
+  failing on its pattern outside its one home.
+
 ## Where things are written down
 
 | Read | When |
@@ -31,13 +47,10 @@ touches it. A rule a test can check becomes a test, not a line here.
   `git worktree` of the current branch, then bring each new file and each
   change to an existing file (`src/app.rs`, `mod.rs`, migrations) over with
   your editing tools. Say what the generator wrote and what you changed
-  after. Delete the worktree. When the generator makes a mailer, its Tera
-  templates (`.t` files) and the `include_dir` dependency are not brought
-  over: the HTML part becomes a component in `src/views/mail.rs`, and the
-  mail is sent like `AuthMailer` (`src/mailers/auth.rs`).
-- Building, testing and checking run in the repo as normal: `cargo test`,
-  `cargo clippy`, `cargo leptos build --split`, `cargo sqlx prepare`.
-  `cargo fmt` may rewrite files, in a commit of its own.
+  after. Delete the worktree. A generated mailer's Tera templates are not
+  brought over (the mailers row below).
+- `cargo fmt` and `cargo sqlx prepare` may rewrite files; a `cargo fmt`
+  goes in a commit of its own.
 - **Keep Loco's starter code.** Extend what `loco new` generated, don't
   delete or unmount it, unless the maintainer asks.
 - **Ask before changing a framework default** (Loco's `development`,
@@ -48,7 +61,7 @@ touches it. A rule a test can check becomes a test, not a line here.
 | Loco's guide says | Here |
 |---|---|
 | Views are Tera templates or JSON (`src/views/`) | Pages are **Leptos** components (`src/views/`), rendered through `render_page` (`src/render.rs`). `src/views/auth.rs` still holds the auth API's JSON shapes |
-| Mailers use Tera `.t` templates (`mail_template`) | The HTML part is a Leptos component (`src/views/mail.rs`), subject and text are `format!`, sent with `Mailer::mail`. `cargo loco generate mailer` writes Tera templates and won't compile here (no `include_dir` crate); write new mails like `src/mailers/auth.rs` |
+| Mailers use Tera `.t` templates (`mail_template`) | The HTML part is a Leptos component (`src/views/mail.rs`), subject and text are `format!`, sent with `Mailer::mail`. `cargo loco generate mailer` writes Tera templates, which won't compile here; write new mails like `src/mailers/auth.rs` |
 | Query through Sea-ORM | Loco's own models stay on Sea-ORM. **The app's own queries use SQLx `query!`** on `sql::pool(&ctx)`: checked against the schema at compile time ("Sea-ORM and SQLx" in `docs/architecture.md`) |
 | Environments `development`, `test`, `production` (`LOCO_ENV`, default `development`) | The same three, plus **`dev-server`** and **`staging`**, which Loco reads as `Environment::Any`. `config/dev-server.yaml` must stay staging's copy apart from its defaults (`tests/config.rs`): change both together. Check "is this local?" with `settings::is_local` |
 | Static files from `assets/static` | Files live in `public/` and are **linked only through `paths::assets`** (versioned constants from `build.rs`). A plain `"/favicon/..."` string fails the links test |
@@ -73,28 +86,21 @@ touches it. A rule a test can check becomes a test, not a line here.
 
 ## Rules the compiler or tests can't enforce
 
-- **One job, one implementation.** Something that does the job of an
-  existing component or constant is built from it, never from classes of
-  its own. Look it up in `docs/one-job.md`; a new job gets a row there when
-  it's built.
 - **Check, don't recall.** A claim about a crate is checked in its source in
   `~/.cargo/registry`, at the version in `Cargo.lock`. A web source is quoted
   only after it was opened. Say plainly what is unverified or untested.
 - **A decision gets a line in `docs/decisions.md`,** dated, with its
   reason. Something tried and reverted gets one in
   `docs/tried-and-dropped.md`.
-- **Never stage or print the secrets files** (`secrets.env`,
-  `secrets.dev-server.env`, `secrets.staging.env`,
-  `secrets.production.env`). They hold real
-  credentials and are git-ignored; check `git status` before every commit.
+- **Never stage or print the secrets files** (`secrets*.env`). They hold
+  real credentials and are git-ignored; check `git status` before every
+  commit.
 - **Never export `DATABASE_URL`.** Every config reads it, so `cargo test`
   would wipe that database. Set it on one command only.
-- **Release builds go to `target/site-release`.** Put
-  `LEPTOS_SITE_ROOT=target/site-release` on every
-  `cargo leptos build --release` and on the release binary run locally.
-  `target/site` belongs to the maintainer's watch loop: a build there
-  replaces its files. No cargo-leptos build at all while a watch loop runs
-  in this repo (`pgrep -fl cargo-leptos`).
+- **Release builds go to `target/site-release`**
+  (`LEPTOS_SITE_ROOT=target/site-release` on the build and the local run):
+  `target/site` is the watch loop's. No cargo-leptos build at all while a
+  watch loop runs in this repo (`pgrep -fl cargo-leptos`).
 - **English** for every identifier, comment, doc, config key and CSS class.
   Only text a visitor reads on a page may be another language.
 - **Docs in a plain human voice:** short sentences, few words, commands with

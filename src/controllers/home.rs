@@ -8,10 +8,7 @@ use loco_rs::prelude::*;
 
 use crate::{
     render::render_page,
-    views::{
-        home::HomePage,
-        layout::{APP_NAME, PageMeta},
-    },
+    views::{home::HomePage, layout::PageMeta},
 };
 
 /// The site in one sentence: the home page's meta description, and the
@@ -23,7 +20,8 @@ pub const DESCRIPTION: &str =
 async fn index(State(ctx): State<AppContext>, req: Request) -> Result<Response> {
     let meta = PageMeta {
         lang: "en",
-        title: APP_NAME.into(),
+        // The app's name alone (`full_title`).
+        title: String::new(),
         description: DESCRIPTION.into(),
         robots: None,
     };

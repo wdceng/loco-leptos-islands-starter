@@ -3,18 +3,17 @@
 
 use leptos::prelude::*;
 
-use crate::{islands::IslandsCheck, views::layout::APP_NAME};
+use crate::{
+    islands::IslandsCheck,
+    views::layout::{APP_NAME, LEAD, TITLE},
+};
 
 /// Landing page content, rendered inside the shell's <main>.
 #[component]
 pub fn HomePage() -> impl IntoView {
     view! {
-        <h1 class="text-4xl font-bold tracking-tight">
-            {APP_NAME}
-        </h1>
-        <p class="mt-4 text-lg text-ink-muted">
-            "Loco on the server, Leptos islands in the browser."
-        </p>
+        <h1 class=TITLE>{APP_NAME}</h1>
+        <p class=LEAD>"Loco on the server, Leptos islands in the browser."</p>
         <IslandsCheck/>
     }
 }

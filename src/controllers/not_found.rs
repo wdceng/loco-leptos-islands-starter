@@ -48,8 +48,8 @@ use crate::{
     middleware::rate_limit,
     render::render_page,
     views::{
-        layout::{APP_NAME, PageMeta},
-        not_found::NotFoundPage,
+        layout::PageMeta,
+        not_found::{HEADING, NotFoundPage},
     },
 };
 
@@ -70,7 +70,7 @@ async fn miss(State(ctx): State<AppContext>, req: Request) -> Result<Response> {
     }
     let meta = PageMeta {
         lang: "en",
-        title: format!("Page not found | {APP_NAME}"),
+        title: HEADING.into(),
         description: "The page you asked for does not exist.".into(),
         // The 404 status keeps it out of the index already; the tag says
         // so in the page too.

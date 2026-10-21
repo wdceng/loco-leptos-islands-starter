@@ -27,7 +27,7 @@ use crate::{
     models::users::{self, password_problem},
     render::render_page,
     views::{
-        layout::{APP_NAME, PageMeta},
+        layout::PageMeta,
         reset::{ResetDone, ResetExpired, ResetForm},
     },
 };
@@ -54,7 +54,7 @@ pub struct Submitted {
 fn meta() -> PageMeta {
     PageMeta {
         lang: "en",
-        title: format!("Reset your password · {APP_NAME}"),
+        title: "Reset your password".into(),
         description: "Choose a new password for your account.".into(),
         // A page reached from a mail, never from a search.
         robots: Some("noindex"),

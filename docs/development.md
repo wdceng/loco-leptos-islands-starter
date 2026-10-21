@@ -261,14 +261,30 @@ to bottom.
 - **`as` and `type` are keywords.** In `view!`, write `r#as` and `r#type`.
 - **Islands go in `src/islands.rs`.** One in `src/views/` renders, but never
   runs in the browser.
-- **Nothing visible after the page region.** A toast, loading bar or
-  back-to-top button at the end of `<body>` becomes Chrome's and Firefox's
-  scroll anchor, and a move flashes the new page's footer before it goes
-  to the top (Safari has no anchoring). Then add `[overflow-anchor:none]`
-  to `<html>`, keep images' space reserved, and test it by recording every
-  `scroll` event during a move: the page must never go below where it
-  stood. With `scroll-behavior: smooth` the flash becomes a glide, so the
-  top is scrolled by the `Navigation` island, instantly, not `show:top`.
+- **Keep `overflow-anchor: none` on `<html>`** (`style/tailwind.css`). With
+  a toast or a loading bar after the page's region, Chrome and Firefox
+  anchor on it and a move flashes the new page's footer.
+- **With `scroll-behavior: smooth` a move's jump to the top glides.**
+  Scroll it from the `Navigation` island, instantly, not by `show:top`.
+- **`class={CONST} {..spread}` in `view!`, braces on the constant.**
+  `class=CONST {..spread}` parses as a struct literal.
+- **Leptos writes `&` as `&amp;` in an attribute.** A test asserts
+  `[&amp;_option]`, not `[&_option]`.
+- **A substring test hits class names.** `contains("checked")` passes on
+  `checked:bg-…`; test the attribute (` checked` then a space, `>` or `=`).
+- **Alpine's `.outside` does nothing on a `display: contents` element.**
+  It skips an element with no size, and islands are `contents`: listen on
+  the window and test `$el.contains($event.target)` yourself.
+- **A popover counts as outside its opener.** It lives in the top layer:
+  leave a tap inside `[popover]` out of a close-on-outside.
+- **A morph keeps Alpine's state; a changed `x-data` resets it.** State the
+  server writes into `x-data` is thrown away on every swap.
+- **Safari's autofill grabs a field named `name` or holding "address".**
+  Name it for what it is.
+- **A value a script sets never counts as `tooShort`.** A test that types by
+  script checks no `minlength`.
+- **An empty live region is truly empty,** no space, or some readers
+  announce it.
 - **`leptos` comes from a fork, pinned by commit** (`[patch.crates-io]` in
   `Cargo.toml`): 0.8.22 with the island loader's idle timeout. On a Leptos
   upgrade, drop the block if the release has the timeout, else move the

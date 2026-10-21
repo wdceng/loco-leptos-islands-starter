@@ -2,7 +2,7 @@
 //! a browser, one line for anything else, never cached, and limited like a
 //! route.
 
-use app::app::App;
+use app::{app::App, views::layout::APP_NAME};
 use loco_rs::testing::prelude::*;
 use serial_test::serial;
 
@@ -22,6 +22,10 @@ async fn unknown_path_is_a_404_page_for_a_browser_and_a_line_for_a_probe() {
         );
         let body = page.text();
         assert!(body.contains("Page not found"), "{body}");
+        assert!(
+            body.contains(&format!("<title>Page not found | {APP_NAME}</title>")),
+            "the page's name, then the app's, from the shell:\n{body}"
+        );
         assert!(
             body.contains("id=\"content\"") && body.contains("/pkg/app.css"),
             "the page is inside the shell, with the stylesheet:\n{body}"

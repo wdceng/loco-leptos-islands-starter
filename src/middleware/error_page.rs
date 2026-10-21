@@ -5,10 +5,10 @@
 //! (which some browsers save as an empty download), or a 413 or a bad form
 //! as a line of JSON. [`ErrorPages`] looks at every answer on its way out:
 //! when the request accepts HTML, isn't for the JSON API (`/api/`), and the
-//! answer is an error without an HTML body of its own, it renders
-//! `ErrorPage` inside the shell instead, with the original status, the
-//! original headers (`Allow` on a 405, for one), the page CSP, and
-//! `Cache-Control: no-store`.
+//! answer is an error without an HTML body of its own, it renders a
+//! `Notice` with the status's words (`views/error.rs`) inside the shell
+//! instead, with the original status, the original headers (`Allow` on a
+//! 405, for one), the page CSP, and `Cache-Control: no-store`.
 //!
 //! The 404 page and the 429 page are already HTML and pass through. API
 //! callers, scanners and anything else that doesn't ask for HTML keep the
@@ -39,8 +39,8 @@ use loco_rs::{Result, app::AppContext, controller::middleware::MiddlewareLayer};
 use crate::{
     render::render_page,
     views::{
-        error::{ErrorPage, wording},
-        layout::{APP_NAME, PageMeta},
+        error::wording,
+        layout::{Notice, PageMeta},
     },
 };
 
@@ -123,11 +123,11 @@ async fn page(
     let (heading, lead) = wording(status);
     let meta = PageMeta {
         lang: "en",
-        title: format!("{heading} | {APP_NAME}"),
+        title: heading.into(),
         description: lead.into(),
         robots: Some("noindex"),
     };
-    render_page(ctx, req, meta, move || view! { <ErrorPage heading lead /> }).await
+    render_page(ctx, req, meta, move || view! { <Notice heading lead /> }).await
 }
 
 /// The page with the original status, plus every header of the original

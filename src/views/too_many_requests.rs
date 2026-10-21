@@ -5,16 +5,16 @@
 //! A document of its own rather than the shell: the shell carries the
 //! hydration scripts, whose inline script needs the page CSP's nonce, and a
 //! 429 goes out under the fallback CSP (`default-src 'none'`, no scripts).
-//! The heading, lead and link are the same `ErrorPage` every other error
-//! page uses, and the body and column classes are the shell's constants, so
-//! nothing here is copied by hand.
+//! The title, the heading, lead and link are the same `full_title` and
+//! `Notice` every other error page uses, and the body and column classes
+//! are the shell's constants, so nothing here is copied by hand.
 
 use leptos::prelude::*;
 
-use super::{
-    error::ErrorPage,
-    layout::{BODY, COLUMN},
-};
+use super::layout::{BODY, COLUMN, Notice, full_title};
+
+/// The page's heading and its name in the title.
+const HEADING: &str = "Too many requests";
 
 /// Stands in for the wait in the rendered page, replaced per refusal.
 pub const WAIT: &str = "{wait}";
@@ -31,13 +31,13 @@ pub fn document(stylesheet: String) -> String {
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <title>"Too many requests"</title>
+                <title>{full_title(HEADING)}</title>
                 <meta name="robots" content="noindex" />
                 <link rel="stylesheet" href=stylesheet />
             </head>
             <body class=BODY>
                 <main class=format!("{COLUMN} py-16")>
-                    <ErrorPage heading="Too many requests" lead=LEAD />
+                    <Notice heading=HEADING lead=LEAD />
                 </main>
             </body>
         </html>
@@ -59,6 +59,10 @@ mod tests {
             "{page}"
         );
         assert!(page.contains("<h1"), "{page}");
+        assert!(
+            page.contains(&format!("<title>{}</title>", full_title(HEADING))),
+            "{page}"
+        );
         // No script of any kind: the fallback CSP would block it.
         assert!(!page.contains("<script"), "{page}");
         assert!(!page.contains("<!>"), "{page}");

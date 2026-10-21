@@ -130,6 +130,24 @@ pub const COLUMN: &str = "mx-auto max-w-3xl px-6";
 /// The <body> classes, shared with the 429 page.
 pub const BODY: &str = "min-h-dvh text-ink";
 
+/// A page's heading, its `<h1>`.
+pub const TITLE: &str = "text-4xl font-bold tracking-tight";
+
+/// The line under a page's heading.
+pub const LEAD: &str = "mt-4 text-lg text-ink-muted";
+
+/// The browser tab's title: the page's own name, then the app's. An empty
+/// name is the app's alone (the home page). The one place the app's name
+/// joins a title, the 429 page's too.
+#[must_use]
+pub fn full_title(name: &str) -> String {
+    if name.is_empty() {
+        APP_NAME.to_string()
+    } else {
+        format!("{name} | {APP_NAME}")
+    }
+}
+
 /// Per-page values that go straight into `<head>`. The controller knows
 /// the language and title of the page it is serving, so they are passed in
 /// as plain data rather than collected from the component tree.
@@ -137,6 +155,8 @@ pub const BODY: &str = "min-h-dvh text-ink";
 pub struct PageMeta {
     /// BCP 47 tag for `<html lang>`.
     pub lang: &'static str,
+    /// The page's own name, never the app's: the shell adds it
+    /// ([`full_title`]). Empty for the home page.
     pub title: String,
     pub description: String,
     /// A `<meta name="robots">` value: `Some("noindex")` for pages that have
@@ -175,7 +195,7 @@ pub fn shell(
                 // view: a title holds characters alone, so the marker a dev
                 // build's erased view leaves after its content (`<!>`)
                 // showed in every tab, and htmx copies it on every swap.
-                <title inner_html=title_text(&meta.title)></title>
+                <title inner_html=title_text(&full_title(&meta.title))></title>
                 <meta name="description" content=meta.description/>
                 {meta.robots.map(|content| view! { <meta name="robots" content=content/> })}
                 // Icons live in public/favicon, which cargo-leptos copies to
@@ -261,9 +281,29 @@ pub fn shell(
     }
 }
 
+/// A page that only tells the visitor something: its heading, one line
+/// under it and the way home. The not-found page, every error page, the
+/// 429 page and the reset link's answers.
+#[component]
+pub fn Notice(heading: &'static str, #[prop(into)] lead: String) -> impl IntoView {
+    view! {
+        <h1 class=TITLE>{heading}</h1>
+        <p class=LEAD>{lead}</p>
+        <p class="mt-8">
+            <a href="/" class="font-semibold text-primary">"Back to the home page"</a>
+        </p>
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_title_is_the_pages_name_then_the_apps() {
+        assert_eq!(full_title("Reset"), format!("Reset | {APP_NAME}"));
+        assert_eq!(full_title(""), APP_NAME);
+    }
 
     #[test]
     fn a_title_shows_exactly_as_written() {

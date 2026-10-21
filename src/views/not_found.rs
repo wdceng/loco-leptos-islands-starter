@@ -4,16 +4,13 @@
 
 use leptos::prelude::*;
 
+use super::layout::Notice;
+
+/// The page's heading and its name in the title.
+pub const HEADING: &str = "Page not found";
+
 /// Rendered inside the shell's <main>, like every page.
 #[component]
 pub fn NotFoundPage() -> impl IntoView {
-    view! {
-        <h1 class="text-4xl font-bold tracking-tight">"Page not found"</h1>
-        <p class="mt-4 text-lg text-ink-muted">
-            "The page you asked for does not exist or has moved."
-        </p>
-        <p class="mt-8">
-            <a href="/" class="font-semibold text-primary">"Back to the home page"</a>
-        </p>
-    }
+    view! { <Notice heading=HEADING lead="The page you asked for does not exist or has moved." /> }
 }

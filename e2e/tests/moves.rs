@@ -79,7 +79,9 @@ async fn a_link_moves_in_place_with_its_title_the_focus_and_the_announcement() {
 /// htmx gives the focus back to an element with the same `id` in the new
 /// page; `Navigation` blurs before a move's swap, so no field takes the
 /// focus on the way to `<main>`, where a field styled on its focus would
-/// open and close over the new page.
+/// open and close over the new page. The link keeps the field's focus when
+/// pressed, as a search's suggestion does; a plain link takes the focus
+/// itself.
 #[tokio::test]
 async fn a_move_focuses_no_field_on_its_way() {
     browse(|page| async move {
@@ -90,6 +92,7 @@ async fn a_move_focuses_no_field_on_its_way() {
         page.eval(
             "window.__focused = [];
              addEventListener('focusin', e => __focused.push(e.target.id || e.target.tagName), true);
+             document.getElementById('e2e-link').addEventListener('mousedown', e => e.preventDefault());
              document.getElementById('password').focus()",
         )
         .await?;
@@ -112,11 +115,15 @@ async fn back_comes_back_in_place_where_it_was_scrolled() {
         page.viewport(800, 300).await?;
         page.open(RESET).await?;
         page.mark().await?;
-        page.eval("window.scrollTo(0, 120)").await?;
+        // A link home at the end of `<main>`, scrolled to, as a person
+        // scrolls to what they press (the header's link is above).
+        page.add_link("/").await?;
+        page.eval("document.getElementById('e2e-link').scrollIntoView({ block: 'end' })")
+            .await?;
         let before = page.eval("return window.scrollY").await?;
         let before = before.as_f64().unwrap_or_default();
         assert!(before > 0.0, "the reset page scrolls in 300 pixels");
-        page.move_to(HOME_LINK, "/").await?;
+        page.move_to("#e2e-link", "/").await?;
         page.eval("history.back()").await?;
         page.until(
             "the reset page back",

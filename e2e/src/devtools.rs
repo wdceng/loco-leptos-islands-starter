@@ -1,7 +1,7 @@
 //! Chrome's DevTools over its own socket (thirtyfour's `cdp-events`;
 //! chromedriver passes commands on but no events): what the page logs, an
-//! answer of htmx's changed on its way in, and what the page holds in
-//! memory.
+//! answer of htmx's changed on its way in, what the page holds in memory,
+//! the visitor's settings emulated, and the accessibility audit.
 
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -12,6 +12,10 @@ use thirtyfour::prelude::*;
 use tokio::task::AbortHandle;
 
 use crate::Page;
+
+/// axe-core, byte for byte from its npm package, with its MPL-2.0 licence
+/// beside it (`e2e/vendor/`).
+const AXE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/vendor/axe-core-4.14.0.min.js");
 
 /// How htmx's answers reach the page from now on ([`Page::answers`]), as
 /// something between the browser and the site would change them.
@@ -120,10 +124,14 @@ impl Page {
 
     /// htmx's answers from now on, changed as `answer` says. Only requests
     /// htmx makes (`HX-Request`) change; every other passes as it came.
+    /// Once on, the pausing stays on for the session, `Plain` passing each
+    /// answer on unchanged: turning it off while the watcher passed a
+    /// paused answer on left that request hanging in Chrome 114, a full
+    /// load's islands never starting (2026-10-21).
     pub async fn answers(&self, answer: Answer) -> WebDriverResult<()> {
         lock(&self.heard).answer = answer;
         if answer == Answer::Plain {
-            return self.devtools("Fetch.disable", json!({})).await.map(drop);
+            return Ok(());
         }
         // htmx's `fetch()` is resource type `Fetch` in Chrome 155 and `XHR`
         // in Chrome 114, the low bar (a probe, 2026-10-19).
@@ -146,6 +154,39 @@ impl Page {
         )
         .await
         .map(drop)
+    }
+
+    /// A media feature as the visitor's settings would set it, from now on
+    /// (`prefers-reduced-motion`, `reduce`).
+    pub async fn emulate(&self, feature: &str, value: &str) -> WebDriverResult<()> {
+        self.devtools(
+            "Emulation.setEmulatedMedia",
+            json!({ "features": [{ "name": feature, "value": value }] }),
+        )
+        .await
+        .map(drop)
+    }
+
+    /// The accessibility audit of the open page, axe-core's (vendored in
+    /// `e2e/vendor/`, injected by the test, never served by the site): each
+    /// rule broken, its impact and the first elements breaking it.
+    pub async fn axe(&self) -> WebDriverResult<Vec<Value>> {
+        let source = std::fs::read_to_string(AXE)
+            .map_err(|e| WebDriverError::RequestFailed(format!("{AXE}: {e}")))?;
+        self.driver.execute(&source, Vec::new()).await?;
+        let found = self
+            .driver
+            .execute_async(
+                "const done = arguments[arguments.length - 1];
+                 axe.run(document, { resultTypes: ['violations'] })
+                   .then(r => done(r.violations.map(v => ({ id: v.id, impact: v.impact,
+                       help: v.help, nodes: v.nodes.slice(0, 3).map(n => n.target.join(' ') + ' | '
+                           + n.html.slice(0, 120) + ' | ' + (n.any?.[0]?.message ?? '')) }))),
+                         e => done([{ id: 'axe-error', help: String(e) }]))",
+                Vec::new(),
+            )
+            .await?;
+        Ok(found.json().as_array().cloned().unwrap_or_default())
     }
 
     /// Whether this Chrome's DevTools can list detached DOM nodes, which

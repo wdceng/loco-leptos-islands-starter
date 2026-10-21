@@ -54,6 +54,16 @@
 
 /* What the template needs on top of Tailwind's reset (Preflight). */
 @layer base {
+  /* The scrollbar's room kept on every page, so nothing jumps sideways
+     when a page, a fold or a dialog changes whether the page scrolls. No
+     scroll anchoring: with something after the page's region, Chrome and
+     Firefox anchored on it and a move showed the new page's footer before
+     going to the top (an islands app on this stack, 2026-10-21). */
+  html {
+    scrollbar-gutter: stable;
+    overflow-anchor: none;
+  }
+
   /* Leptos wraps an island in <leptos-island> and its server-rendered
      children in <leptos-children>. Browsers lay unknown elements out as
      inline boxes, which would sit between a grid and its items. `contents`
@@ -62,5 +72,22 @@
   leptos-island,
   leptos-children {
     display: contents;
+  }
+}
+
+/* Reduce Motion (macOS and iOS: Accessibility, Motion; Android: Remove
+   animations): every transition and animation off, scrolls jumping. One
+   rule outside Tailwind's layers, so it wins over every utility, in place
+   of a `motion-reduce:` variant on each. The pseudo-elements are named
+   because `*` doesn't reach them. The browser tests read it as the browser
+   got it, since the build's minifier rewrites selectors it doesn't know. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  *::backdrop {
+    transition: none;
+    animation: none;
+    scroll-behavior: auto;
   }
 }

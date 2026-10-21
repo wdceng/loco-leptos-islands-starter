@@ -20,6 +20,15 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-17: **Tailwind scans `src/` only** (`source("../src")` on the
   import). Its default scanned the docs and configs too, and their prose
   made about a quarter of the CSS.
+- 2026-10-21: **The shell writes the app's name into every title**
+  (`full_title`, "Page | App"), and a page that only tells something is
+  one `Notice`. Three pages had written the title three ways, and four
+  the same heading, line and way home.
+- 2026-10-21: **One Reduce Motion rule, the scrollbar's room kept, no
+  scroll anchoring, controls 44px tall.** Not a look but how pages behave:
+  an islands app on this stack saw each go wrong (a move flashing the
+  footer, a page jumping sideways, a finger missing a 40px button). The
+  44px is Apple's and WCAG's AAA size; the browser tests check all four.
 
 ## Environments and builds
 
@@ -131,6 +140,15 @@ change of mind gets a new line, and the old one moves to
   tests, local only. Firefox 128, iOS 17.5 and Android 15 are left to the
   apps (`docs/testing.md`, "The Low Bar"): the harness rests on Chrome's
   DevTools.
+- 2026-10-21: **A browser test presses as a person does:** the mouse
+  through DevTools, held 300 ms so the press preloads, never the driver's
+  element (the memory tests) nor a script's instant click, which hides the
+  race between htmx's swap and Alpine's click.
+- 2026-10-21: **Health tests on every page kind** (`e2e/tests/health.rs`):
+  no sideways scroll at five widths, 44px tap targets, the accessibility
+  audit, Reduce Motion, twenty loads in one tab. **axe-core vendored**
+  into `e2e/vendor/` (4.14.0, MPL-2.0, byte for byte from npm): the
+  template has no Node, and the site never serves it.
 - 2026-10-18: **The memory tests turn DevTools' log off** while they
   measure: it keeps every element an entry names, and Chrome's notice
   about the reset form kept one old `<main>` per Back. Without DevTools,
@@ -163,3 +181,8 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-15: **CLAUDE.md holds rules only, under 8 KB.** Knowledge lives
   in `docs/`, read when a task touches it; a rule a test can check becomes
   a test.
+- 2026-10-21: **One job, one implementation is Rule no. 1,** first in
+  CLAUDE.md, and a one-job break that could come back gets a guard in
+  `tests/one_job.rs`. An islands app on this stack drifted into three
+  folds, two sending states and a title per page; its guards kept them
+  one.
