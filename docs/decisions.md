@@ -36,6 +36,9 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-08: **Deploys start with a check that their secrets file
   exists**, before anything is built: a missing file would fail the upload
   with the service already stopped.
+- 2026-10-21: **The cross image is pinned by digest**, the 2026-10-09
+  `main` build (`Cross.toml`), so the toolchain that builds the server
+  binary cannot change under a moving tag. ecs and wdc use the same one.
 
 ## Islands
 

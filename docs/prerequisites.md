@@ -34,7 +34,7 @@ On arm64, like Apple Silicon, `cross` emulates x86_64 and the default image
 tag has no arm64 manifest. Pull the pinned image once:
 
 ```bash
-docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main
+docker pull --platform linux/amd64 ghcr.io/cross-rs/x86_64-unknown-linux-gnu@sha256:c75170d35dd295c280755aaf58682fa7c0984f1e2512742eb2495b3b197338e3
 ```
 
 ## 3. Local Services
