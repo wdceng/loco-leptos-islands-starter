@@ -4,9 +4,16 @@
   // at build time, so the built-in check adds nothing here.
   "css.lint.unknownAtRules": "ignore",
 
+  // No linter runs on its own in the editor: clippy runs in the checks
+  // (`cargo clippy`, into its own target folder), never a `cargo check` on
+  // every save, which fights the watch loop for `target/`. rust-analyzer's
+  // own errors stay.
+  "rust-analyzer.checkOnSave": false,
+  "tailwindCSS.validate": false,
+
   // For the Tailwind CSS IntelliSense extension (bradlc.vscode-tailwindcss),
-  // if installed: treat Rust files as markup so class names get completion,
-  // hover previews and conflict warnings (`p-2 p-4`). A misspelt class gets
+  // if installed: treat Rust files as markup so class names get completion
+  // and hover previews (its warnings are off above). A misspelt class gets
   // no warning: the extension has no such check. A class without a hover
   // preview is the hint. Three places hold classes: `class="…"` in `view!`;
   // a string constant, `const COLUMN: &str = "…"`, the line break after `=`

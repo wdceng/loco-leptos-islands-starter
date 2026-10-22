@@ -181,6 +181,11 @@ change of mind gets a new line, and the old one moves to
 - 2026-10-15: **CLAUDE.md holds rules only, under 8 KB.** Knowledge lives
   in `docs/`, read when a task touches it; a rule a test can check becomes
   a test.
+- 2026-10-22: **No linter runs on its own in the editor**
+  (`.vscode/settings.json`): no `cargo check` on save, which fought the
+  watch loop for `target/`, and no Tailwind warnings. Clippy runs in the
+  checks; rust-analyzer's own errors stay. As in an islands app on this
+  stack.
 - 2026-10-21: **One job, one implementation is Rule no. 1,** first in
   CLAUDE.md, and a one-job break that could come back gets a guard in
   `tests/one_job.rs`. An islands app on this stack drifted into three
